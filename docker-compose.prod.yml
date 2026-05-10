@@ -9,6 +9,7 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:-https://yt.codeurbase.fr}
       SEARCH_MAX_RESULTS: ${SEARCH_MAX_RESULTS:-10}
       PROXY_URL: ${PROXY_URL:-}
+      WEBSHARE_API_KEY: ${WEBSHARE_API_KEY:-}
 
   web:
     ports:

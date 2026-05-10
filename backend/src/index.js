@@ -8,6 +8,7 @@ import { getCorsOptions } from './corsOptions.js';
 import { SearchEngine } from './search/SearchEngine.js';
 import { probePlaylistCount } from './ripper/probe.js';
 import { JobManager } from './ripper/JobManager.js';
+import { initProxyAtStartup, fetchWebShareProxy, setCurrentProxy, getCurrentProxy } from './proxy/proxyManager.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COOKIES_PATH = path.join(__dirname, '..', 'cookies.txt');
@@ -27,6 +28,49 @@ const app = Fastify({ logger: true });
 await app.register(cors, getCorsOptions());
 
 app.get('/health', async () => ({ ok: true }));
+
+// Route pour obtenir le statut du proxy
+app.get('/api/proxy-status', async () => {
+  const proxy = getCurrentProxy();
+  return {
+    enabled: !!proxy,
+    masked: proxy ? proxy.replace(/:([^:@]+)@/, ':****@') : null
+  };
+});
+
+// Route pour actualiser le proxy (nécessite WEBSHARE_API_KEY)
+app.post('/api/refresh-proxy', async (request, reply) => {
+  const apiKey = process.env.WEBSHARE_API_KEY;
+  
+  if (!apiKey) {
+    return reply.status(400).send({
+      ok: false,
+      error: 'WEBSHARE_API_KEY non configurée'
+    });
+  }
+  
+  try {
+    app.log.info('Actualisation du proxy WebShare...');
+    const { proxy, country, city } = await fetchWebShareProxy(apiKey);
+    setCurrentProxy(proxy);
+    
+    const masked = proxy.replace(/:([^:@]+)@/, ':****@');
+    
+    return {
+      ok: true,
+      proxy: masked,
+      country,
+      city,
+      message: `Nouveau proxy activé: ${country} - ${city}`
+    };
+  } catch (error) {
+    app.log.error('Erreur actualisation proxy:', error);
+    return reply.status(500).send({
+      ok: false,
+      error: error.message || 'Échec de l\'actualisation du proxy'
+    });
+  }
+});
 
 app.get('/api/search', async (request, reply) => {
   const q = request.query.q;
@@ -229,6 +273,9 @@ setInterval(() => {
 }, 600_000);
 
 try {
+  // Initialiser le proxy au démarrage
+  await initProxyAtStartup();
+  
   await app.listen({ port: PORT, host: HOST });
   app.log.info(`API http://${HOST}:${PORT}`);
   
@@ -245,6 +292,20 @@ try {
     console.log('   🎯 Mode: Anonyme (risque de détection bot)');
     console.log('   💡 Solution: Copier le fichier cookies.txt');
   }
+  
+  const currentProxy = getCurrentProxy();
+  if (currentProxy) {
+    const masked = currentProxy.replace(/:([^:@]+)@/, ':****@');
+    console.log('\n🌐 Proxy HTTP:');
+    console.log('   ✅ Proxy actif:', masked);
+  } else {
+    console.log('\n🌐 Proxy HTTP:');
+    console.log('   ⚠️  Aucun proxy configuré (IP VPS directe)');
+    if (process.env.WEBSHARE_API_KEY) {
+      console.log('   💡 Utilise le bouton "Actualiser proxy" dans l\'interface');
+    }
+  }
+  
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 } catch (err) {
   app.log.error(err);

@@ -4,15 +4,13 @@ import ffmpegStatic from 'ffmpeg-static';
 import youtubedl from 'youtube-dl-exec';
 import { parseItemOfTotal, parseProgressLine } from './ytdlpHelpers.js';
 import fs from 'node:fs';
+import { getCurrentProxy } from '../proxy/proxyManager.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COOKIES_PATH = path.join(__dirname, '..', '..', 'cookies.txt');
 
 // Vérifier si le fichier cookies existe
 const hasCookies = fs.existsSync(COOKIES_PATH);
-
-// Proxy HTTP (optionnel, pour contourner le blocage YouTube sur VPS)
-const PROXY_URL = process.env.PROXY_URL || '';
 
 /**
  * Lance le téléchargement MP3 avec yt-dlp + ffmpeg
@@ -48,6 +46,8 @@ export async function runDownload(opts) {
   let lastFilePct = 0;
 
   // Logs de démarrage pour debugging
+  const proxyUrl = getCurrentProxy();
+  
   onLog('🔧 Configuration yt-dlp:');
   onLog(`   User-Agent: Chrome 149 (Windows, 2026)`);
   onLog(`   Referer: YouTube`);
@@ -57,8 +57,10 @@ export async function runDownload(opts) {
   } else {
     onLog(`   ⚠️ Cookies: non disponibles (mode anonyme)`);
   }
-  if (PROXY_URL) {
-    onLog(`   🌐 Proxy: activé (${PROXY_URL})`);
+  if (proxyUrl) {
+    // Masquer le password dans les logs
+    const maskedProxy = proxyUrl.replace(/:([^:@]+)@/, ':****@');
+    onLog(`   🌐 Proxy: activé (${maskedProxy})`);
   } else {
     onLog(`   ⚠️ Proxy: non configuré (IP VPS directe)`);
   }
@@ -125,8 +127,8 @@ export async function runDownload(opts) {
   }
   
   // Utiliser un proxy si configuré (pour contourner le blocage YouTube sur VPS)
-  if (PROXY_URL) {
-    dlFlags.proxy = PROXY_URL;
+  if (proxyUrl) {
+    dlFlags.proxy = proxyUrl;
   }
   
   if (ffmpegPath) {

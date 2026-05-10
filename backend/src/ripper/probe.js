@@ -2,15 +2,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import youtubedl from 'youtube-dl-exec';
 import fs from 'node:fs';
+import { getCurrentProxy } from '../proxy/proxyManager.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COOKIES_PATH = path.join(__dirname, '..', '..', 'cookies.txt');
 
 // Vérifier si le fichier cookies existe
 const hasCookies = fs.existsSync(COOKIES_PATH);
-
-// Proxy HTTP (optionnel)
-const PROXY_URL = process.env.PROXY_URL || '';
 
 /**
  * Probe une URL YouTube pour déterminer le nombre de morceaux
@@ -20,12 +18,14 @@ const PROXY_URL = process.env.PROXY_URL || '';
  * @returns {Promise<{kind: string, count: number, title: string}>}
  */
 export async function probePlaylistCount(url, { noPlaylist } = {}) {
+  const proxyUrl = getCurrentProxy();
+  
   console.log('[probe] Analyse URL:', url);
   console.log('[probe] noPlaylist:', noPlaylist);
   if (hasCookies) {
     console.log('[probe] 🍪 Cookies: activés');
   }
-  if (PROXY_URL) {
+  if (proxyUrl) {
     console.log('[probe] 🌐 Proxy: activé');
   }
   
@@ -45,8 +45,8 @@ export async function probePlaylistCount(url, { noPlaylist } = {}) {
   }
   
   // Utiliser un proxy si configuré
-  if (PROXY_URL) {
-    flags.proxy = PROXY_URL;
+  if (proxyUrl) {
+    flags.proxy = proxyUrl;
   }
   
   if (noPlaylist) flags.noPlaylist = true;
