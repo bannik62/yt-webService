@@ -11,6 +11,9 @@ const COOKIES_PATH = path.join(__dirname, '..', '..', 'cookies.txt');
 // Vérifier si le fichier cookies existe
 const hasCookies = fs.existsSync(COOKIES_PATH);
 
+// Proxy HTTP (optionnel, pour contourner le blocage YouTube sur VPS)
+const PROXY_URL = process.env.PROXY_URL || '';
+
 /**
  * Lance le téléchargement MP3 avec yt-dlp + ffmpeg
  * @param {object} opts
@@ -53,6 +56,11 @@ export async function runDownload(opts) {
     onLog(`   🍪 Cookies: activés (cookies.txt)`);
   } else {
     onLog(`   ⚠️ Cookies: non disponibles (mode anonyme)`);
+  }
+  if (PROXY_URL) {
+    onLog(`   🌐 Proxy: activé (${PROXY_URL})`);
+  } else {
+    onLog(`   ⚠️ Proxy: non configuré (IP VPS directe)`);
   }
   onLog('');
   
@@ -114,6 +122,11 @@ export async function runDownload(opts) {
   // Utiliser les cookies si disponibles (plus fiable que username/password)
   if (hasCookies) {
     dlFlags.cookies = COOKIES_PATH;
+  }
+  
+  // Utiliser un proxy si configuré (pour contourner le blocage YouTube sur VPS)
+  if (PROXY_URL) {
+    dlFlags.proxy = PROXY_URL;
   }
   
   if (ffmpegPath) {

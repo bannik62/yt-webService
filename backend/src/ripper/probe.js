@@ -9,6 +9,9 @@ const COOKIES_PATH = path.join(__dirname, '..', '..', 'cookies.txt');
 // Vérifier si le fichier cookies existe
 const hasCookies = fs.existsSync(COOKIES_PATH);
 
+// Proxy HTTP (optionnel)
+const PROXY_URL = process.env.PROXY_URL || '';
+
 /**
  * Probe une URL YouTube pour déterminer le nombre de morceaux
  * @param {string} url
@@ -21,6 +24,9 @@ export async function probePlaylistCount(url, { noPlaylist } = {}) {
   console.log('[probe] noPlaylist:', noPlaylist);
   if (hasCookies) {
     console.log('[probe] 🍪 Cookies: activés');
+  }
+  if (PROXY_URL) {
+    console.log('[probe] 🌐 Proxy: activé');
   }
   
   const flags = {
@@ -36,6 +42,11 @@ export async function probePlaylistCount(url, { noPlaylist } = {}) {
   // Utiliser les cookies si disponibles
   if (hasCookies) {
     flags.cookies = COOKIES_PATH;
+  }
+  
+  // Utiliser un proxy si configuré
+  if (PROXY_URL) {
+    flags.proxy = PROXY_URL;
   }
   
   if (noPlaylist) flags.noPlaylist = true;

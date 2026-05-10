@@ -8,6 +8,7 @@ services:
       NODE_ENV: production
       CORS_ORIGIN: ${CORS_ORIGIN:-https://yt.codeurbase.fr}
       SEARCH_MAX_RESULTS: ${SEARCH_MAX_RESULTS:-10}
+      PROXY_URL: ${PROXY_URL:-}
 
   web:
     ports:
