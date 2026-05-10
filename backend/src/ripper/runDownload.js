@@ -93,8 +93,7 @@ export async function runDownload(opts) {
   const dlFlags = {
     extractAudio: true,
     audioFormat: 'mp3',
-    audioQuality: '0',
-    format: 'bestaudio/best',  // Fallback si qualité 0 n'est pas disponible
+    format: 'bestaudio/best',  // Meilleure qualité audio disponible
     output: outTemplate,
     newline: true,
     progress: true,
