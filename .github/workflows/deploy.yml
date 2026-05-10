@@ -28,6 +28,17 @@ jobs:
             --exclude '.env.prod' \
             ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/html/ytWeb/
 
+      - name: Create .env file with secrets
+        run: |
+          ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cat > /var/www/html/ytWeb/.env << 'EOF'
+          YOUTUBE_USERNAME=${{ secrets.YOUTUBE_USERNAME }}
+          YOUTUBE_PASSWORD=${{ secrets.YOUTUBE_PASSWORD }}
+          CORS_ORIGIN=https://yt.codeurbase.fr
+          EOF
+          chmod 600 /var/www/html/ytWeb/.env"
+
       - name: Docker Compose (prod)
         run: |
           ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} \
