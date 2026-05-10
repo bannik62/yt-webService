@@ -8,6 +8,9 @@ import youtubedl from 'youtube-dl-exec';
  * @returns {Promise<{kind: string, count: number, title: string}>}
  */
 export async function probePlaylistCount(url, { noPlaylist } = {}) {
+  console.log('[probe] Analyse URL:', url);
+  console.log('[probe] noPlaylist:', noPlaylist);
+  
   const flags = {
     dumpSingleJson: true,
     flatPlaylist: true,
@@ -20,8 +23,10 @@ export async function probePlaylistCount(url, { noPlaylist } = {}) {
   if (noPlaylist) flags.noPlaylist = true;
 
   const data = await youtubedl(url, flags);
+  console.log('[probe] Résultat:', data ? `${data.entries?.length || 1} item(s)` : 'vide');
   
   if (data && Array.isArray(data.entries) && data.entries.length > 0) {
+    console.log('[probe] Type: playlist avec', data.entries.length, 'items');
     return { 
       kind: 'playlist', 
       count: data.entries.length, 
@@ -30,6 +35,7 @@ export async function probePlaylistCount(url, { noPlaylist } = {}) {
   }
   
   if (data && data.id) {
+    console.log('[probe] Type: single video');
     return { 
       kind: 'single', 
       count: 1, 
@@ -37,6 +43,7 @@ export async function probePlaylistCount(url, { noPlaylist } = {}) {
     };
   }
   
+  console.log('[probe] Type: unknown/fallback');
   return { 
     kind: 'unknown', 
     count: 1, 

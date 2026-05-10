@@ -36,6 +36,13 @@ export async function runDownload(opts) {
   let itemIndex = 1;
   let lastFilePct = 0;
 
+  // Logs de démarrage pour debugging
+  onLog('🔧 Configuration yt-dlp:');
+  onLog(`   User-Agent: Chrome 131 (Windows))`);
+  onLog(`   Referer: YouTube`);
+  onLog(`   Headers personnalisés: ${5} headers ajoutés`);
+  onLog('');
+  
   onLog('Analyse de la URL…');
   let info;
   try {
@@ -96,6 +103,10 @@ export async function runDownload(opts) {
   if (Boolean(noPlaylist)) dlFlags.noPlaylist = true;
   if (!Boolean(noPlaylist) && limit > 0) dlFlags.maxDownloads = limit;
 
+  onLog('🚀 Lancement du téléchargement...');
+  console.log('[yt-dlp] Flags:', JSON.stringify(dlFlags, null, 2));
+  console.log('[yt-dlp] URL:', url.trim());
+
   const child = youtubedl.exec(url.trim(), dlFlags, {
     stdio: ['ignore', 'pipe', 'pipe']
   });
@@ -126,5 +137,7 @@ export async function runDownload(opts) {
   });
 
   await child;
+  console.log('[yt-dlp] Téléchargement terminé avec succès');
+  onLog('✅ Téléchargement terminé !');
   emitProgress(100, plannedTotal);
 }

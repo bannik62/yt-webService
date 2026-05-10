@@ -5,3 +5,5 @@ node_modules
 *.log
 dist/
 frontend/dist/
+backend/cookies.txt
+cookies.txt
