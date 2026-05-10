@@ -1,7 +1,15 @@
 import { spawn } from 'node:child_process';
 
 const DEFAULT_MAX = 10;
-const QUERY_MAX_LEN = 200;
+const QUERY_MAX_LEN = 500;
+
+const ALLOWED_YT_HOSTS = new Set([
+  'youtube.com',
+  'www.youtube.com',
+  'm.youtube.com',
+  'music.youtube.com',
+  'youtu.be'
+]);
 
 /**
  * Moteur de recherche : données brutes et état interne restent privés (#).
@@ -76,10 +84,45 @@ export class SearchEngine {
     return this.#normalizedItems.map((item) => ({ ...item }));
   }
 
+  /**
+   * Texte libre → recherche `ytsearchN:…` ; URL YouTube autorisée → URL brute pour yt-dlp.
+   * @param {string} q
+   * @returns {{ type: 'search'; value: string } | { type: 'url'; value: string }}
+   */
+  #resolveTarget(q) {
+    const trimmed = q.trim();
+    const looksLikeUrl = /^https?:\/\//i.test(trimmed);
+    if (!looksLikeUrl) {
+      return { type: 'search', value: trimmed };
+    }
+    let parsed;
+    try {
+      parsed = new URL(trimmed);
+    } catch {
+      throw Object.assign(new Error('URL invalide'), { statusCode: 400 });
+    }
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      throw Object.assign(new Error('Schéma non autorisé'), { statusCode: 400 });
+    }
+    const host = parsed.hostname.toLowerCase();
+    if (!ALLOWED_YT_HOSTS.has(host)) {
+      throw Object.assign(
+        new Error('Seules les URLs YouTube / youtu.be sont acceptées'),
+        { statusCode: 400 }
+      );
+    }
+    return { type: 'url', value: trimmed };
+  }
+
   async #runYtDlpSearch(q) {
-    const url = `ytsearch${this.#maxResults}:${q}`;
+    const target = this.#resolveTarget(q);
+    const entry =
+      target.type === 'search'
+        ? `ytsearch${this.#maxResults}:${target.value}`
+        : target.value;
+
     const args = [
-      url,
+      entry,
       '-j',
       '--no-download',
       '--flat-playlist',
