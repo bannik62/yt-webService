@@ -3,6 +3,10 @@ import ffmpegStatic from 'ffmpeg-static';
 import youtubedl from 'youtube-dl-exec';
 import { parseItemOfTotal, parseProgressLine } from './ytdlpHelpers.js';
 
+// Charger les credentials YouTube depuis les variables d'environnement
+const YOUTUBE_USERNAME = process.env.YOUTUBE_USERNAME || '';
+const YOUTUBE_PASSWORD = process.env.YOUTUBE_PASSWORD || '';
+
 /**
  * Lance le téléchargement MP3 avec yt-dlp + ffmpeg
  * @param {object} opts
@@ -41,6 +45,11 @@ export async function runDownload(opts) {
   onLog(`   User-Agent: Chrome 131 (Windows))`);
   onLog(`   Referer: YouTube`);
   onLog(`   Headers personnalisés: ${5} headers ajoutés`);
+  if (YOUTUBE_USERNAME && YOUTUBE_PASSWORD) {
+    onLog(`   🔐 Connexion YouTube: ${YOUTUBE_USERNAME}`);
+  } else {
+    onLog(`   ⚠️ Connexion YouTube: non configurée (mode anonyme)`);
+  }
   onLog('');
   
   onLog('Analyse de la URL…');
@@ -97,6 +106,13 @@ export async function runDownload(opts) {
       'Sec-Fetch-Dest:document'
     ]
   };
+  
+  // Ajouter les credentials YouTube si disponibles
+  if (YOUTUBE_USERNAME && YOUTUBE_PASSWORD) {
+    dlFlags.username = YOUTUBE_USERNAME;
+    dlFlags.password = YOUTUBE_PASSWORD;
+  }
+  
   if (ffmpegPath) {
     dlFlags.ffmpegLocation = ffmpegPath;
   }

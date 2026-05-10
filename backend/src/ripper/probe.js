@@ -1,5 +1,9 @@
 import youtubedl from 'youtube-dl-exec';
 
+// Charger les credentials YouTube depuis les variables d'environnement
+const YOUTUBE_USERNAME = process.env.YOUTUBE_USERNAME || '';
+const YOUTUBE_PASSWORD = process.env.YOUTUBE_PASSWORD || '';
+
 /**
  * Probe une URL YouTube pour déterminer le nombre de morceaux
  * @param {string} url
@@ -10,6 +14,9 @@ import youtubedl from 'youtube-dl-exec';
 export async function probePlaylistCount(url, { noPlaylist } = {}) {
   console.log('[probe] Analyse URL:', url);
   console.log('[probe] noPlaylist:', noPlaylist);
+  if (YOUTUBE_USERNAME && YOUTUBE_PASSWORD) {
+    console.log('[probe] 🔐 Connexion YouTube:', YOUTUBE_USERNAME);
+  }
   
   const flags = {
     dumpSingleJson: true,
@@ -20,6 +27,13 @@ export async function probePlaylistCount(url, { noPlaylist } = {}) {
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
     referer: 'https://www.youtube.com/'
   };
+  
+  // Ajouter les credentials YouTube si disponibles
+  if (YOUTUBE_USERNAME && YOUTUBE_PASSWORD) {
+    flags.username = YOUTUBE_USERNAME;
+    flags.password = YOUTUBE_PASSWORD;
+  }
+  
   if (noPlaylist) flags.noPlaylist = true;
 
   const data = await youtubedl(url, flags);

@@ -8,6 +8,9 @@ services:
       NODE_ENV: production
       CORS_ORIGIN: ${CORS_ORIGIN:-https://yt.codeurbase.fr}
       SEARCH_MAX_RESULTS: ${SEARCH_MAX_RESULTS:-10}
+      # Connexion YouTube pour éviter la détection bot (optionnel)
+      YOUTUBE_USERNAME: ${YOUTUBE_USERNAME:-}
+      YOUTUBE_PASSWORD: ${YOUTUBE_PASSWORD:-}
 
   web:
     ports:
