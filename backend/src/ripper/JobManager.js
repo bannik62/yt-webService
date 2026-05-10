@@ -3,8 +3,6 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import archiver from 'archiver';
-import { createWriteStream } from 'node:fs';
 import { runDownload } from './runDownload.js';
 
 /**
@@ -54,7 +52,7 @@ export class JobManager extends EventEmitter {
       progress: { filePct: 0, itemIndex: 1, itemTotal: 1 },
       createdAt: Date.now(),
       jobDir,
-      zipPath: null,
+      files: [],
       error: null
     };
 
@@ -87,7 +85,7 @@ export class JobManager extends EventEmitter {
       progress: { filePct: 0, itemIndex: 1, itemTotal: urls.length },
       createdAt: Date.now(),
       jobDir,
-      zipPath: null,
+      files: [],
       error: null
     };
 
@@ -164,12 +162,17 @@ export class JobManager extends EventEmitter {
         });
       }
 
-      const zipPath = await this.#createZip(jobId, job.jobDir);
-      job.zipPath = zipPath;
+      // Lister les fichiers téléchargés
+      const files = await this.#listDownloadedFiles(jobId, job.jobDir);
+      job.files = files;
       job.status = 'completed';
       this.#emitJobEvent(jobId, 'complete', { 
         success: true, 
-        downloadUrl: `/api/jobs/${jobId}/download` 
+        files: files.map((file, index) => ({
+          name: file.name,
+          url: `/api/jobs/${jobId}/file/${index}`,
+          size: file.size
+        }))
       });
     } catch (err) {
       job.status = 'failed';
@@ -184,19 +187,28 @@ export class JobManager extends EventEmitter {
     }
   }
 
-  async #createZip(jobId, jobDir) {
-    const zipPath = path.join(this.#tempDir, `${jobId}.zip`);
-    const output = createWriteStream(zipPath);
-    const archive = archiver('zip', { zlib: { level: 9 } });
-
-    return new Promise((resolve, reject) => {
-      output.on('close', () => resolve(zipPath));
-      archive.on('error', reject);
+  async #listDownloadedFiles(jobId, jobDir) {
+    try {
+      const entries = await fs.readdir(jobDir, { withFileTypes: true });
+      const files = [];
       
-      archive.pipe(output);
-      archive.directory(jobDir, false);
-      archive.finalize();
-    });
+      for (const entry of entries) {
+        if (entry.isFile() && entry.name.endsWith('.mp3')) {
+          const filePath = path.join(jobDir, entry.name);
+          const stats = await fs.stat(filePath);
+          files.push({
+            name: entry.name,
+            path: filePath,
+            size: stats.size
+          });
+        }
+      }
+      
+      return files;
+    } catch (err) {
+      console.error(`Erreur listage fichiers job ${jobId}:`, err);
+      return [];
+    }
   }
 
   #emitJobEvent(jobId, type, data) {
@@ -212,7 +224,6 @@ export class JobManager extends EventEmitter {
       if (now - job.createdAt > maxAgeMs && job.status !== 'running') {
         try {
           if (job.jobDir) await fs.rm(job.jobDir, { recursive: true, force: true });
-          if (job.zipPath) await fs.rm(job.zipPath, { force: true });
         } catch (err) {
           console.error(`Échec cleanup job ${jobId}:`, err);
         }

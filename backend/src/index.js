@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { createReadStream, existsSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getCorsOptions } from './corsOptions.js';
@@ -245,21 +246,45 @@ app.get('/api/jobs/:jobId/stream', async (request, reply) => {
   }
 });
 
-app.get('/api/jobs/:jobId/download', async (request, reply) => {
-  const { jobId } = request.params;
+app.get('/api/jobs/:jobId/file/:index', async (request, reply) => {
+  const { jobId, index } = request.params;
   const job = jobManager.getJob(jobId);
   
-  if (!job || !job.zipPath) {
+  if (!job || !job.files) {
+    return reply.status(404).send({ error: 'Job introuvable' });
+  }
+
+  const fileIndex = parseInt(index, 10);
+  if (!Number.isFinite(fileIndex) || fileIndex < 0 || fileIndex >= job.files.length) {
     return reply.status(404).send({ error: 'Fichier introuvable' });
   }
 
+  const file = job.files[fileIndex];
+  
   try {
-    const stats = await stat(job.zipPath);
-    const stream = createReadStream(job.zipPath);
+    const stats = await stat(file.path);
+    const stream = createReadStream(file.path);
     
-    reply.header('Content-Type', 'application/zip');
-    reply.header('Content-Disposition', `attachment; filename="yt-ripper-${jobId}.zip"`);
+    reply.header('Content-Type', 'audio/mpeg');
+    reply.header('Content-Disposition', `attachment; filename="${encodeURIComponent(file.name)}"`);
     reply.header('Content-Length', stats.size);
+    
+    // Supprimer le fichier après l'avoir envoyé
+    stream.on('end', async () => {
+      try {
+        await fs.unlink(file.path);
+        console.log(`[Cleanup] Fichier supprimé: ${file.name}`);
+        
+        // Si tous les fichiers sont téléchargés, supprimer le dossier du job
+        const remainingFiles = await fs.readdir(job.jobDir);
+        if (remainingFiles.filter(f => f.endsWith('.mp3')).length === 0) {
+          await fs.rm(job.jobDir, { recursive: true, force: true });
+          console.log(`[Cleanup] Dossier job supprimé: ${jobId}`);
+        }
+      } catch (err) {
+        console.error(`[Cleanup] Erreur suppression ${file.name}:`, err);
+      }
+    });
     
     return reply.send(stream);
   } catch (err) {

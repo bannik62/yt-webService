@@ -167,20 +167,13 @@ export class RipperView {
     this.eventSource?.close();
     this.toggleButtons(false);
     
-    if (data.success && data.downloadUrl) {
-      this.setHint('Terminé ! Téléchargement disponible.', false);
-      // Créer lien de téléchargement
-      const link = createElement('a', {
-        href: data.downloadUrl,
-        download: '',
-        className: 'download-link'
-      }, 'Télécharger le ZIP');
-      this.hint.appendChild(link);
+    if (data.success && data.files) {
+      this.setHint(`✅ ${data.files.length} fichier(s) prêt(s) ! Téléchargement en cours...`, false);
     } else {
       this.setHint(data.error || 'Échec du téléchargement', true);
     }
     
-    // Callback externe
+    // Callback externe (géré par RipperMode)
     if (this.onJobCompleteCallback) {
       this.onJobCompleteCallback(data);
     }
