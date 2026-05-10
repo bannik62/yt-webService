@@ -73,6 +73,26 @@ class App {
       if (ripperContainer) ripperContainer.hidden = false;
     }
   }
+
+  async handleBatchDownload(urls) {
+    if (!urls || urls.length === 0) {
+      alert('Aucune URL à télécharger');
+      return;
+    }
+
+    this.downloadListView.setLoading(true);
+    this.ripperView.clearLogs();
+    this.ripperView.setHint('Démarrage du téléchargement batch…', false);
+
+    try {
+      const result = await this.api.startBatchDownload(urls);
+      this.ripperView.currentJob = result.jobId;
+      this.ripperView.connectToJobStream(result.jobId);
+    } catch (err) {
+      this.ripperView.setHint(err.message || 'Erreur lors du lancement batch', true);
+      this.downloadListView.setLoading(false);
+    }
+  }
 }
 
 // Démarrer l'app

@@ -133,7 +133,7 @@ export class RipperView {
     
     this.eventSource.addEventListener('complete', (e) => {
       const data = JSON.parse(e.data);
-      this.onJobComplete(data);
+      this._handleJobComplete(data);
     });
     
     this.eventSource.addEventListener('error', () => {
@@ -163,7 +163,7 @@ export class RipperView {
     `;
   }
 
-  onJobComplete(data) {
+  _handleJobComplete(data) {
     this.eventSource?.close();
     this.toggleButtons(false);
     
