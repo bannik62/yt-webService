@@ -30,6 +30,15 @@ jobs:
             --exclude '.gitignore' \
             ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/html/ytWeb/
 
+      - name: Create .env file with secrets
+        run: |
+          ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cat > /var/www/html/ytWeb/.env << 'EOF'
+          WEBSHARE_API_KEY=${{ secrets.WEBSHARE_API_KEY }}
+          EOF
+          chmod 600 /var/www/html/ytWeb/.env"
+
       - name: Docker Compose (prod)
         run: |
           ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} \
