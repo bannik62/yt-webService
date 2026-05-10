@@ -1,81 +1,59 @@
-const form = document.getElementById('form');
-const input = document.getElementById('q');
-const list = document.getElementById('results');
-const hint = document.getElementById('hint');
+import { ApiClient } from './api/ApiClient.js';
+import { SearchView } from './views/SearchView.js';
+import { RipperView } from './views/RipperView.js';
+import { $ } from './utils/dom.js';
 
-function setHint(text, isError) {
-  if (!text) {
-    hint.hidden = true;
-    hint.textContent = '';
-    return;
+/**
+ * Application principale
+ */
+class App {
+  constructor() {
+    this.api = new ApiClient();
+    this.searchView = new SearchView(this.api);
+    this.ripperView = new RipperView(this.api);
+    this.currentMode = 'search';
+    
+    this.init();
   }
-  hint.hidden = false;
-  hint.textContent = text;
-  hint.classList.toggle('error', Boolean(isError));
-}
 
-function formatDuration(seconds) {
-  if (seconds == null || Number.isNaN(seconds)) return '—';
-  const s = Math.floor(seconds % 60);
-  const m = Math.floor((seconds / 60) % 60);
-  const h = Math.floor(seconds / 3600);
-  const parts = [h > 0 ? String(h).padStart(2, '0') : null, String(m).padStart(2, '0'), String(s).padStart(2, '0')].filter(
-    Boolean
-  );
-  return h > 0 ? parts.join(':') : `${m}:${String(s).padStart(2, '0')}`;
-}
-
-form?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const q = input?.value.trim() ?? '';
-  if (!q) return;
-
-  list.innerHTML = '';
-  setHint('Recherche…', false);
-
-  try {
-    const url = `/api/search?${new URLSearchParams({ q })}`;
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(120_000)
+  init() {
+    // Toggle mode
+    const modeRadios = document.querySelectorAll('input[name="mode"]');
+    modeRadios.forEach(radio => {
+      radio.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          this.switchMode(e.target.value);
+        }
+      });
     });
-    const data = await res.json().catch(() => ({}));
+    
+    // Connecter le clic sur résultat de recherche → ripper
+    this.searchView.onResultClick = (item) => {
+      // Changer le radio
+      const ripperRadio = document.querySelector('input[name="mode"][value="ripper"]');
+      if (ripperRadio) ripperRadio.checked = true;
+      
+      this.switchMode('ripper');
+      this.ripperView.setUrl(item.url);
+      this.ripperView.setHint(`Vidéo sélectionnée : ${item.title}`, false);
+    };
+    
+    // Démarrer en mode recherche
+    this.switchMode('search');
+  }
 
-    if (!res.ok) {
-      setHint(data?.error || `Erreur ${res.status}`, true);
-      return;
-    }
-
-    setHint('', false);
-    const items = data.items ?? [];
-
-    if (items.length === 0) {
-      setHint('Aucun résultat.', false);
-      return;
-    }
-
-    for (const item of items) {
-      const li = document.createElement('li');
-      li.className = 'result';
-      li.innerHTML = `
-        <a class="result-link" href="${item.url}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.title)}</a>
-        <span class="result-meta">${escapeHtml(item.channel ?? '—')} · ${formatDuration(item.duration)}</span>
-      `;
-      list.appendChild(li);
-    }
-  } catch (err) {
-    const name = err && typeof err === 'object' && 'name' in err ? err.name : '';
-    if (name === 'TimeoutError' || name === 'AbortError') {
-      setHint('Délai dépassé — vérifie que le backend tourne (npm run dev dans backend) et yt-dlp.', true);
+  switchMode(mode) {
+    this.currentMode = mode;
+    
+    if (mode === 'search') {
+      this.searchView.show();
+      this.ripperView.hide();
     } else {
-      setHint('Réseau ou serveur indisponible.', true);
+      this.searchView.hide();
+      this.ripperView.show();
     }
   }
-});
-
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
+
+// Démarrer l'app
+new App();
