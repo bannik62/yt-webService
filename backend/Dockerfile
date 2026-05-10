@@ -14,6 +14,8 @@ COPY package.json package-lock.json* ./
 RUN npm install --omit=dev
 
 COPY src ./src
+# Copier le fichier cookies.txt s'il existe (optionnel)
+COPY cookies.txt* ./
 
 ENV NODE_ENV=production
 ENV PORT=4000

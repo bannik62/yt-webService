@@ -1,8 +1,13 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import youtubedl from 'youtube-dl-exec';
+import fs from 'node:fs';
 
-// Charger les credentials YouTube depuis les variables d'environnement
-const YOUTUBE_USERNAME = process.env.YOUTUBE_USERNAME || '';
-const YOUTUBE_PASSWORD = process.env.YOUTUBE_PASSWORD || '';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const COOKIES_PATH = path.join(__dirname, '..', '..', 'cookies.txt');
+
+// Vérifier si le fichier cookies existe
+const hasCookies = fs.existsSync(COOKIES_PATH);
 
 /**
  * Probe une URL YouTube pour déterminer le nombre de morceaux
@@ -14,8 +19,8 @@ const YOUTUBE_PASSWORD = process.env.YOUTUBE_PASSWORD || '';
 export async function probePlaylistCount(url, { noPlaylist } = {}) {
   console.log('[probe] Analyse URL:', url);
   console.log('[probe] noPlaylist:', noPlaylist);
-  if (YOUTUBE_USERNAME && YOUTUBE_PASSWORD) {
-    console.log('[probe] 🔐 Connexion YouTube:', YOUTUBE_USERNAME);
+  if (hasCookies) {
+    console.log('[probe] 🍪 Cookies: activés');
   }
   
   const flags = {
@@ -28,10 +33,9 @@ export async function probePlaylistCount(url, { noPlaylist } = {}) {
     referer: 'https://www.youtube.com/'
   };
   
-  // Ajouter les credentials YouTube si disponibles
-  if (YOUTUBE_USERNAME && YOUTUBE_PASSWORD) {
-    flags.username = YOUTUBE_USERNAME;
-    flags.password = YOUTUBE_PASSWORD;
+  // Utiliser les cookies si disponibles
+  if (hasCookies) {
+    flags.cookies = COOKIES_PATH;
   }
   
   if (noPlaylist) flags.noPlaylist = true;

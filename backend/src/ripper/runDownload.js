@@ -1,11 +1,15 @@
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import ffmpegStatic from 'ffmpeg-static';
 import youtubedl from 'youtube-dl-exec';
 import { parseItemOfTotal, parseProgressLine } from './ytdlpHelpers.js';
+import fs from 'node:fs';
 
-// Charger les credentials YouTube depuis les variables d'environnement
-const YOUTUBE_USERNAME = process.env.YOUTUBE_USERNAME || '';
-const YOUTUBE_PASSWORD = process.env.YOUTUBE_PASSWORD || '';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const COOKIES_PATH = path.join(__dirname, '..', '..', 'cookies.txt');
+
+// Vérifier si le fichier cookies existe
+const hasCookies = fs.existsSync(COOKIES_PATH);
 
 /**
  * Lance le téléchargement MP3 avec yt-dlp + ffmpeg
@@ -45,10 +49,10 @@ export async function runDownload(opts) {
   onLog(`   User-Agent: Chrome 131 (Windows))`);
   onLog(`   Referer: YouTube`);
   onLog(`   Headers personnalisés: ${5} headers ajoutés`);
-  if (YOUTUBE_USERNAME && YOUTUBE_PASSWORD) {
-    onLog(`   🔐 Connexion YouTube: ${YOUTUBE_USERNAME}`);
+  if (hasCookies) {
+    onLog(`   🍪 Cookies: activés (cookies.txt)`);
   } else {
-    onLog(`   ⚠️ Connexion YouTube: non configurée (mode anonyme)`);
+    onLog(`   ⚠️ Cookies: non disponibles (mode anonyme)`);
   }
   onLog('');
   
@@ -107,10 +111,9 @@ export async function runDownload(opts) {
     ]
   };
   
-  // Ajouter les credentials YouTube si disponibles
-  if (YOUTUBE_USERNAME && YOUTUBE_PASSWORD) {
-    dlFlags.username = YOUTUBE_USERNAME;
-    dlFlags.password = YOUTUBE_PASSWORD;
+  // Utiliser les cookies si disponibles (plus fiable que username/password)
+  if (hasCookies) {
+    dlFlags.cookies = COOKIES_PATH;
   }
   
   if (ffmpegPath) {
