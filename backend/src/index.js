@@ -223,7 +223,7 @@ app.get('/api/jobs/:jobId/stream', async (request, reply) => {
     } else if (eventData.type === 'complete') {
       sendEvent('complete', {
         success: eventData.success,
-        downloadUrl: eventData.downloadUrl,
+        files: eventData.files || [],
         error: eventData.error
       });
       reply.raw.end();
@@ -238,7 +238,11 @@ app.get('/api/jobs/:jobId/stream', async (request, reply) => {
   if (job.status === 'completed' || job.status === 'failed') {
     sendEvent('complete', {
       success: job.status === 'completed',
-      downloadUrl: job.zipPath ? `/api/jobs/${jobId}/download` : null,
+      files: job.files ? job.files.map((file, index) => ({
+        name: file.name,
+        url: `/api/jobs/${jobId}/file/${index}`,
+        size: file.size
+      })) : [],
       error: job.error
     });
     reply.raw.end();
