@@ -77,7 +77,18 @@ export async function runDownload(opts) {
     output: outTemplate,
     newline: true,
     progress: true,
-    noWarnings: true
+    noWarnings: true,
+    // Simuler un vrai navigateur Windows/Chrome pour éviter la détection bot
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    referer: 'https://www.youtube.com/',
+    // Headers supplémentaires pour ressembler à un vrai navigateur
+    addHeader: [
+      'Accept-Language:en-US,en;q=0.9,fr;q=0.8',
+      'Accept:text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Sec-Fetch-Mode:navigate',
+      'Sec-Fetch-Site:none',
+      'Sec-Fetch-Dest:document'
+    ]
   };
   if (ffmpegPath) {
     dlFlags.ffmpegLocation = ffmpegPath;
