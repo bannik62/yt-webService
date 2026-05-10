@@ -43,11 +43,22 @@ export class RipperMode {
 
   show() {
     const ripperContainer = $('#ripper-container');
-    if (ripperContainer) ripperContainer.hidden = false;
+    const sidebar = $('#download-list');
+    
+    if (ripperContainer) {
+      ripperContainer.hidden = false;
+      console.log('[RipperMode] Container affiché');
+    }
+    if (sidebar) {
+      sidebar.hidden = true; // Cacher la sidebar en mode Ripper
+    }
   }
 
   hide() {
     const ripperContainer = $('#ripper-container');
-    if (ripperContainer) ripperContainer.hidden = true;
+    if (ripperContainer) {
+      ripperContainer.hidden = true;
+      console.log('[RipperMode] Container caché');
+    }
   }
 }

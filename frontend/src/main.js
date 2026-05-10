@@ -45,6 +45,7 @@ class App {
   }
 
   switchMode(mode) {
+    console.log('[App] Basculer vers mode:', mode);
     if (mode === 'search') {
       this.ripperMode.hide();
       this.searchMode.show();
