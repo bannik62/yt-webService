@@ -33,10 +33,15 @@ class App {
           this.switchMode(e.target.value);
         }
       });
+      
+      // Initialiser le mode selon le radio coché par défaut
+      if (radio.checked) {
+        this.currentMode = radio.value;
+      }
     });
     
-    // Démarrer en mode search par défaut
-    this.switchMode('search');
+    // Afficher le mode initial
+    this.switchMode(this.currentMode);
   }
 
   switchMode(mode) {

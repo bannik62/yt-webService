@@ -112,7 +112,7 @@ export class SearchMode {
 
   show() {
     const searchContainer = $('#search-container');
-    const sidebar = $('#download-list-sidebar');
+    const sidebar = $('#download-list');
     
     if (searchContainer) searchContainer.hidden = false;
     if (sidebar) sidebar.hidden = false;
@@ -120,7 +120,7 @@ export class SearchMode {
 
   hide() {
     const searchContainer = $('#search-container');
-    const sidebar = $('#download-list-sidebar');
+    const sidebar = $('#download-list');
     
     if (searchContainer) searchContainer.hidden = true;
     if (sidebar) sidebar.hidden = true;
