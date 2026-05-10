@@ -69,27 +69,21 @@ export class SearchView {
       
       const content = createElement('div', { className: 'result-content' });
       
-      const link = createElement('a', {
-        href: item.url,
-        target: '_blank',
-        rel: 'noopener noreferrer',
-        className: 'result-link'
+      const title = createElement('div', {
+        className: 'result-title'
       }, escapeHtml(item.title));
       
-      const meta = createElement('span', {
+      const meta = createElement('div', {
         className: 'result-meta'
       }, `${escapeHtml(item.channel ?? '—')} · ${formatDuration(item.duration)}`);
       
-      content.appendChild(link);
+      content.appendChild(title);
       content.appendChild(meta);
       li.appendChild(content);
       
-      // Événement pour ripper au clic
-      li.addEventListener('click', (e) => {
-        if (e.target.tagName !== 'A') {
-          e.preventDefault();
-          this.onResultClick?.(item);
-        }
+      // Clic → ouvre modal vidéo
+      li.addEventListener('click', () => {
+        this.onResultClick?.(item);
       });
       
       this.results.appendChild(li);

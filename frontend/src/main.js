@@ -1,7 +1,10 @@
+import { $ } from './utils/dom.js';
 import { ApiClient } from './api/ApiClient.js';
 import { SearchView } from './views/SearchView.js';
+import { DownloadListView } from './views/DownloadListView.js';
+import { VideoModal } from './views/VideoModal.js';
+import { DownloadList } from './models/DownloadList.js';
 import { RipperView } from './views/RipperView.js';
-import { $ } from './utils/dom.js';
 
 /**
  * Application principale
@@ -9,15 +12,18 @@ import { $ } from './utils/dom.js';
 class App {
   constructor() {
     this.api = new ApiClient();
+    this.downloadList = new DownloadList();
+    this.videoModal = new VideoModal();
+    
     this.searchView = new SearchView(this.api);
+    this.downloadListView = new DownloadListView(this.downloadList);
     this.ripperView = new RipperView(this.api);
-    this.currentMode = 'search';
     
     this.init();
   }
 
   init() {
-    // Toggle mode
+    // Toggle entre modes
     const modeRadios = document.querySelectorAll('input[name="mode"]');
     modeRadios.forEach(radio => {
       radio.addEventListener('change', (e) => {
@@ -27,30 +33,44 @@ class App {
       });
     });
     
-    // Connecter le clic sur résultat de recherche → ripper
+    // Clic sur résultat de recherche → Modal vidéo
     this.searchView.onResultClick = (item) => {
-      // Changer le radio
-      const ripperRadio = document.querySelector('input[name="mode"][value="ripper"]');
-      if (ripperRadio) ripperRadio.checked = true;
-      
-      this.switchMode('ripper');
-      this.ripperView.setUrl(item.url);
-      this.ripperView.setHint(`Vidéo sélectionnée : ${item.title}`, false);
+      this.videoModal.show(item);
     };
     
-    // Démarrer en mode recherche
-    this.switchMode('search');
+    // Clic "Ajouter" dans le modal → Ajoute à la liste
+    this.videoModal.onAdd = (item) => {
+      this.downloadListView.addItem(item);
+    };
+    
+    // Clic "Télécharger" dans la liste → Lance download batch
+    this.downloadListView.onDownload = (urls) => {
+      this.handleBatchDownload(urls);
+    };
+    
+    // Callback fin de téléchargement
+    this.ripperView.onJobComplete = (data) => {
+      this.downloadListView.setLoading(false);
+      if (data.success) {
+        setTimeout(() => {
+          if (confirm('Téléchargement terminé ! Vider la liste ?')) {
+            this.downloadList.clear();
+          }
+        }, 1000);
+      }
+    };
   }
 
   switchMode(mode) {
-    this.currentMode = mode;
+    const searchContainer = $('#search-container');
+    const ripperContainer = $('#ripper-container');
     
     if (mode === 'search') {
-      this.searchView.show();
-      this.ripperView.hide();
+      if (searchContainer) searchContainer.hidden = false;
+      if (ripperContainer) ripperContainer.hidden = true;
     } else {
-      this.searchView.hide();
-      this.ripperView.show();
+      if (searchContainer) searchContainer.hidden = true;
+      if (ripperContainer) ripperContainer.hidden = false;
     }
   }
 }

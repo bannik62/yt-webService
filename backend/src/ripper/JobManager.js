@@ -45,13 +45,46 @@ export class JobManager extends EventEmitter {
     
     const job = {
       id: jobId,
-      url,
+      urls: [url],
       noPlaylist,
       maxDownloads,
       ip,
       status: 'queued',
       logs: [],
       progress: { filePct: 0, itemIndex: 1, itemTotal: 1 },
+      createdAt: Date.now(),
+      jobDir,
+      zipPath: null,
+      error: null
+    };
+
+    this.#jobs.set(jobId, job);
+    this.#queue.push(jobId);
+    this.#processQueue();
+    
+    return jobId;
+  }
+
+  /**
+   * Crée un job batch (plusieurs URLs)
+   * @param {object} params
+   * @param {string[]} params.urls
+   * @param {string} params.ip
+   * @returns {string} jobId
+   */
+  createBatchJob({ urls, ip }) {
+    const jobId = randomUUID();
+    const jobDir = path.join(this.#tempDir, jobId);
+    
+    const job = {
+      id: jobId,
+      urls: urls,
+      noPlaylist: true,  // Toujours single pour batch
+      maxDownloads: 10,   // Limite à 10 si playlist détectée
+      ip,
+      status: 'queued',
+      logs: [],
+      progress: { filePct: 0, itemIndex: 1, itemTotal: urls.length },
       createdAt: Date.now(),
       jobDir,
       zipPath: null,
@@ -101,20 +134,35 @@ export class JobManager extends EventEmitter {
     try {
       await fs.mkdir(job.jobDir, { recursive: true });
 
-      await runDownload({
-        url: job.url,
-        targetDir: job.jobDir,
-        noPlaylist: job.noPlaylist,
-        maxDownloads: job.maxDownloads || 0,
-        onLog: (line) => {
-          job.logs.push(line);
-          this.#emitJobEvent(jobId, 'log', { line });
-        },
-        onProgress: (progress) => {
-          job.progress = progress;
-          this.#emitJobEvent(jobId, 'progress', { progress });
-        }
-      });
+      // Traiter toutes les URLs du job
+      for (let i = 0; i < job.urls.length; i++) {
+        const url = job.urls[i];
+        
+        job.logs.push(`\n=== Traitement ${i + 1}/${job.urls.length}: ${url} ===\n`);
+        this.#emitJobEvent(jobId, 'log', { line: `\n=== Traitement ${i + 1}/${job.urls.length} ===` });
+
+        await runDownload({
+          url,
+          targetDir: job.jobDir,
+          noPlaylist: job.noPlaylist,
+          maxDownloads: job.maxDownloads || 10,  // Limite playlists à 10
+          onLog: (line) => {
+            job.logs.push(line);
+            this.#emitJobEvent(jobId, 'log', { line });
+          },
+          onProgress: (progress) => {
+            // Ajuster la progression pour tenir compte de plusieurs URLs
+            const overallItemIndex = i + 1;
+            const overallItemTotal = job.urls.length;
+            job.progress = {
+              filePct: progress.filePct,
+              itemIndex: overallItemIndex,
+              itemTotal: overallItemTotal
+            };
+            this.#emitJobEvent(jobId, 'progress', { progress: job.progress });
+          }
+        });
+      }
 
       const zipPath = await this.#createZip(jobId, job.jobDir);
       job.zipPath = zipPath;

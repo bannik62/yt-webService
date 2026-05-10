@@ -66,6 +66,26 @@ export class ApiClient {
   }
 
   /**
+   * Lance un téléchargement batch (plusieurs URLs)
+   * @param {string[]} urls
+   * @returns {Promise<{jobId: string}>}
+   */
+  async startBatchDownload(urls) {
+    const res = await fetch(`${this.baseUrl}/api/download-batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ urls })
+    });
+    
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data?.error || `Erreur ${res.status}`);
+    }
+    
+    return await res.json();
+  }
+
+  /**
    * Stream SSE pour suivre progression d'un job
    * @param {string} jobId
    * @returns {EventSource}

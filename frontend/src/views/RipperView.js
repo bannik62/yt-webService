@@ -179,6 +179,15 @@ export class RipperView {
     } else {
       this.setHint(data.error || 'Échec du téléchargement', true);
     }
+    
+    // Callback externe
+    if (this.onJobCompleteCallback) {
+      this.onJobCompleteCallback(data);
+    }
+  }
+  
+  set onJobComplete(callback) {
+    this.onJobCompleteCallback = callback;
   }
 
   addLog(line) {
@@ -190,6 +199,7 @@ export class RipperView {
 
   clearLogs() {
     if (this.logs) this.logs.innerHTML = '';
+    if (this.progress) this.progress.innerHTML = '';
   }
 
   setHint(text, isError = false) {

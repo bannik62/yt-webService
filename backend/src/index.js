@@ -107,6 +107,38 @@ app.post('/api/download', async (request, reply) => {
   }
 });
 
+app.post('/api/download-batch', async (request, reply) => {
+  const { urls } = request.body || {};
+  
+  if (!Array.isArray(urls) || urls.length === 0) {
+    return reply.status(400).send({ 
+      error: 'URLs manquantes ou invalides' 
+    });
+  }
+  
+  if (urls.length > 50) {
+    return reply.status(400).send({ 
+      error: 'Maximum 50 URLs' 
+    });
+  }
+
+  const clientIp = request.headers['x-forwarded-for'] || request.ip;
+
+  try {
+    const jobId = jobManager.createBatchJob({
+      urls: urls.map(u => String(u).trim()),
+      ip: clientIp
+    });
+    
+    return { jobId };
+  } catch (err) {
+    app.log.error('Batch download error:', err);
+    return reply.status(500).send({ 
+      error: err.message || 'Échec du démarrage' 
+    });
+  }
+});
+
 app.get('/api/jobs/:jobId/stream', async (request, reply) => {
   const { jobId } = request.params;
   const job = jobManager.getJob(jobId);

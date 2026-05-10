@@ -7,95 +7,123 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <div class="page">
-      <header class="header">
-        <div class="brand">
-          <span class="pill yt">YT</span>
-          <span class="pill rest">ripper</span>
+    <div class="app-container">
+      <!-- Sidebar: Liste de téléchargement -->
+      <aside class="sidebar" id="download-list">
+        <div class="sidebar-header">
+          <h2 class="sidebar-title">
+            Ma liste
+            <span class="badge" id="download-list-count" hidden>0</span>
+          </h2>
         </div>
         
-        <!-- Mode toggle -->
-        <div class="mode-selector">
-          <label class="mode-option">
-            <input type="radio" name="mode" value="search" checked />
-            <span>Recherche</span>
-          </label>
-          <label class="mode-option">
-            <input type="radio" name="mode" value="ripper" />
-            <span>Ripper</span>
-          </label>
+        <div class="sidebar-body">
+          <ul class="download-list" id="download-list-items"></ul>
         </div>
-      </header>
+        
+        <div class="sidebar-footer">
+          <button type="button" id="download-list-clear" class="btn btn-ghost btn-sm" hidden>
+            Vider
+          </button>
+          <button type="button" id="download-list-btn" class="btn btn-primary" disabled>
+            Liste vide
+          </button>
+        </div>
+      </aside>
 
-      <!-- Mode Recherche -->
-      <main class="view-container" id="search-container">
-        <form class="search-form" id="search-form" action="#" method="get">
-          <label class="sr-only" for="search-input">Recherche</label>
-          <input
-            id="search-input"
-            name="q"
-            type="search"
-            autocomplete="off"
-            placeholder="Rechercher une musique…"
-            maxlength="500"
-            required
-          />
-          <button type="submit">Rechercher</button>
-        </form>
+      <!-- Contenu principal -->
+      <main class="main-content">
+        <header class="header">
+          <div class="brand">
+            <span class="pill yt">YT</span>
+            <span class="pill rest">ripper</span>
+          </div>
+          
+          <!-- Toggle mode -->
+          <div class="mode-selector">
+            <label class="mode-option">
+              <input type="radio" name="mode" value="search" checked />
+              <span>Recherche</span>
+            </label>
+            <label class="mode-option">
+              <input type="radio" name="mode" value="ripper" />
+              <span>Ripper</span>
+            </label>
+          </div>
+        </header>
 
-        <p class="hint" id="search-hint" hidden></p>
-        <ul class="results" id="search-results" aria-live="polite"></ul>
-      </main>
-
-      <!-- Mode Ripper -->
-      <main class="view-container" id="ripper-container" hidden>
-        <form class="ripper-form" id="ripper-form" action="#" method="post">
-          <div class="form-group">
-            <label for="ripper-url">URL YouTube</label>
+        <!-- Vue Recherche -->
+        <div class="view-container" id="search-container">
+          <form class="search-form" id="search-form" action="#" method="get">
+            <label class="sr-only" for="search-input">Recherche</label>
             <input
-              id="ripper-url"
-              type="url"
-              placeholder="https://www.youtube.com/watch?v=..."
+              id="search-input"
+              name="q"
+              type="search"
+              autocomplete="off"
+              placeholder="Rechercher une musique…"
+              maxlength="500"
               required
             />
-          </div>
+            <button type="submit">Rechercher</button>
+          </form>
 
-          <fieldset class="mode-fieldset">
-            <legend>Mode</legend>
-            <label class="radio-label">
-              <input type="radio" name="ripper-mode" value="single" checked />
-              <span>Une seule musique</span>
-              <span class="muted">(--no-playlist)</span>
-            </label>
-            <label class="radio-label">
-              <input type="radio" name="ripper-mode" value="playlist" />
-              <span>Playlist</span>
-            </label>
-            
-            <div id="ripper-max-container" class="max-container" hidden>
-              <label for="ripper-max" class="muted">Max morceaux (vide = tous)</label>
+          <p class="hint" id="search-hint" hidden></p>
+          <ul class="results" id="search-results" aria-live="polite"></ul>
+        </div>
+
+        <!-- Vue Ripper -->
+        <div class="view-container" id="ripper-container" hidden>
+          <form class="ripper-form" id="ripper-form" action="#" method="post">
+            <div class="form-group">
+              <label for="ripper-url">URL YouTube ou Playlist</label>
               <input
-                id="ripper-max"
-                type="number"
-                min="1"
-                placeholder="10"
-                class="input-sm"
+                id="ripper-url"
+                type="url"
+                placeholder="https://www.youtube.com/watch?v=..."
+                required
               />
             </div>
-          </fieldset>
+
+            <fieldset class="mode-fieldset">
+              <legend>Mode</legend>
+              <label class="radio-label">
+                <input type="radio" name="ripper-mode" value="single" checked />
+                <span>Une seule musique</span>
+                <span class="muted">(--no-playlist)</span>
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="ripper-mode" value="playlist" />
+                <span>Playlist</span>
+                <span class="muted">(max 10 morceaux)</span>
+              </label>
+              
+              <div id="ripper-max-container" class="max-container" hidden>
+                <label for="ripper-max" class="muted">Max morceaux (vide = 10)</label>
+                <input
+                  id="ripper-max"
+                  type="number"
+                  min="1"
+                  max="10"
+                  placeholder="10"
+                  class="input-sm"
+                />
+              </div>
+            </fieldset>
+
+            <div class="actions">
+              <button type="button" id="ripper-probe" class="btn btn-ghost">Analyser</button>
+              <button type="button" id="ripper-download" class="btn btn-primary">Télécharger MP3</button>
+            </div>
+          </form>
 
           <p class="hint" id="ripper-hint" hidden></p>
-
-          <div class="actions">
-            <button type="button" id="ripper-probe" class="btn btn-ghost">Analyser</button>
-            <button type="button" id="ripper-download" class="btn btn-primary">Télécharger MP3</button>
-          </div>
-
           <div id="ripper-progress" class="progress-container"></div>
           <div id="ripper-logs" class="logs-container"></div>
-        </form>
+        </div>
       </main>
     </div>
+
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
