@@ -46,7 +46,7 @@ export async function runDownload(opts) {
 
   // Logs de démarrage pour debugging
   onLog('🔧 Configuration yt-dlp:');
-  onLog(`   User-Agent: Chrome 131 (Windows))`);
+  onLog(`   User-Agent: Chrome 149 (Windows, 2026)`);
   onLog(`   Referer: YouTube`);
   onLog(`   Headers personnalisés: ${5} headers ajoutés`);
   if (hasCookies) {
@@ -98,8 +98,8 @@ export async function runDownload(opts) {
     newline: true,
     progress: true,
     noWarnings: true,
-    // Simuler un vrai navigateur Windows/Chrome pour éviter la détection bot
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    // Simuler un vrai navigateur Windows/Chrome 2026 pour éviter la détection bot
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36',
     referer: 'https://www.youtube.com/',
     // Headers supplémentaires pour ressembler à un vrai navigateur
     addHeader: [

@@ -28,8 +28,8 @@ export async function probePlaylistCount(url, { noPlaylist } = {}) {
     flatPlaylist: true,
     skipDownload: true,
     noWarnings: true,
-    // Mêmes headers que pour le téléchargement
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    // Mêmes headers que pour le téléchargement (Chrome 2026)
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36',
     referer: 'https://www.youtube.com/'
   };
   
