@@ -3,7 +3,6 @@ import { SearchView } from '../views/SearchView.js';
 import { DownloadListView } from '../views/DownloadListView.js';
 import { VideoModal } from '../views/VideoModal.js';
 import { DownloadList } from '../models/DownloadList.js';
-import { downloadFiles } from '../utils/fileDownloader.js';
 
 /**
  * Mode Search : Recherche YouTube + Playlist + Batch download
@@ -85,28 +84,29 @@ export class SearchMode {
     });
   }
 
-  async _handleJobComplete(data) {
+  _handleJobComplete(data) {
     this.eventSource?.close();
     this.downloadListView.setLoading(false);
     
     if (data.success && data.files) {
-      // Télécharger avec sélection de dossier optionnelle
-      const result = await downloadFiles(data.files, 2000);
-      
-      if (result.success) {
-        // Demander si on vide la liste
+      // Télécharger automatiquement chaque fichier (simple et direct)
+      data.files.forEach((file, index) => {
         setTimeout(() => {
-          const message = result.method === 'filesystem' 
-            ? `${data.files.length} fichier(s) téléchargé(s) !\n\nVider la playlist ?`
-            : `${data.files.length} téléchargement(s) terminé(s) !\n\nVider la playlist ?`;
-          
-          if (confirm(message)) {
-            this.downloadList.clear();
-          }
-        }, 500);
-      } else if (result.cancelled) {
-        alert('❌ Téléchargement annulé.');
-      }
+          const link = document.createElement('a');
+          link.href = file.url;
+          link.download = file.name;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }, index * 2000);
+      });
+      
+      // Demander si on vide la liste
+      setTimeout(() => {
+        if (confirm(`✅ ${data.files.length} téléchargement(s) terminé(s) !\n\nVider la playlist ?`)) {
+          this.downloadList.clear();
+        }
+      }, data.files.length * 2000 + 1000);
     } else {
       alert(`❌ Erreur : ${data.error || 'Échec du téléchargement'}`);
     }
