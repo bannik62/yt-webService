@@ -18,6 +18,11 @@ body {
   min-height: 100vh;
 }
 
+/* Masquer les éléments avec l'attribut hidden */
+[hidden] {
+  display: none !important;
+}
+
 /* Sidebar */
 .sidebar {
   width: 320px;
