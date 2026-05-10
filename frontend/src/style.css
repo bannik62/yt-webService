@@ -754,11 +754,19 @@ progress::-moz-progress-bar {
     flex-direction: column;
   }
 
+  /* Forcer l'ordre : main-content en haut, sidebar en bas */
+  .main-content {
+    order: 1;
+  }
+
   .sidebar {
+    order: 2;
     width: 100%;
     height: auto;
     max-height: 40vh;
     position: static;
+    border-right: none;
+    border-top: 1px solid #2a2d33;
   }
 
   .list-notification {
