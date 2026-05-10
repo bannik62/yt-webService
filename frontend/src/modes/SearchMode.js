@@ -3,6 +3,7 @@ import { SearchView } from '../views/SearchView.js';
 import { DownloadListView } from '../views/DownloadListView.js';
 import { VideoModal } from '../views/VideoModal.js';
 import { DownloadList } from '../models/DownloadList.js';
+import { downloadFiles } from '../utils/fileDownloader.js';
 
 /**
  * Mode Search : Recherche YouTube + Playlist + Batch download
@@ -84,27 +85,28 @@ export class SearchMode {
     });
   }
 
-  _handleJobComplete(data) {
+  async _handleJobComplete(data) {
     this.eventSource?.close();
     this.downloadListView.setLoading(false);
     
     if (data.success && data.files) {
-      // Télécharger automatiquement chaque fichier avec un délai de 2 secondes
-      data.files.forEach((file, index) => {
-        setTimeout(() => {
-          const link = document.createElement('a');
-          link.href = file.url;
-          link.download = file.name;
-          link.click();
-        }, index * 2000);
-      });
+      // Télécharger avec sélection de dossier optionnelle
+      const result = await downloadFiles(data.files, 2000);
       
-      // Demander si on vide la liste
-      setTimeout(() => {
-        if (confirm(`${data.files.length} téléchargement(s) terminé(s) !\n\nVider la playlist ?`)) {
-          this.downloadList.clear();
-        }
-      }, data.files.length * 2000 + 1000);
+      if (result.success) {
+        // Demander si on vide la liste
+        setTimeout(() => {
+          const message = result.method === 'filesystem' 
+            ? `${data.files.length} fichier(s) téléchargé(s) !\n\nVider la playlist ?`
+            : `${data.files.length} téléchargement(s) terminé(s) !\n\nVider la playlist ?`;
+          
+          if (confirm(message)) {
+            this.downloadList.clear();
+          }
+        }, 500);
+      } else if (result.cancelled) {
+        alert('❌ Téléchargement annulé.');
+      }
     } else {
       alert(`❌ Erreur : ${data.error || 'Échec du téléchargement'}`);
     }

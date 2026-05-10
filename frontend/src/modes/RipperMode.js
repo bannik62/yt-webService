@@ -1,5 +1,6 @@
 import { $ } from '../utils/dom.js';
 import { RipperView } from '../views/RipperView.js';
+import { downloadFiles } from '../utils/fileDownloader.js';
 
 /**
  * Mode Ripper : URL directe → Téléchargement immédiat
@@ -19,23 +20,19 @@ export class RipperMode {
     };
   }
 
-  _handleJobComplete(data) {
+  async _handleJobComplete(data) {
     if (data.success && data.files) {
-      // Télécharger automatiquement chaque fichier avec un délai de 2 secondes
-      data.files.forEach((file, index) => {
-        setTimeout(() => {
-          const link = document.createElement('a');
-          link.href = file.url;
-          link.download = file.name;
-          link.click();
-          console.log(`[Ripper] Téléchargement démarré: ${file.name}`);
-        }, index * 2000);
-      });
+      // Télécharger avec sélection de dossier optionnelle
+      const result = await downloadFiles(data.files, 2000);
       
-      // Message de confirmation après tous les téléchargements
-      setTimeout(() => {
-        alert(`✅ ${data.files.length} téléchargement(s) démarré(s) !`);
-      }, data.files.length * 2000 + 500);
+      if (result.success) {
+        const message = result.method === 'filesystem' 
+          ? `✅ ${data.files.length} fichier(s) téléchargé(s) dans le dossier choisi !`
+          : `✅ ${data.files.length} téléchargement(s) démarré(s) !`;
+        alert(message);
+      } else if (result.cancelled) {
+        alert('❌ Téléchargement annulé.');
+      }
     } else {
       alert(`❌ Erreur : ${data.error || 'Échec du téléchargement'}`);
     }
