@@ -24,8 +24,10 @@ jobs:
             -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new" \
             --exclude '.git' \
             --exclude 'node_modules' \
-            --exclude '.env' \
-            --exclude '.env.prod' \
+            --exclude '.env*' \
+            --exclude '*.md' \
+            --exclude 'test-*.sh' \
+            --exclude '.gitignore' \
             ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/html/ytWeb/
 
       - name: Create .env file with secrets
