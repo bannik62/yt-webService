@@ -126,7 +126,7 @@ export class SearchMode {
     if (sidebar) sidebar.hidden = true;
     
     // Fermer le modal et l'eventSource si ouverts
-    this.videoModal.hide();
+    this.videoModal.close();
     this.eventSource?.close();
   }
 }
