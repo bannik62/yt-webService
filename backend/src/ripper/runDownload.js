@@ -94,6 +94,7 @@ export async function runDownload(opts) {
     extractAudio: true,
     audioFormat: 'mp3',
     audioQuality: '0',
+    format: 'bestaudio/best',  // Fallback si qualité 0 n'est pas disponible
     output: outTemplate,
     newline: true,
     progress: true,
