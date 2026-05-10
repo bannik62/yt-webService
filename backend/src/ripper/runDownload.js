@@ -93,6 +93,7 @@ export async function runDownload(opts) {
   const dlFlags = {
     extractAudio: true,
     audioFormat: 'mp3',
+    audioQuality: '0',  // Comme l'app Electron qui fonctionne
     output: outTemplate,
     newline: true,
     progress: true,
