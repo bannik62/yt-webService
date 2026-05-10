@@ -1,0 +1,9 @@
+# Développement local : web sur le port 8080
+services:
+  api:
+    environment:
+      NODE_ENV: development
+
+  web:
+    ports:
+      - '8080:80'

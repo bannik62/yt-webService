@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>YT Web Service</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="header">
+        <div class="brand">
+          <span class="pill yt">YT</span>
+          <span class="pill rest">web</span>
+        </div>
+        <p class="tagline">Recherche (aperçu) — backend séparé</p>
+      </header>
+
+      <main class="main">
+        <form class="search-form" id="form" action="#" method="get">
+          <label class="sr-only" for="q">Recherche</label>
+          <input
+            id="q"
+            name="q"
+            type="search"
+            autocomplete="off"
+            placeholder="Titre, chaîne…"
+            maxlength="200"
+            required
+          />
+          <button type="submit">Rechercher</button>
+        </form>
+
+        <p class="hint" id="hint" hidden></p>
+        <ul class="results" id="results" aria-live="polite"></ul>
+      </main>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

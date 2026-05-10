@@ -1,0 +1,21 @@
+# Base commune — toujours utiliser avec -f docker-compose.dev.yml OU -f docker-compose.prod.yml
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    expose:
+      - '4000'
+    environment:
+      PORT: '4000'
+      HOST: '0.0.0.0'
+      SEARCH_MAX_RESULTS: '10'
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    depends_on:
+      - api
+    restart: unless-stopped
