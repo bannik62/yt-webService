@@ -1,11 +1,16 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { createReadStream } from 'node:fs';
+import { createReadStream, existsSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { getCorsOptions } from './corsOptions.js';
 import { SearchEngine } from './search/SearchEngine.js';
 import { probePlaylistCount } from './ripper/probe.js';
 import { JobManager } from './ripper/JobManager.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const COOKIES_PATH = path.join(__dirname, '..', 'cookies.txt');
 
 const PORT = Number(process.env.PORT) || 4000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -226,6 +231,21 @@ setInterval(() => {
 try {
   await app.listen({ port: PORT, host: HOST });
   app.log.info(`API http://${HOST}:${PORT}`);
+  
+  // Vérifier le statut de l'authentification YouTube
+  console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('🔐 Statut authentification YouTube:');
+  if (existsSync(COOKIES_PATH)) {
+    console.log('   ✅ Cookies détectés (cookies.txt)');
+    console.log('   📍 Fichier:', COOKIES_PATH);
+    console.log('   🎯 Mode: Authentifié');
+  } else {
+    console.log('   ⚠️  Cookies non trouvés');
+    console.log('   📍 Attendu à:', COOKIES_PATH);
+    console.log('   🎯 Mode: Anonyme (risque de détection bot)');
+    console.log('   💡 Solution: Copier le fichier cookies.txt');
+  }
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 } catch (err) {
   app.log.error(err);
   process.exit(1);
