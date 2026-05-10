@@ -8,3 +8,4 @@ dist/
 frontend/dist/
 backend/cookies.txt
 cookies.txt
+*.md
