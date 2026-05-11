@@ -8,8 +8,20 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const apiTarget =
     env.VITE_DEV_API_TARGET || 'http://127.0.0.1:4000';
+  const siteUrl = (env.VITE_SITE_URL || 'https://yt.codeurbase.fr').replace(
+    /\/$/,
+    ''
+  );
 
   return {
+    plugins: [
+      {
+        name: 'html-site-url',
+        transformIndexHtml(html) {
+          return html.replaceAll('%SITE_URL%', siteUrl);
+        }
+      }
+    ],
     server: {
       port: 5173,
       proxy: {

@@ -140,8 +140,24 @@ export class SearchMode {
 
     this.eventSource = this.api.streamJob(jobId);
     
+    this.eventSource.addEventListener('status', (e) => {
+      const data = JSON.parse(e.data);
+      if (data.status === 'queued') {
+        const eta =
+          data.estimatedSeconds != null
+            ? ` · ~${data.estimatedSeconds}s`
+            : '';
+        this.downloadListView.setQueueWaitMessage(
+          `⏳ En file d'attente — position ${data.position}/${data.queueLength}${eta}`
+        );
+      } else {
+        this.downloadListView.clearQueueWaitMessage();
+      }
+    });
+
     // Écouter la progression pour mettre à jour les barres
     this.eventSource.addEventListener('progress', (e) => {
+      this.downloadListView.clearQueueWaitMessage();
       const data = JSON.parse(e.data);
       this._handleProgress(data);
     });
@@ -152,6 +168,7 @@ export class SearchMode {
     });
     
     this.eventSource.addEventListener('error', () => {
+      this.downloadListView.clearQueueWaitMessage();
       this.downloadListView.setLoading(false);
       this.downloadListView.clearAllProgress();
       this.eventSource?.close();
@@ -169,6 +186,7 @@ export class SearchMode {
 
   _handleJobComplete(data) {
     this.eventSource?.close();
+    this.downloadListView.clearQueueWaitMessage();
     this.downloadListView.setLoading(false);
     
     if (data.success && data.files) {

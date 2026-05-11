@@ -13,6 +13,7 @@ export class DownloadListView {
     this.downloadBtn = $('#download-list-btn');
     this.playBtn = $('#download-list-play');
     this.clearBtn = $('#download-list-clear');
+    this.queueHint = $('#download-list-queue-hint');
     
     this.onDownload = null;
     this.onPlay = null;
@@ -222,12 +223,34 @@ export class DownloadListView {
    * @param {boolean} disabled
    */
   setLoading(disabled) {
+    const items = this.list.getAll();
     if (this.downloadBtn) {
-      this.downloadBtn.disabled = disabled;
+      this.downloadBtn.disabled = disabled || items.length === 0;
       if (disabled) {
         this.downloadBtn.textContent = '⏳ Téléchargement...';
+      } else {
+        this.downloadBtn.textContent =
+          items.length > 0
+            ? `🎵 Télécharger (${items.length})`
+            : 'Liste vide';
       }
     }
     if (this.clearBtn) this.clearBtn.disabled = disabled;
+  }
+
+  /**
+   * Message file d'attente (SSE status queued)
+   * @param {string} text
+   */
+  setQueueWaitMessage(text) {
+    if (!this.queueHint) return;
+    this.queueHint.textContent = text;
+    this.queueHint.hidden = false;
+  }
+
+  clearQueueWaitMessage() {
+    if (!this.queueHint) return;
+    this.queueHint.textContent = '';
+    this.queueHint.hidden = true;
   }
 }

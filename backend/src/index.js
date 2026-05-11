@@ -281,7 +281,12 @@ app.get('/api/jobs/:jobId/stream', async (request, reply) => {
   };
 
   job.logs.forEach(line => sendEvent('log', line));
-  
+
+  const initialStatus = jobManager.getQueueStatus(jobId);
+  if (initialStatus) {
+    sendEvent('status', initialStatus);
+  }
+
   if (job.progress) {
     sendEvent('progress', job.progress);
   }
@@ -289,6 +294,13 @@ app.get('/api/jobs/:jobId/stream', async (request, reply) => {
   const unsubscribe = jobManager.onJobEvent(jobId, (eventData) => {
     if (eventData.type === 'log') {
       sendEvent('log', eventData.line);
+    } else if (eventData.type === 'status') {
+      sendEvent('status', {
+        status: eventData.status,
+        position: eventData.position,
+        queueLength: eventData.queueLength,
+        estimatedSeconds: eventData.estimatedSeconds
+      });
     } else if (eventData.type === 'progress') {
       sendEvent('progress', eventData.progress);
     } else if (eventData.type === 'complete') {

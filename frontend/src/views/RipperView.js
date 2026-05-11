@@ -125,6 +125,22 @@ export class RipperView {
     this.eventSource.addEventListener('log', (e) => {
       this.addLog(e.data);
     });
+
+    this.eventSource.addEventListener('status', (e) => {
+      const data = JSON.parse(e.data);
+      if (data.status === 'queued') {
+        const eta =
+          data.estimatedSeconds != null
+            ? ` · ~${data.estimatedSeconds}s`
+            : '';
+        this.setHint(
+          `⏳ En file d'attente — position ${data.position}/${data.queueLength}${eta}`,
+          false
+        );
+      } else if (data.status === 'running') {
+        this.setHint('Téléchargement en cours…', false);
+      }
+    });
     
     this.eventSource.addEventListener('progress', (e) => {
       const data = JSON.parse(e.data);
