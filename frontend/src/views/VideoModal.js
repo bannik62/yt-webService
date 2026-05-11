@@ -1,6 +1,25 @@
 import { createElement } from '../utils/dom.js';
 import { escapeHtml } from '../utils/formatters.js';
 
+/** Charge l’API IFrame (une fois) pour recevoir les événements fin de lecture */
+function loadYoutubeIframeAPI() {
+  if (window.YT?.Player) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = function () {
+      if (typeof prev === 'function') prev();
+      resolve();
+    };
+    if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      document.head.appendChild(tag);
+    }
+  });
+}
+
 /**
  * Extrait l'ID vidéo YouTube depuis une URL
  * @param {string} url
@@ -31,6 +50,7 @@ export class VideoModal {
     this.onAdd = null;
     this.onNext = null;
     this.onPrevious = null;
+    this._ytPlayer = null;
   }
 
   /**
@@ -50,6 +70,7 @@ export class VideoModal {
    * Ferme le modal
    */
   close() {
+    this._destroyYtPlayer();
     if (this.modal) {
       this.modal.classList.add('fade-out');
       setTimeout(() => {
@@ -62,10 +83,22 @@ export class VideoModal {
     }
   }
 
+  _destroyYtPlayer() {
+    if (this._ytPlayer) {
+      try {
+        this._ytPlayer.destroy();
+      } catch {
+        /* ignore */
+      }
+      this._ytPlayer = null;
+    }
+  }
+
   /**
    * Crée et affiche le modal
    */
   render() {
+    this._destroyYtPlayer();
     // Fermer modal existant
     if (this.modal) {
       this.modal.remove();
@@ -105,18 +138,57 @@ export class VideoModal {
     header.appendChild(title);
     header.appendChild(closeBtn);
 
-    // Body avec iframe
+    // Body : iframe simple (hors playlist) ou hôte API (playlist → enchaînement auto)
     const body = createElement('div', { className: 'modal-body' });
-    
+
     const iframeContainer = createElement('div', { className: 'video-container' });
-    const iframe = createElement('iframe', {
-      src: `https://www.youtube.com/embed/${videoId}?autoplay=1`,
-      frameborder: '0',
-      allow: 'autoplay; encrypted-media; fullscreen',
-      allowfullscreen: true
-    });
-    iframeContainer.appendChild(iframe);
-    body.appendChild(iframeContainer);
+    const usePlaylistPlayer =
+      this.playlist && this.playlist.length > 1;
+
+    if (usePlaylistPlayer) {
+      const hostId = `modal-yt-player-${Date.now()}`;
+      const host = createElement('div', {
+        id: hostId,
+        className: 'video-container-host'
+      });
+      iframeContainer.appendChild(host);
+      body.appendChild(iframeContainer);
+
+      loadYoutubeIframeAPI().then(() => {
+        if (!this.modal || !document.getElementById(hostId)) return;
+
+        this._ytPlayer = new window.YT.Player(hostId, {
+          videoId,
+          width: '100%',
+          height: '100%',
+          playerVars: {
+            autoplay: 1,
+            rel: 0,
+            modestbranding: 1
+          },
+          events: {
+            onStateChange: (e) => {
+              if (e.data !== window.YT.PlayerState.ENDED) return;
+              if (
+                this.playlist &&
+                this.currentIndex < this.playlist.length - 1
+              ) {
+                this.showNext();
+              }
+            }
+          }
+        });
+      });
+    } else {
+      const iframe = createElement('iframe', {
+        src: `https://www.youtube.com/embed/${videoId}?autoplay=1`,
+        frameborder: '0',
+        allow: 'autoplay; encrypted-media; fullscreen',
+        allowfullscreen: true
+      });
+      iframeContainer.appendChild(iframe);
+      body.appendChild(iframeContainer);
+    }
 
     // Footer avec bouton(s)
     const footer = createElement('div', { className: 'modal-footer' });
