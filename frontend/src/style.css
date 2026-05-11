@@ -319,6 +319,9 @@ body {
 .pill.rest {
   background: #2a2d33;
   color: #fff;
+  font-family: "Irish Grover", system-ui;
+  font-weight: 400;
+  font-style: normal;
 }
 
 .tagline {
