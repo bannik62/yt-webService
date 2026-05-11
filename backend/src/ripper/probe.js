@@ -107,10 +107,7 @@ export async function getTrending(countryCode = 'US', maxResults = 20, musicOnly
     referer: 'https://www.youtube.com/',
     // Forcer la région pour les résultats localisés
     geoBypass: true,
-    geoBypassCountry: countryCode,
-    // Demander explicitement les thumbnails
-    writeThumbnail: false,
-    listThumbnails: false
+    geoBypassCountry: countryCode
   };
   
   const cookiesPath = getCookiesPath();
