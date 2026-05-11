@@ -50,18 +50,33 @@ export class SearchMode {
       const response = await fetch('/api/download-batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls })
+        body: JSON.stringify({ urls }),
+        signal: AbortSignal.timeout(30000)  // Timeout 30 secondes
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || `Erreur serveur (${response.status})`);
       }
 
       const data = await response.json();
       this.currentJobId = data.jobId;
       this.connectToJobStream(data.jobId);
     } catch (err) {
-      alert(`Erreur : ${err.message}`);
+      // Messages d'erreur détaillés selon le type d'erreur
+      let message = '❌ Erreur : ';
+      
+      if (err.name === 'TimeoutError') {
+        message += 'Le serveur ne répond pas (timeout 30s)';
+      } else if (err.name === 'TypeError' && !navigator.onLine) {
+        message += 'Pas de connexion internet';
+      } else if (err.name === 'TypeError') {
+        message += 'Impossible de contacter le serveur';
+      } else {
+        message += err.message;
+      }
+      
+      alert(message);
       this.downloadListView.setLoading(false);
     }
   }
