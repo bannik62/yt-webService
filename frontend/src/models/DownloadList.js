@@ -49,6 +49,23 @@ export class DownloadList {
   }
 
   /**
+   * Réordonne un item (glisser-déposer)
+   * @param {number} fromIndex
+   * @param {number} toIndex
+   */
+  reorder(fromIndex, toIndex) {
+    if (fromIndex === toIndex) return;
+    const n = this.#items.length;
+    if (fromIndex < 0 || toIndex < 0 || fromIndex >= n || toIndex >= n) {
+      return;
+    }
+    const [removed] = this.#items.splice(fromIndex, 1);
+    this.#items.splice(toIndex, 0, removed);
+    this.saveToStorage();
+    this.#triggerChange();
+  }
+
+  /**
    * Vide la liste
    */
   clear() {

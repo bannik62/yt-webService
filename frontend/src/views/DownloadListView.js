@@ -17,7 +17,9 @@ export class DownloadListView {
     
     this.onDownload = null;
     this.onPlay = null;
-    
+    /** Évite que render() réactive le bouton pendant un batch en cours */
+    this._downloadBusy = false;
+
     this.init();
     this.render();
   }
@@ -80,10 +82,14 @@ export class DownloadListView {
     
     // Boutons
     if (this.downloadBtn) {
-      this.downloadBtn.disabled = items.length === 0;
-      const text = items.length > 0 
-        ? `🎵 Télécharger (${items.length})`
-        : 'Liste vide';
+      this.downloadBtn.disabled =
+        items.length === 0 || this._downloadBusy;
+      const text =
+        this._downloadBusy && items.length > 0
+          ? '⏳ Téléchargement...'
+          : items.length > 0
+            ? `🎵 Télécharger (${items.length})`
+            : 'Liste vide';
       this.downloadBtn.textContent = text;
     }
     if (this.playBtn) {
@@ -105,10 +111,59 @@ export class DownloadListView {
     
     // Render items
     this.itemsContainer.innerHTML = '';
+    const dragDisabled = !!(this._downloadBusy && items.length > 0);
+
     items.forEach((item, index) => {
       const li = createElement('li', { className: 'list-item' });
-      li.dataset.index = index; // ← Pour retrouver l'item lors des updates
-      
+      li.dataset.index = index;
+      li.draggable = !dragDisabled;
+      if (!dragDisabled) {
+        li.title = 'Glisser pour réorganiser';
+      }
+
+      li.addEventListener('dragstart', (e) => {
+        if (dragDisabled) {
+          e.preventDefault();
+          return;
+        }
+        if (e.target.closest('.list-item-remove')) {
+          e.preventDefault();
+          return;
+        }
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(index));
+        li.classList.add('list-item--dragging');
+      });
+
+      li.addEventListener('dragend', () => {
+        li.classList.remove('list-item--dragging');
+        this.itemsContainer
+          ?.querySelectorAll('.list-item--drag-over')
+          .forEach((el) => el.classList.remove('list-item--drag-over'));
+      });
+
+      li.addEventListener('dragover', (e) => {
+        if (dragDisabled) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        li.classList.add('list-item--drag-over');
+      });
+
+      li.addEventListener('dragleave', () => {
+        li.classList.remove('list-item--drag-over');
+      });
+
+      li.addEventListener('drop', (e) => {
+        if (dragDisabled) return;
+        e.preventDefault();
+        li.classList.remove('list-item--drag-over');
+        const from = parseInt(e.dataTransfer.getData('text/plain'), 10);
+        const to = parseInt(li.dataset.index, 10);
+        if (Number.isFinite(from) && Number.isFinite(to)) {
+          this.list.reorder(from, to);
+        }
+      });
+
       const num = createElement('div', { className: 'list-item-num' }, String(index + 1));
       li.appendChild(num);
       
@@ -223,6 +278,7 @@ export class DownloadListView {
    * @param {boolean} disabled
    */
   setLoading(disabled) {
+    this._downloadBusy = disabled;
     const items = this.list.getAll();
     if (this.downloadBtn) {
       this.downloadBtn.disabled = disabled || items.length === 0;
