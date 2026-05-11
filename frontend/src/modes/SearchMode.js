@@ -30,9 +30,8 @@ export class SearchMode {
       trendingBtn.addEventListener('click', () => this.showTrendingModal());
     }
     
-    // Sélection d'un pays dans la modal
-    this.trendingModal.onSelectCountry = (countryCode, musicOnly) => {
-      this.loadTrending(countryCode, musicOnly);
+    this.trendingModal.onConfirm = (musicOnly) => {
+      this.loadTrending(musicOnly);
     };
     
     // Clic résultat recherche → Modal vidéo
@@ -67,37 +66,28 @@ export class SearchMode {
     this.trendingModal.show();
   }
 
-  async loadTrending(countryCode, musicOnly = false) {
-    const hint = musicOnly ? `🎵 Chargement musique ${countryCode}...` : `🔥 Chargement des tendances ${countryCode}...`;
+  async loadTrending(musicOnly = false) {
+    const hint = musicOnly ? '🎵 Chargement…' : '🔥 Chargement…';
     this.searchView.setHint(hint, false);
     this.searchView.results.innerHTML = '';
-    
+
     try {
-      const data = await this.api.getTrending(countryCode, 20, musicOnly);
+      const data = await this.api.getTrending(20, musicOnly);
       const items = data.items ?? [];
-      
+      const keyword = data.keyword ?? '';
+
       if (items.length === 0) {
-        this.searchView.setHint('Aucune tendance trouvée.', false);
+        this.searchView.setHint('Aucun résultat.', false);
         return;
       }
-      
-      const prefix = musicOnly ? '🎵 Musique' : '🔥 Tendances';
-      this.searchView.setHint(`${prefix} - ${this.getCountryName(countryCode)}`, false);
+
+      const prefix = musicOnly ? '🎵' : '🔥';
+      const theme = keyword ? `${prefix} « ${keyword} »` : `${prefix} Découverte`;
+      this.searchView.setHint(theme, false);
       this.searchView.renderResults(items);
     } catch (err) {
-      this.searchView.setHint(err.message || 'Erreur lors du chargement des tendances', true);
+      this.searchView.setHint(err.message || 'Erreur lors du chargement', true);
     }
-  }
-
-  getCountryName(code) {
-    const names = {
-      'FR': 'France', 'US': 'États-Unis', 'GB': 'Royaume-Uni',
-      'DE': 'Allemagne', 'ES': 'Espagne', 'IT': 'Italie',
-      'CA': 'Canada', 'AU': 'Australie', 'BR': 'Brésil',
-      'MX': 'Mexique', 'AR': 'Argentine', 'JP': 'Japon',
-      'KR': 'Corée du Sud', 'IN': 'Inde', 'RU': 'Russie'
-    };
-    return names[code] || code;
   }
 
   async handleBatchDownload(urls) {

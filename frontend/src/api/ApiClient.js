@@ -50,17 +50,16 @@ export class ApiClient {
   }
 
   /**
-   * Récupère les tendances YouTube pour un pays
-   * @param {string} country - Code pays (FR, US, GB, etc.)
-   * @param {number} limit - Nombre max de résultats
-   * @param {boolean} musicOnly - Filtrer uniquement la musique
-   * @returns {Promise<{items: Array}>}
+   * Découverte aléatoire (liste de mots-clés côté serveur)
+   * @param {number} limit
+   * @param {boolean} musicOnly
+   * @returns {Promise<{items: Array, keyword: string}>}
    */
-  async getTrending(country = 'US', limit = 20, musicOnly = false) {
+  async getTrending(limit = 20, musicOnly = false) {
     try {
-      const params = { country, limit };
+      const params = { limit };
       if (musicOnly) params.musicOnly = 'true';
-      
+
       const url = `${this.baseUrl}/api/trending?${new URLSearchParams(params)}`;
       const res = await fetch(url, {
         signal: AbortSignal.timeout(30000)

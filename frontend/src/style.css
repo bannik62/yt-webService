@@ -887,13 +887,17 @@ body {
 
 /* Modal Trending */
 .modal-trending {
-  max-width: 600px;
+  max-width: 440px;
+}
+
+.modal-trending .modal-body {
+  padding-bottom: 0;
 }
 
 .trending-filter {
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #2a2d33;
+  margin-bottom: 1rem;
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
 .trending-filter-label {
@@ -917,45 +921,18 @@ body {
   color: #fff;
 }
 
-.trending-country-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 0.75rem;
-  max-height: 60vh;
-  overflow-y: auto;
+.trending-note {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
 }
 
-.trending-country-item {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.875rem 1rem;
-  background: #0f1114;
-  border: 2px solid #2a2d33;
-  border-radius: 0.5rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  text-align: left;
-  font-size: 0.95rem;
-  color: #e8eaed;
+.modal-trending-footer {
+  justify-content: stretch;
 }
 
-.trending-country-item:hover {
-  border-color: #e62117;
-  background: #1a1d21;
-  box-shadow: 0 4px 12px rgba(230, 33, 23, 0.4);
-  transform: translateY(-1px);
-}
-
-.trending-country-item .country-flag {
-  font-size: 1.75rem;
-  line-height: 1;
-}
-
-.trending-country-item .country-name {
-  flex: 1;
-  font-weight: 500;
+.modal-trending-footer .btn-primary {
+  width: 100%;
 }
 
 /* Progress */

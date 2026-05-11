@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import youtubedl from 'youtube-dl-exec';
 import { getCurrentProxy } from '../proxy/proxyManager.js';
 import { getCookiesPath, hasCookies } from '../utils/cookiesHelper.js';
+import { pickTrendingKeyword } from './trendingKeywords.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -18,7 +19,7 @@ export async function probePlaylistCount(url, { noPlaylist } = {}) {
   
   console.log('[probe] Analyse URL:', url);
   console.log('[probe] noPlaylist:', noPlaylist);
-  if (hasCookies) {
+  if (hasCookies()) {
     console.log('[probe] 🍪 Cookies: activés');
   }
   if (proxyUrl) {
@@ -78,36 +79,31 @@ export async function probePlaylistCount(url, { noPlaylist } = {}) {
 }
 
 /**
- * Récupère les vidéos tendances pour un pays donné
- * @param {string} countryCode - Code pays ISO (FR, US, GB, etc.)
- * @param {number} maxResults - Nombre max de résultats (défaut: 20)
- * @param {boolean} musicOnly - Filtrer uniquement la musique (défaut: false)
- * @returns {Promise<{items: Array}>}
+ * Découverte via recherche YouTube (mot-clé aléatoire)
+ * @param {number} maxResults
+ * @param {boolean} musicOnly
+ * @returns {Promise<{items: Array, keyword: string}>}
  */
-export async function getTrending(countryCode = 'US', maxResults = 20, musicOnly = false) {
+export async function getTrending(maxResults = 20, musicOnly = false) {
   const proxyUrl = getCurrentProxy();
-  
-  // Adapter la recherche selon le filtre musique
-  const searchTerm = musicOnly ? 'music' : `trending ${new Date().getFullYear()}`;
-  const searchQuery = `ytsearch${maxResults}:${searchTerm}`; 
-  
-  console.log('[trending] Pays:', countryCode);
+
+  const searchTerm = pickTrendingKeyword(musicOnly);
+  const searchQuery = `ytsearch${maxResults}:${searchTerm}`;
+
   console.log('[trending] Musique uniquement:', musicOnly);
+  console.log('[trending] Mot-clé:', searchTerm);
   console.log('[trending] Recherche:', searchQuery);
   if (proxyUrl) {
     console.log('[trending] 🌐 Proxy: activé');
   }
-  
+
   const flags = {
     dumpSingleJson: true,
     flatPlaylist: true,
     skipDownload: true,
     noWarnings: true,
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36',
-    referer: 'https://www.youtube.com/',
-    // Forcer la région pour les résultats localisés
-    geoBypass: true,
-    geoBypassCountry: countryCode
+    referer: 'https://www.youtube.com/'
   };
   
   const cookiesPath = getCookiesPath();
@@ -124,7 +120,7 @@ export async function getTrending(countryCode = 'US', maxResults = 20, musicOnly
     
     if (!data || !Array.isArray(data.entries)) {
       console.log('[trending] Aucune entrée trouvée');
-      return { items: [] };
+      return { items: [], keyword: searchTerm };
     }
     
     const items = data.entries
@@ -154,7 +150,7 @@ export async function getTrending(countryCode = 'US', maxResults = 20, musicOnly
       });
     
     console.log('[trending] Résultat:', items.length, 'vidéos');
-    return { items };
+    return { items, keyword: searchTerm };
   } catch (err) {
     console.error('[trending] Erreur:', err.message);
     throw new Error('Impossible de récupérer les tendances');

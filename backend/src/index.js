@@ -148,19 +148,13 @@ app.get('/api/search', async (request, reply) => {
   }
 });
 
-// Route pour obtenir les tendances YouTube par pays
+// Découverte : mot-clé aléatoire (recherche YouTube, pas le feed officiel Tendances)
 app.get('/api/trending', async (request, reply) => {
-  const country = request.query.country || 'US';
   const maxResults = Number(request.query.limit) || 20;
   const musicOnly = request.query.musicOnly === 'true';
-  
-  // Validation du code pays (2 lettres majuscules)
-  if (!/^[A-Z]{2}$/.test(country)) {
-    return reply.status(400).send({ error: 'Code pays invalide (ex: FR, US, GB)' });
-  }
-  
+
   try {
-    const payload = await getTrending(country, maxResults, musicOnly);
+    const payload = await getTrending(maxResults, musicOnly);
     return payload;
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erreur tendances';
