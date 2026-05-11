@@ -19,7 +19,18 @@ export const TRENDING_KEYWORDS_GENERAL = [
   'behind the scenes',
   'TED talk français',
   'sketch humour français',
-  'deep dive explained'
+  'deep dive explained',
+  'clash royale francais',
+  'securité informatique',
+  'cybersecurity français',
+  'cybersecurity en français',
+  'cybersecurity en français 2026',
+  'nouveauté css 2026',
+  'nouveauté html 2026',
+  'nouveauté javascript 2026',
+  'nouveauté svelte 2026',
+  'doc nozman francais',
+  'film entier en francais',
 ];
 
 export const TRENDING_KEYWORDS_MUSIC = [
