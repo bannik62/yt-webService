@@ -152,6 +152,7 @@ app.get('/api/search', async (request, reply) => {
 app.get('/api/trending', async (request, reply) => {
   const country = request.query.country || 'US';
   const maxResults = Number(request.query.limit) || 20;
+  const musicOnly = request.query.musicOnly === 'true';
   
   // Validation du code pays (2 lettres majuscules)
   if (!/^[A-Z]{2}$/.test(country)) {
@@ -159,7 +160,7 @@ app.get('/api/trending', async (request, reply) => {
   }
   
   try {
-    const payload = await getTrending(country, maxResults);
+    const payload = await getTrending(country, maxResults, musicOnly);
     return payload;
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erreur tendances';

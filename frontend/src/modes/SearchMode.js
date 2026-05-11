@@ -31,8 +31,8 @@ export class SearchMode {
     }
     
     // Sélection d'un pays dans la modal
-    this.trendingModal.onSelectCountry = (countryCode) => {
-      this.loadTrending(countryCode);
+    this.trendingModal.onSelectCountry = (countryCode, musicOnly) => {
+      this.loadTrending(countryCode, musicOnly);
     };
     
     // Clic résultat recherche → Modal vidéo
@@ -67,12 +67,13 @@ export class SearchMode {
     this.trendingModal.show();
   }
 
-  async loadTrending(countryCode) {
-    this.searchView.setHint(`🔥 Chargement des tendances ${countryCode}...`, false);
+  async loadTrending(countryCode, musicOnly = false) {
+    const hint = musicOnly ? `🎵 Chargement musique ${countryCode}...` : `🔥 Chargement des tendances ${countryCode}...`;
+    this.searchView.setHint(hint, false);
     this.searchView.results.innerHTML = '';
     
     try {
-      const data = await this.api.getTrending(countryCode, 20);
+      const data = await this.api.getTrending(countryCode, 20, musicOnly);
       const items = data.items ?? [];
       
       if (items.length === 0) {
@@ -80,7 +81,8 @@ export class SearchMode {
         return;
       }
       
-      this.searchView.setHint(`🔥 Tendances - ${this.getCountryName(countryCode)}`, false);
+      const prefix = musicOnly ? '🎵 Musique' : '🔥 Tendances';
+      this.searchView.setHint(`${prefix} - ${this.getCountryName(countryCode)}`, false);
       this.searchView.renderResults(items);
     } catch (err) {
       this.searchView.setHint(err.message || 'Erreur lors du chargement des tendances', true);

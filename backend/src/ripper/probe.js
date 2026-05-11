@@ -81,16 +81,18 @@ export async function probePlaylistCount(url, { noPlaylist } = {}) {
  * Récupère les vidéos tendances pour un pays donné
  * @param {string} countryCode - Code pays ISO (FR, US, GB, etc.)
  * @param {number} maxResults - Nombre max de résultats (défaut: 20)
+ * @param {boolean} musicOnly - Filtrer uniquement la musique (défaut: false)
  * @returns {Promise<{items: Array}>}
  */
-export async function getTrending(countryCode = 'US', maxResults = 20) {
+export async function getTrending(countryCode = 'US', maxResults = 20, musicOnly = false) {
   const proxyUrl = getCurrentProxy();
   
-  // Utiliser une recherche YouTube avec des termes génériques populaires
-  // Pour avoir du contenu varié et populaire
-  const searchQuery = `ytsearch${maxResults}:trending ${new Date().getFullYear()}`; 
+  // Adapter la recherche selon le filtre musique
+  const searchTerm = musicOnly ? 'music' : `trending ${new Date().getFullYear()}`;
+  const searchQuery = `ytsearch${maxResults}:${searchTerm}`; 
   
   console.log('[trending] Pays:', countryCode);
+  console.log('[trending] Musique uniquement:', musicOnly);
   console.log('[trending] Recherche:', searchQuery);
   if (proxyUrl) {
     console.log('[trending] 🌐 Proxy: activé');

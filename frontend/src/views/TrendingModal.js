@@ -7,6 +7,7 @@ export class TrendingModal {
   constructor() {
     this.modal = null;
     this.onSelectCountry = null;
+    this.musicOnly = false; // État de la checkbox
   }
 
   /**
@@ -34,7 +35,7 @@ export class TrendingModal {
    */
   selectCountry(countryCode) {
     if (this.onSelectCountry) {
-      this.onSelectCountry(countryCode);
+      this.onSelectCountry(countryCode, this.musicOnly);
     }
     this.close();
   }
@@ -125,6 +126,32 @@ export class TrendingModal {
     header.appendChild(closeBtn);
 
     const body = createElement('div', { className: 'modal-body' });
+    
+    // Checkbox pour filtrer uniquement la musique
+    const filterContainer = createElement('div', { className: 'trending-filter' });
+    
+    const checkbox = createElement('input', {
+      type: 'checkbox',
+      id: 'music-only-checkbox',
+      checked: this.musicOnly
+    });
+    
+    checkbox.addEventListener('change', (e) => {
+      this.musicOnly = e.target.checked;
+    });
+    
+    const label = createElement('label', {
+      htmlFor: 'music-only-checkbox',
+      className: 'trending-filter-label'
+    });
+    
+    const labelText = createElement('span', {}, '🎵 Musique uniquement');
+    
+    label.appendChild(checkbox);
+    label.appendChild(labelText);
+    filterContainer.appendChild(label);
+    
+    body.appendChild(filterContainer);
     
     const countryList = createElement('div', { className: 'trending-country-list' });
     
