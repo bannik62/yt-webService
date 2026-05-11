@@ -48,7 +48,7 @@ export async function runDownload(opts) {
   onLog('🔧 Configuration yt-dlp:');
   onLog(`   User-Agent: Chrome 149 (Windows, 2026)`);
   onLog(`   Referer: YouTube`);
-  onLog(`   Headers personnalisés: ${5} headers ajoutés`);
+  onLog(`   Headers personnalisés: 2 headers ajoutés (Accept, Accept-Language)`);
   if (hasCookies) {
     onLog(`   🍪 Cookies: activés (cookies.txt)`);
   } else {
@@ -110,11 +110,9 @@ export async function runDownload(opts) {
     referer: 'https://www.youtube.com/',
     // Headers supplémentaires pour ressembler à un vrai navigateur
     addHeader: [
-      'Accept-Language:en-US,en;q=0.9,fr;q=0.8',
-      'Accept:text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Sec-Fetch-Mode:navigate',
-      'Sec-Fetch-Site:none',
-      'Sec-Fetch-Dest:document'
+      'Accept-Language: en-US,en;q=0.9',
+      'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      // Sec-Fetch-* supprimés: auto-générés par navigateurs, inutiles pour yt-dlp
     ]
   };
   
