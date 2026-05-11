@@ -13,29 +13,52 @@ export async function fetchWebShareProxyList(apiKey) {
     throw new Error('WebShare API Key manquante');
   }
 
-  try {
-    const response = await fetch('https://proxy.webshare.io/api/v2/proxy/list/?mode=direct&page=1&page_size=25', {
-      headers: {
-        'Authorization': `Token ${apiKey}`
-      }
-    });
+  const base =
+    'https://proxy.webshare.io/api/v2/proxy/list/?mode=direct&page_size=100';
+  const out = [];
 
-    if (!response.ok) {
-      throw new Error(`WebShare API error: ${response.status} ${response.statusText}`);
+  try {
+    let url = base;
+
+    while (url) {
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Token ${apiKey}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `WebShare API error: ${response.status} ${response.statusText}`
+        );
+      }
+
+      const data = await response.json();
+
+      if (data.results?.length) {
+        for (const p of data.results) {
+          out.push({
+            proxy: `http://${p.username}:${p.password}@${p.proxy_address}:${p.port}`,
+            country: p.country_code || 'Unknown',
+            city: p.city_name || 'Unknown'
+          });
+        }
+      }
+
+      // Pagination : `next` est en général une URL absolue, parfois relative
+      url = data.next
+        ? new URL(data.next, 'https://proxy.webshare.io').href
+        : null;
     }
 
-    const data = await response.json();
-    
-    if (!data.results || data.results.length === 0) {
+    if (out.length === 0) {
       throw new Error('Aucun proxy disponible sur WebShare');
     }
 
-    // Retourner toute la liste
-    return data.results.map(p => ({
-      proxy: `http://${p.username}:${p.password}@${p.proxy_address}:${p.port}`,
-      country: p.country_code || 'Unknown',
-      city: p.city_name || 'Unknown'
-    }));
+    console.log(
+      `[WebShare] ${out.length} proxy(s) chargés (toutes les pages — même ensemble que sur le compte)`
+    );
+    return out;
   } catch (error) {
     console.error('[WebShare] Erreur:', error);
     throw error;

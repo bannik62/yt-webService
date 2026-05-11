@@ -28,6 +28,7 @@ export class SearchView {
     const query = this.input?.value.trim() ?? '';
     if (!query) return;
 
+    this.onBeforeSearch?.();
     this.results.innerHTML = '';
     this.setHint('Recherche…', false);
 
@@ -53,10 +54,20 @@ export class SearchView {
   }
 
   renderResults(items) {
-    items.forEach(item => {
+    if (!this.results) return;
+    this.results.innerHTML = '';
+    this.appendResults(items);
+  }
+
+  /**
+   * Ajoute des cartes résultat sans vider la liste (ex. scroll infini tendances).
+   */
+  appendResults(items) {
+    if (!this.results) return;
+
+    items.forEach((item) => {
       const li = createElement('li', { className: 'result' });
-      
-      // Miniature si disponible
+
       if (item.thumbnail) {
         const img = createElement('img', {
           src: item.thumbnail,
@@ -66,41 +77,56 @@ export class SearchView {
         });
         li.appendChild(img);
       }
-      
+
       const content = createElement('div', { className: 'result-content' });
-      
-      const title = createElement('div', {
-        className: 'result-title'
-      }, escapeHtml(item.title));
-      
-      const meta = createElement('div', {
-        className: 'result-meta'
-      }, `${escapeHtml(item.channel ?? '—')} · ${formatDuration(item.duration)}`);
-      
+
+      const title = createElement(
+        'div',
+        { className: 'result-title' },
+        escapeHtml(item.title)
+      );
+
+      const meta = createElement(
+        'div',
+        { className: 'result-meta' },
+        `${escapeHtml(item.channel ?? '—')} · ${formatDuration(item.duration)}`
+      );
+
       content.appendChild(title);
       content.appendChild(meta);
       li.appendChild(content);
-      
-      // Bouton + discret pour ajouter directement à la playlist
-      const addBtn = createElement('button', { 
+
+      const addBtn = createElement('button', {
         className: 'quick-add-btn',
         innerHTML: '+'
       });
-      
       addBtn.addEventListener('click', (e) => {
-        e.stopPropagation(); // Empêche d'ouvrir la modale
+        e.stopPropagation();
         this.onQuickAdd?.(item);
       });
-      
       li.appendChild(addBtn);
-      
-      // Clic → ouvre modal vidéo
+
       li.addEventListener('click', () => {
         this.onResultClick?.(item);
       });
-      
+
       this.results.appendChild(li);
     });
+  }
+
+  /**
+   * Indicateur discret en bas de liste pendant le chargement tendances.
+   */
+  setTrendingLoadingMore(loading) {
+    if (!this.results) return;
+    const existing = this.results.querySelector('.results-load-more');
+    if (loading) {
+      if (existing) return;
+      const li = createElement('li', { className: 'results-load-more' }, 'Chargement…');
+      this.results.appendChild(li);
+    } else if (existing) {
+      existing.remove();
+    }
   }
 
   setHint(text, isError = false) {
