@@ -38,6 +38,12 @@ export function createElement(tag, attrs = {}, children = null) {
     } else if (key.startsWith('on')) {
       const event = key.slice(2).toLowerCase();
       el.addEventListener(event, value);
+    } else if (typeof value === 'boolean') {
+      // Pour les attributs booléens (disabled, checked, hidden, etc.)
+      if (value) {
+        el.setAttribute(key, '');
+      }
+      // Si false, on ne fait rien (pas d'attribut)
     } else {
       el.setAttribute(key, value);
     }
