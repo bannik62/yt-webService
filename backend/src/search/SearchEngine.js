@@ -215,7 +215,8 @@ export class SearchEngine {
         title: String(row.title),
         channel: row.channel ? String(row.channel) : null,
         duration: typeof row.duration === 'number' ? row.duration : null,
-        url: `https://www.youtube.com/watch?v=${encodeURIComponent(row.id)}`
+        url: `https://www.youtube.com/watch?v=${encodeURIComponent(row.id)}`,
+        thumbnail: row.thumbnail || `https://i.ytimg.com/vi/${row.id}/mqdefault.jpg`
       });
       if (out.length >= this.#maxResults) break;
     }

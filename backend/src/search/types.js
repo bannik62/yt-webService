@@ -5,6 +5,7 @@
  * @property {string | null} channel
  * @property {number | null} duration
  * @property {string} url
+ * @property {string} thumbnail
  */
 
 /**
@@ -14,6 +15,7 @@
  * @property {string | null} channel
  * @property {number | null} duration
  * @property {string} url
+ * @property {string} thumbnail
  */
 
 export {};
