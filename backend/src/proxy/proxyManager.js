@@ -74,6 +74,35 @@ export function getCurrentProxyInfo() {
 }
 
 /**
+ * URL du proxy au pool[index] (ne modifie pas currentProxy).
+ * @param {number} index
+ * @returns {string | null}
+ */
+export function getProxyUrlAtIndex(index) {
+  if (
+    !Number.isInteger(index) ||
+    index < 0 ||
+    index >= proxyPool.length
+  ) {
+    return null;
+  }
+  return proxyPool[index].proxy;
+}
+
+/**
+ * Index explicite dans le pool → URL ; sinon proxy global (PROXY_URL / dernier select).
+ * @param {number | undefined} proxyIndex
+ * @returns {string | null}
+ */
+export function resolveProxyUrl(proxyIndex) {
+  if (proxyIndex !== undefined && proxyIndex !== null) {
+    const url = getProxyUrlAtIndex(proxyIndex);
+    if (url) return url;
+  }
+  return getCurrentProxy();
+}
+
+/**
  * Obtient la liste complète des proxies avec indication du proxy actuel
  */
 export function getProxyPool() {

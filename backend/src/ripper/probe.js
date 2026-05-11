@@ -14,8 +14,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * @param {boolean} options.noPlaylist
  * @returns {Promise<{kind: string, count: number, title: string}>}
  */
-export async function probePlaylistCount(url, { noPlaylist } = {}) {
-  const proxyUrl = getCurrentProxy();
+export async function probePlaylistCount(url, { noPlaylist, proxyUrl: proxyOverride } = {}) {
+  const proxyUrl = proxyOverride ?? getCurrentProxy();
   
   console.log('[probe] Analyse URL:', url);
   console.log('[probe] noPlaylist:', noPlaylist);
@@ -84,8 +84,8 @@ export async function probePlaylistCount(url, { noPlaylist } = {}) {
  * @param {boolean} musicOnly
  * @returns {Promise<{items: Array, keyword: string}>}
  */
-export async function getTrending(maxResults = 20, musicOnly = false) {
-  const proxyUrl = getCurrentProxy();
+export async function getTrending(maxResults = 20, musicOnly = false, opts = {}) {
+  const proxyUrl = opts.proxyUrl ?? getCurrentProxy();
 
   const searchTerm = pickTrendingKeyword(musicOnly);
   const searchQuery = `ytsearch${maxResults}:${searchTerm}`;

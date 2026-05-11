@@ -1,4 +1,5 @@
 import { createElement } from '../utils/dom.js';
+import { setStoredProxyIndex } from '../utils/proxyPreference.js';
 
 /**
  * Retourne l'emoji du drapeau pour un code pays
@@ -55,6 +56,7 @@ export class ProxyModal {
   constructor() {
     this.modal = null;
     this.proxies = [];
+    this.proxiesEmptyMessage = null;
     this.onSelect = null;
     this.onRefresh = null;
   }
@@ -72,6 +74,7 @@ export class ProxyModal {
       }
       const data = await response.json();
       this.proxies = data.proxies || [];
+      this.proxiesEmptyMessage = data.message || null;
     } catch (error) {
       alert(`❌ ${error.message}`);
       return;
@@ -150,7 +153,9 @@ export class ProxyModal {
       }
       
       const data = await response.json();
-      
+
+      setStoredProxyIndex(index);
+
       // Callback
       if (this.onSelect) {
         this.onSelect(data.proxy);
@@ -207,7 +212,10 @@ export class ProxyModal {
     const body = createElement('div', { className: 'modal-body' });
     
     if (this.proxies.length === 0) {
-      body.innerHTML = '<p class="proxy-empty">Aucun proxy disponible.</p>';
+      const hint =
+        this.proxiesEmptyMessage ||
+        'Aucun proxy disponible. Configurez WEBSHARE_API_KEY ou PROXY_URL sur l’API.';
+      body.innerHTML = `<p class="proxy-empty">${hint}</p>`;
     } else {
       const proxyList = createElement('ul', { className: 'proxy-list' });
       

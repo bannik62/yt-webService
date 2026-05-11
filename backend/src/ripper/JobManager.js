@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { runDownload } from './runDownload.js';
+import { resolveProxyUrl } from '../proxy/proxyManager.js';
 
 /**
  * Gestionnaire de queue de jobs de téléchargement
@@ -38,9 +39,10 @@ export class JobManager extends EventEmitter {
    * @param {boolean} params.noPlaylist
    * @param {number} params.maxDownloads
    * @param {string} params.ip - Pour rate limiting futur
+   * @param {number | undefined} params.proxyIndex - Index dans le pool WebShare
    * @returns {string} jobId
    */
-  createJob({ url, noPlaylist, maxDownloads, ip }) {
+  createJob({ url, noPlaylist, maxDownloads, ip, proxyIndex }) {
     const jobId = randomUUID();
     const jobDir = path.join(this.#tempDir, jobId);
 
@@ -50,6 +52,7 @@ export class JobManager extends EventEmitter {
       noPlaylist,
       maxDownloads,
       ip,
+      proxyIndex,
       status: 'queued',
       logs: [],
       progress: { filePct: 0, itemIndex: 1, itemTotal: 1 },
@@ -72,9 +75,10 @@ export class JobManager extends EventEmitter {
    * @param {object} params
    * @param {string[]} params.urls
    * @param {string} params.ip
+   * @param {number | undefined} params.proxyIndex
    * @returns {string} jobId
    */
-  createBatchJob({ urls, ip }) {
+  createBatchJob({ urls, ip, proxyIndex }) {
     const jobId = randomUUID();
     const jobDir = path.join(this.#tempDir, jobId);
 
@@ -84,6 +88,7 @@ export class JobManager extends EventEmitter {
       noPlaylist: true, // Toujours single pour batch
       maxDownloads: 10, // Limite à 10 si playlist détectée
       ip,
+      proxyIndex,
       status: 'queued',
       logs: [],
       progress: { filePct: 0, itemIndex: 1, itemTotal: urls.length },
@@ -198,11 +203,14 @@ export class JobManager extends EventEmitter {
         job.logs.push(`\n=== Traitement ${i + 1}/${job.urls.length}: ${url} ===\n`);
         this.#emitJobEvent(jobId, 'log', { line: `\n=== Traitement ${i + 1}/${job.urls.length} ===` });
 
+        const proxyUrl = resolveProxyUrl(job.proxyIndex);
+
         await runDownload({
           url,
           targetDir: job.jobDir,
           noPlaylist: job.noPlaylist,
           maxDownloads: job.maxDownloads || 10, // Limite playlists à 10
+          proxyUrl,
           onLog: (line) => {
             job.logs.push(line);
             this.#emitJobEvent(jobId, 'log', { line });

@@ -10,7 +10,7 @@ import { getCorsOptions } from './corsOptions.js';
 import { SearchEngine } from './search/SearchEngine.js';
 import { probePlaylistCount, getTrending } from './ripper/probe.js';
 import { JobManager } from './ripper/JobManager.js';
-import { initProxyAtStartup, getProxyPool, selectProxyByIndex, refreshProxyPool, getCurrentProxy, getCurrentProxyInfo } from './proxy/proxyManager.js';
+import { initProxyAtStartup, getProxyPool, selectProxyByIndex, refreshProxyPool, getCurrentProxy, getCurrentProxyInfo, resolveProxyUrl } from './proxy/proxyManager.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COOKIES_PATH = path.join(__dirname, '..', 'cookies.txt');
@@ -24,6 +24,28 @@ const searchEngine = new SearchEngine({
 });
 
 const jobManager = new JobManager();
+
+/**
+ * @param {unknown} raw
+ * @returns {{ ok: true, index: number | undefined } | { ok: false, error: string }}
+ */
+function normalizeProxyIndex(raw) {
+  if (raw === undefined || raw === null || raw === '') {
+    return { ok: true, index: undefined };
+  }
+  const n = Number(raw);
+  if (!Number.isInteger(n)) {
+    return { ok: false, error: 'proxyIndex doit être un entier' };
+  }
+  const poolLen = getProxyPool().length;
+  if (poolLen === 0) {
+    return { ok: true, index: undefined };
+  }
+  if (n < 0 || n >= poolLen) {
+    return { ok: false, error: 'proxyIndex hors limites' };
+  }
+  return { ok: true, index: n };
+}
 
 const app = Fastify({ logger: true });
 
@@ -55,16 +77,19 @@ app.get('/api/proxy-status', async () => {
 });
 
 // Route pour obtenir la liste complète des proxies
-app.get('/api/proxies', async (request, reply) => {
+app.get('/api/proxies', async () => {
   const pool = getProxyPool();
-  
+
   if (pool.length === 0) {
-    return reply.status(404).send({
-      ok: false,
-      error: 'Aucun proxy disponible. Configurez WEBSHARE_API_KEY.'
-    });
+    return {
+      ok: true,
+      proxies: [],
+      total: 0,
+      message:
+        'Aucun proxy dans le pool. Configurez WEBSHARE_API_KEY ou PROXY_URL sur l’API.'
+    };
   }
-  
+
   return {
     ok: true,
     proxies: pool,
@@ -153,8 +178,14 @@ app.get('/api/trending', async (request, reply) => {
   const maxResults = Number(request.query.limit) || 20;
   const musicOnly = request.query.musicOnly === 'true';
 
+  const p = normalizeProxyIndex(request.query.proxyIndex);
+  if (!p.ok) {
+    return reply.status(400).send({ error: p.error });
+  }
+
   try {
-    const payload = await getTrending(maxResults, musicOnly);
+    const proxyUrl = resolveProxyUrl(p.index);
+    const payload = await getTrending(maxResults, musicOnly, { proxyUrl });
     return payload;
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erreur tendances';
@@ -163,8 +194,13 @@ app.get('/api/trending', async (request, reply) => {
 });
 
 app.post('/api/probe', async (request, reply) => {
-  const { url, noPlaylist, maxDownloads } = request.body || {};
-  
+  const { url, noPlaylist, maxDownloads, proxyIndex } = request.body || {};
+
+  const p = normalizeProxyIndex(proxyIndex);
+  if (!p.ok) {
+    return reply.status(400).send({ ok: false, error: p.error });
+  }
+
   if (!url || typeof url !== 'string') {
     return reply.status(400).send({ 
       ok: false, 
@@ -173,8 +209,10 @@ app.post('/api/probe', async (request, reply) => {
   }
 
   try {
+    const proxyUrl = resolveProxyUrl(p.index);
     const result = await probePlaylistCount(url.trim(), { 
-      noPlaylist: Boolean(noPlaylist) 
+      noPlaylist: Boolean(noPlaylist),
+      proxyUrl
     });
     
     let effectiveCount = result.count;
@@ -201,7 +239,12 @@ app.post('/api/probe', async (request, reply) => {
 });
 
 app.post('/api/download', async (request, reply) => {
-  const { url, noPlaylist, maxDownloads } = request.body || {};
+  const { url, noPlaylist, maxDownloads, proxyIndex } = request.body || {};
+
+  const p = normalizeProxyIndex(proxyIndex);
+  if (!p.ok) {
+    return reply.status(400).send({ error: p.error });
+  }
   
   if (!url || typeof url !== 'string') {
     return reply.status(400).send({ 
@@ -216,7 +259,8 @@ app.post('/api/download', async (request, reply) => {
       url: url.trim(),
       noPlaylist: Boolean(noPlaylist),
       maxDownloads: Number(maxDownloads) || 0,
-      ip: clientIp
+      ip: clientIp,
+      proxyIndex: p.index
     });
     
     return { jobId };
@@ -229,7 +273,12 @@ app.post('/api/download', async (request, reply) => {
 });
 
 app.post('/api/download-batch', async (request, reply) => {
-  const { urls } = request.body || {};
+  const { urls, proxyIndex } = request.body || {};
+
+  const p = normalizeProxyIndex(proxyIndex);
+  if (!p.ok) {
+    return reply.status(400).send({ error: p.error });
+  }
   
   if (!Array.isArray(urls) || urls.length === 0) {
     return reply.status(400).send({ 
@@ -248,7 +297,8 @@ app.post('/api/download-batch', async (request, reply) => {
   try {
     const jobId = jobManager.createBatchJob({
       urls: urls.map(u => String(u).trim()),
-      ip: clientIp
+      ip: clientIp,
+      proxyIndex: p.index
     });
     
     return { jobId };

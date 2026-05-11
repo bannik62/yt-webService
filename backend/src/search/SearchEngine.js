@@ -12,18 +12,10 @@ const ALLOWED_YT_HOSTS = new Set([
 ]);
 
 /**
- * Moteur de recherche : données brutes et état interne restent privés (#).
- * Seules les méthodes publiques exposent des objets plain / sérialisables.
+ * Moteur de recherche : configuration sur l'instance, résultats en variables locales
+ * (plusieurs GET /api/search en parallèle ne partagent pas de tableaux mutables).
  */
 export class SearchEngine {
-  /** @type {string | null} */
-  #lastQuery = null;
-  /** @type {number | null} */
-  #lastRunAt = null;
-  /** @type {import('./types.js').NormalizedItem[]} */
-  #normalizedItems = [];
-  /** lignes JSON brutes yt-dlp (ne jamais renvoyer telles quelles au client) */
-  #rawJsonLines = [];
   #maxResults;
   /** binaire ou chemin absolu (voir YT_DLP_PATH) */
   #ytDlpBin;
@@ -58,30 +50,12 @@ export class SearchEngine {
       });
     }
 
-    this.#lastQuery = q;
-    this.#lastRunAt = Date.now();
-    await this.#runYtDlpSearch(q);
+    const normalizedItems = await this.#runYtDlpSearch(q);
 
     return {
       query: q,
-      items: this.#publicSnapshot()
+      items: normalizedItems.map((item) => ({ ...item }))
     };
-  }
-
-  /** Aperçu minimal pour logs / admin sans exposer #rawJsonLines */
-  getMeta() {
-    return {
-      lastQuery: this.#lastQuery,
-      lastRunAt: this.#lastRunAt,
-      resultCount: this.#normalizedItems.length
-    };
-  }
-
-  /**
-   * Copie défensive des résultats publics (pas de référence aux objets internes).
-   */
-  #publicSnapshot() {
-    return this.#normalizedItems.map((item) => ({ ...item }));
   }
 
   /**
@@ -114,6 +88,10 @@ export class SearchEngine {
     return { type: 'url', value: trimmed };
   }
 
+  /**
+   * @param {string} q
+   * @returns {Promise<import('./types.js').NormalizedItem[]>}
+   */
   async #runYtDlpSearch(q) {
     const target = this.#resolveTarget(q);
     const entry =
@@ -141,15 +119,14 @@ export class SearchEngine {
       throw err;
     }
 
-    this.#rawJsonLines = stdout
+    const rawJsonLines = stdout
       .split('\n')
       .map((line) => line.trim())
       .filter(Boolean);
 
-    this.#normalizedItems =
-      this.#rawJsonLines.length > 0
-        ? this.#parseAndNormalize()
-        : [];
+    return rawJsonLines.length > 0
+      ? this.#parseAndNormalize(rawJsonLines)
+      : [];
   }
 
   /**
@@ -199,10 +176,14 @@ export class SearchEngine {
     });
   }
 
-  #parseAndNormalize() {
+  /**
+   * @param {string[]} rawJsonLines
+   * @returns {import('./types.js').NormalizedItem[]}
+   */
+  #parseAndNormalize(rawJsonLines) {
     /** @type {import('./types.js').NormalizedItem[]} */
     const out = [];
-    for (const line of this.#rawJsonLines) {
+    for (const line of rawJsonLines) {
       let row;
       try {
         row = JSON.parse(line);

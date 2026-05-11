@@ -1,6 +1,8 @@
 /**
  * Client API centralisé
  */
+import { getStoredProxyIndex } from '../utils/proxyPreference.js';
+
 export class ApiClient {
   constructor(baseUrl = '') {
     this.baseUrl = baseUrl;
@@ -59,6 +61,8 @@ export class ApiClient {
     try {
       const params = { limit };
       if (musicOnly) params.musicOnly = 'true';
+      const px = getStoredProxyIndex();
+      if (px !== undefined) params.proxyIndex = String(px);
 
       const url = `${this.baseUrl}/api/trending?${new URLSearchParams(params)}`;
       const res = await fetch(url, {
@@ -83,10 +87,14 @@ export class ApiClient {
    */
   async probe({ url, noPlaylist, maxDownloads }) {
     try {
+      const body = { url, noPlaylist, maxDownloads };
+      const px = getStoredProxyIndex();
+      if (px !== undefined) body.proxyIndex = px;
+
       const res = await fetch(`${this.baseUrl}/api/probe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, noPlaylist, maxDownloads }),
+        body: JSON.stringify(body),
         signal: AbortSignal.timeout(30000)
       });
       
@@ -108,10 +116,14 @@ export class ApiClient {
    */
   async startDownload({ url, noPlaylist, maxDownloads }) {
     try {
+      const body = { url, noPlaylist, maxDownloads };
+      const px = getStoredProxyIndex();
+      if (px !== undefined) body.proxyIndex = px;
+
       const res = await fetch(`${this.baseUrl}/api/download`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, noPlaylist, maxDownloads }),
+        body: JSON.stringify(body),
         signal: AbortSignal.timeout(30000)
       });
       
@@ -133,10 +145,14 @@ export class ApiClient {
    */
   async startBatchDownload(urls) {
     try {
+      const body = { urls };
+      const px = getStoredProxyIndex();
+      if (px !== undefined) body.proxyIndex = px;
+
       const res = await fetch(`${this.baseUrl}/api/download-batch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls }),
+        body: JSON.stringify(body),
         signal: AbortSignal.timeout(30000)
       });
       

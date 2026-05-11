@@ -26,7 +26,8 @@ export async function runDownload(opts) {
     noPlaylist,
     maxDownloads,
     onLog,
-    onProgress
+    onProgress,
+    proxyUrl: proxyOverride = null
   } = opts;
 
   const limit =
@@ -42,14 +43,13 @@ export async function runDownload(opts) {
   let itemIndex = 1;
   let lastFilePct = 0;
 
-  // Logs de démarrage pour debugging
-  const proxyUrl = getCurrentProxy();
-  
+  const proxyUrl = proxyOverride ?? getCurrentProxy();
+
   onLog('🔧 Configuration yt-dlp:');
   onLog(`   User-Agent: Chrome 149 (Windows, 2026)`);
   onLog(`   Referer: YouTube`);
   onLog(`   Headers personnalisés: 2 headers ajoutés (Accept, Accept-Language)`);
-  if (hasCookies) {
+  if (hasCookies()) {
     onLog(`   🍪 Cookies: activés (cookies.txt)`);
   } else {
     onLog(`   ⚠️ Cookies: non disponibles (mode anonyme)`);
@@ -66,7 +66,10 @@ export async function runDownload(opts) {
   onLog('Analyse de la URL…');
   let info;
   try {
-    info = await probePlaylistCount(url.trim(), { noPlaylist: Boolean(noPlaylist) });
+    info = await probePlaylistCount(url.trim(), {
+      noPlaylist: Boolean(noPlaylist),
+      proxyUrl
+    });
     let count = Number.isFinite(info.count) && info.count > 0 ? info.count : 1;
     if (Boolean(noPlaylist)) count = 1;
     else if (limit > 0) count = Math.min(count, limit);

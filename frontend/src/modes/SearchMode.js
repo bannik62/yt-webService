@@ -99,19 +99,7 @@ export class SearchMode {
     this.downloadListView.setLoading(true);
 
     try {
-      const response = await fetch('/api/download-batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls }),
-        signal: AbortSignal.timeout(30000)  // Timeout 30 secondes
-      });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data?.error || `Erreur serveur (${response.status})`);
-      }
-
-      const data = await response.json();
+      const data = await this.api.startBatchDownload(urls);
       this.currentJobId = data.jobId;
       this.connectToJobStream(data.jobId);
     } catch (err) {
