@@ -88,6 +88,12 @@ export class SearchMode {
 
     this.eventSource = this.api.streamJob(jobId);
     
+    // Écouter la progression pour mettre à jour les barres
+    this.eventSource.addEventListener('progress', (e) => {
+      const data = JSON.parse(e.data);
+      this._handleProgress(data);
+    });
+    
     this.eventSource.addEventListener('complete', (e) => {
       const data = JSON.parse(e.data);
       this._handleJobComplete(data);
@@ -95,8 +101,18 @@ export class SearchMode {
     
     this.eventSource.addEventListener('error', () => {
       this.downloadListView.setLoading(false);
+      this.downloadListView.clearAllProgress();
       this.eventSource?.close();
     });
+  }
+
+  _handleProgress(data) {
+    // data = { filePct: 45, itemIndex: 2, itemTotal: 5 }
+    // itemIndex est 1-based, donc -1 pour l'index array
+    const listIndex = data.itemIndex - 1;
+    const progress = Math.round(data.filePct);
+    
+    this.downloadListView.updateItemProgress(listIndex, progress);
   }
 
   _handleJobComplete(data) {
@@ -118,11 +134,13 @@ export class SearchMode {
       
       // Demander si on vide la liste
       setTimeout(() => {
+        this.downloadListView.clearAllProgress();
         if (confirm(`✅ ${data.files.length} téléchargement(s) terminé(s) !\n\nVider la playlist ?`)) {
           this.downloadList.clear();
         }
       }, data.files.length * 2000 + 1000);
     } else {
+      this.downloadListView.clearAllProgress();
       alert(`❌ Erreur : ${data.error || 'Échec du téléchargement'}`);
     }
   }

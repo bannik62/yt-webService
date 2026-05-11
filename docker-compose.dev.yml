@@ -1,9 +1,11 @@
 # Développement local : web sur le port 8080
 services:
   api:
+    ports:
+      - '4000:4000'  # ✅ Exposer backend pour npm run dev frontend
     environment:
       NODE_ENV: development
 
   web:
     ports:
-      - '8080:80'
+      - '8080:80'  # Frontend Docker (si utilisé)

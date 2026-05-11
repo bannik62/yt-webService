@@ -131,6 +131,45 @@ body {
   color: #9aa0a6;
 }
 
+.list-item-progress {
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 0.5rem;
+  background: #2a2d33;
+  border-radius: 0.25rem;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #1a73e8 0%, #4285f4 100%);
+  transition: width 0.3s ease;
+  border-radius: 0.25rem;
+}
+
+.list-item-progress.complete .progress-bar-fill {
+  background: linear-gradient(90deg, #34a853 0%, #5bb974 100%);
+}
+
+.progress-text {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: #9aa0a6;
+  font-weight: 500;
+  min-width: 3rem;
+  text-align: right;
+}
+
+.list-item-progress.complete .progress-text {
+  color: #34a853;
+}
+
 .list-item-remove {
   flex-shrink: 0;
   width: 1.75rem;

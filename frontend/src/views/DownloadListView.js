@@ -91,6 +91,7 @@ export class DownloadListView {
     this.itemsContainer.innerHTML = '';
     items.forEach((item, index) => {
       const li = createElement('li', { className: 'list-item' });
+      li.dataset.index = index; // ← Pour retrouver l'item lors des updates
       
       const num = createElement('div', { className: 'list-item-num' }, String(index + 1));
       li.appendChild(num);
@@ -109,6 +110,19 @@ export class DownloadListView {
       content.appendChild(title);
       content.appendChild(meta);
       
+      // Zone de progression (cachée par défaut)
+      const progressBar = createElement('div', {
+        className: 'list-item-progress'
+      });
+      progressBar.innerHTML = `
+        <div class="progress-bar">
+          <div class="progress-bar-fill" style="width: 0%"></div>
+        </div>
+        <div class="progress-text">0%</div>
+      `;
+      progressBar.hidden = true;
+      content.appendChild(progressBar);
+      
       const removeBtn = createElement('button', {
         type: 'button',
         className: 'list-item-remove',
@@ -122,6 +136,51 @@ export class DownloadListView {
       li.appendChild(content);
       li.appendChild(removeBtn);
       this.itemsContainer.appendChild(li);
+    });
+  }
+
+  /**
+   * Met à jour la progression d'un item spécifique
+   * @param {number} index - Index de l'item dans la liste
+   * @param {number} progress - Pourcentage (0-100)
+   */
+  updateItemProgress(index, progress) {
+    if (!this.itemsContainer) return;
+    
+    const item = this.itemsContainer.querySelector(`li[data-index="${index}"]`);
+    if (!item) return;
+    
+    const progressContainer = item.querySelector('.list-item-progress');
+    const progressFill = item.querySelector('.progress-bar-fill');
+    const progressText = item.querySelector('.progress-text');
+    
+    if (progressContainer && progressFill && progressText) {
+      progressContainer.hidden = false;
+      progressFill.style.width = `${progress}%`;
+      progressText.textContent = `${progress}%`;
+      
+      // Ajouter classe pour animation si terminé
+      if (progress >= 100) {
+        progressContainer.classList.add('complete');
+        progressText.textContent = '✓ Terminé';
+      }
+    }
+  }
+
+  /**
+   * Efface toutes les barres de progression
+   */
+  clearAllProgress() {
+    if (!this.itemsContainer) return;
+    
+    const progressContainers = this.itemsContainer.querySelectorAll('.list-item-progress');
+    progressContainers.forEach(container => {
+      container.hidden = true;
+      container.classList.remove('complete');
+      const fill = container.querySelector('.progress-bar-fill');
+      const text = container.querySelector('.progress-text');
+      if (fill) fill.style.width = '0%';
+      if (text) text.textContent = '0%';
     });
   }
 
