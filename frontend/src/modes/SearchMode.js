@@ -2,6 +2,7 @@ import { $ } from '../utils/dom.js';
 import { SearchView } from '../views/SearchView.js';
 import { DownloadListView } from '../views/DownloadListView.js';
 import { VideoModal } from '../views/VideoModal.js';
+import { TrendingModal } from '../views/TrendingModal.js';
 import { DownloadList } from '../models/DownloadList.js';
 
 /**
@@ -14,6 +15,7 @@ export class SearchMode {
     this.searchView = new SearchView(this.api);
     this.downloadListView = new DownloadListView(this.downloadList);
     this.videoModal = new VideoModal();
+    this.trendingModal = new TrendingModal();
     
     this.currentJobId = null;
     this.eventSource = null;
@@ -22,6 +24,17 @@ export class SearchMode {
   }
 
   init() {
+    // Bouton tendances
+    const trendingBtn = $('#trending-btn');
+    if (trendingBtn) {
+      trendingBtn.addEventListener('click', () => this.showTrendingModal());
+    }
+    
+    // Sélection d'un pays dans la modal
+    this.trendingModal.onSelectCountry = (countryCode) => {
+      this.loadTrending(countryCode);
+    };
+    
     // Clic résultat recherche → Modal vidéo
     this.searchView.onResultClick = (item) => {
       this.videoModal.show(item);
@@ -48,6 +61,41 @@ export class SearchMode {
     this.downloadListView.onDownload = (urls) => {
       this.handleBatchDownload(urls);
     };
+  }
+
+  showTrendingModal() {
+    this.trendingModal.show();
+  }
+
+  async loadTrending(countryCode) {
+    this.searchView.setHint(`🔥 Chargement des tendances ${countryCode}...`, false);
+    this.searchView.results.innerHTML = '';
+    
+    try {
+      const data = await this.api.getTrending(countryCode, 20);
+      const items = data.items ?? [];
+      
+      if (items.length === 0) {
+        this.searchView.setHint('Aucune tendance trouvée.', false);
+        return;
+      }
+      
+      this.searchView.setHint(`🔥 Tendances - ${this.getCountryName(countryCode)}`, false);
+      this.searchView.renderResults(items);
+    } catch (err) {
+      this.searchView.setHint(err.message || 'Erreur lors du chargement des tendances', true);
+    }
+  }
+
+  getCountryName(code) {
+    const names = {
+      'FR': 'France', 'US': 'États-Unis', 'GB': 'Royaume-Uni',
+      'DE': 'Allemagne', 'ES': 'Espagne', 'IT': 'Italie',
+      'CA': 'Canada', 'AU': 'Australie', 'BR': 'Brésil',
+      'MX': 'Mexique', 'AR': 'Argentine', 'JP': 'Japon',
+      'KR': 'Corée du Sud', 'IN': 'Inde', 'RU': 'Russie'
+    };
+    return names[code] || code;
   }
 
   async handleBatchDownload(urls) {

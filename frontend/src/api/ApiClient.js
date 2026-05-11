@@ -50,6 +50,30 @@ export class ApiClient {
   }
 
   /**
+   * Récupère les tendances YouTube pour un pays
+   * @param {string} country - Code pays (FR, US, GB, etc.)
+   * @param {number} limit - Nombre max de résultats
+   * @returns {Promise<{items: Array}>}
+   */
+  async getTrending(country = 'US', limit = 20) {
+    try {
+      const url = `${this.baseUrl}/api/trending?${new URLSearchParams({ country, limit })}`;
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(30000)
+      });
+      
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || `Erreur serveur (${res.status})`);
+      }
+      
+      return await res.json();
+    } catch (err) {
+      this._handleFetchError(err, 'tendances');
+    }
+  }
+
+  /**
    * Probe une URL (playlist/vidéo)
    * @param {object} params
    * @returns {Promise<object>}

@@ -76,3 +76,65 @@ export async function probePlaylistCount(url, { noPlaylist } = {}) {
     title: (data && data.title) || '' 
   };
 }
+
+/**
+ * Récupère les vidéos tendances pour un pays donné
+ * @param {string} countryCode - Code pays ISO (FR, US, GB, etc.)
+ * @param {number} maxResults - Nombre max de résultats (défaut: 20)
+ * @returns {Promise<{items: Array}>}
+ */
+export async function getTrending(countryCode = 'US', maxResults = 20) {
+  const proxyUrl = getCurrentProxy();
+  const trendingUrl = `https://www.youtube.com/feed/trending?gl=${countryCode}`;
+  
+  console.log('[trending] Pays:', countryCode);
+  console.log('[trending] URL:', trendingUrl);
+  if (proxyUrl) {
+    console.log('[trending] 🌐 Proxy: activé');
+  }
+  
+  const flags = {
+    dumpSingleJson: true,
+    flatPlaylist: true,
+    skipDownload: true,
+    noWarnings: true,
+    playlistEnd: maxResults,
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36',
+    referer: 'https://www.youtube.com/'
+  };
+  
+  const cookiesPath = getCookiesPath();
+  if (cookiesPath) {
+    flags.cookies = cookiesPath;
+  }
+  
+  if (proxyUrl) {
+    flags.proxy = proxyUrl;
+  }
+
+  try {
+    const data = await youtubedl(trendingUrl, flags);
+    
+    if (!data || !Array.isArray(data.entries)) {
+      console.log('[trending] Aucune entrée trouvée');
+      return { items: [] };
+    }
+    
+    const items = data.entries
+      .filter(entry => entry && entry.id)
+      .map(entry => ({
+        id: entry.id,
+        title: entry.title || 'Sans titre',
+        url: `https://www.youtube.com/watch?v=${entry.id}`,
+        thumbnail: entry.thumbnail || null,
+        duration: entry.duration || 0,
+        channel: entry.uploader || entry.channel || '—'
+      }));
+    
+    console.log('[trending] Résultat:', items.length, 'vidéos');
+    return { items };
+  } catch (err) {
+    console.error('[trending] Erreur:', err.message);
+    throw new Error('Impossible de récupérer les tendances');
+  }
+}

@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getCorsOptions } from './corsOptions.js';
 import { SearchEngine } from './search/SearchEngine.js';
-import { probePlaylistCount } from './ripper/probe.js';
+import { probePlaylistCount, getTrending } from './ripper/probe.js';
 import { JobManager } from './ripper/JobManager.js';
 import { initProxyAtStartup, getProxyPool, selectProxyByIndex, refreshProxyPool, getCurrentProxy, getCurrentProxyInfo } from './proxy/proxyManager.js';
 
@@ -145,6 +145,25 @@ app.get('/api/search', async (request, reply) => {
     const message =
       err instanceof Error ? err.message : 'Erreur recherche';
     reply.status(status).send({ error: message });
+  }
+});
+
+// Route pour obtenir les tendances YouTube par pays
+app.get('/api/trending', async (request, reply) => {
+  const country = request.query.country || 'US';
+  const maxResults = Number(request.query.limit) || 20;
+  
+  // Validation du code pays (2 lettres majuscules)
+  if (!/^[A-Z]{2}$/.test(country)) {
+    return reply.status(400).send({ error: 'Code pays invalide (ex: FR, US, GB)' });
+  }
+  
+  try {
+    const payload = await getTrending(country, maxResults);
+    return payload;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Erreur tendances';
+    reply.status(500).send({ error: message });
   }
 });
 
