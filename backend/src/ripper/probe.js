@@ -86,9 +86,9 @@ export async function probePlaylistCount(url, { noPlaylist } = {}) {
 export async function getTrending(countryCode = 'US', maxResults = 20) {
   const proxyUrl = getCurrentProxy();
   
-  // Utiliser une recherche YouTube avec tri par popularité et date récente
-  // Format: ytsearch{N}:{query}
-  const searchQuery = `ytsearch${maxResults}:music`; // On cherche de la musique populaire
+  // Utiliser une recherche YouTube avec des termes génériques populaires
+  // Pour avoir du contenu varié et populaire
+  const searchQuery = `ytsearch${maxResults}:trending ${new Date().getFullYear()}`; 
   
   console.log('[trending] Pays:', countryCode);
   console.log('[trending] Recherche:', searchQuery);
@@ -105,7 +105,10 @@ export async function getTrending(countryCode = 'US', maxResults = 20) {
     referer: 'https://www.youtube.com/',
     // Forcer la région pour les résultats localisés
     geoBypass: true,
-    geoBypassCountry: countryCode
+    geoBypassCountry: countryCode,
+    // Demander explicitement les thumbnails
+    writeThumbnail: false,
+    listThumbnails: false
   };
   
   const cookiesPath = getCookiesPath();
@@ -127,14 +130,29 @@ export async function getTrending(countryCode = 'US', maxResults = 20) {
     
     const items = data.entries
       .filter(entry => entry && entry.id)
-      .map(entry => ({
-        id: entry.id,
-        title: entry.title || 'Sans titre',
-        url: `https://www.youtube.com/watch?v=${entry.id}`,
-        thumbnail: entry.thumbnail || null,
-        duration: entry.duration || 0,
-        channel: entry.uploader || entry.channel || '—'
-      }));
+      .map(entry => {
+        // Essayer différentes sources de thumbnail
+        let thumbnail = null;
+        if (entry.thumbnail) {
+          thumbnail = entry.thumbnail;
+        } else if (entry.thumbnails && entry.thumbnails.length > 0) {
+          // Prendre la meilleure qualité disponible
+          const best = entry.thumbnails[entry.thumbnails.length - 1];
+          thumbnail = best.url;
+        } else {
+          // Fallback: construire l'URL de la miniature YouTube standard
+          thumbnail = `https://i.ytimg.com/vi/${entry.id}/mqdefault.jpg`;
+        }
+        
+        return {
+          id: entry.id,
+          title: entry.title || 'Sans titre',
+          url: `https://www.youtube.com/watch?v=${entry.id}`,
+          thumbnail: thumbnail,
+          duration: entry.duration || 0,
+          channel: entry.uploader || entry.channel || '—'
+        };
+      });
     
     console.log('[trending] Résultat:', items.length, 'vidéos');
     return { items };
