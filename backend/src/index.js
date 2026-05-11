@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import rateLimit from '@fastify/rate-limit';
 import { createReadStream, existsSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import fs from 'node:fs/promises';
@@ -27,6 +28,17 @@ const jobManager = new JobManager();
 const app = Fastify({ logger: true });
 
 await app.register(cors, getCorsOptions());
+
+// Rate limiting: protection contre le spam
+await app.register(rateLimit, {
+  max: 20,                    // 20 requêtes max
+  timeWindow: '1 minute',     // par minute
+  allowList: ['127.0.0.1'],   // Localhost illimité (pour les tests)
+  errorResponseBuilder: () => ({
+    error: '🚫 Trop de requêtes. Réessaye dans 1 minute.',
+    statusCode: 429
+  })
+});
 
 app.get('/health', async () => ({ ok: true }));
 
