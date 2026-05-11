@@ -46,42 +46,6 @@ export async function fetchWebShareProxy(apiKey) {
   }
 }
 
-/**
- * Teste si un proxy fonctionne avec YouTube
- * @param {string} proxyUrl
- * @returns {Promise<boolean>}
- */
-export async function testProxyWithYouTube(proxyUrl) {
-  try {
-    // Timeout de 10 secondes
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
-
-    const response = await fetch('https://www.youtube.com/', {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      },
-      // Note: fetch natif ne supporte pas les proxies HTTP directement
-      // On utilise une approche simplifiée ici
-    });
-
-    clearTimeout(timeout);
-    
-    const text = await response.text();
-    
-    // Vérifier si YouTube nous a bloqué
-    if (text.includes('Sign in to confirm') || text.includes('unusual traffic')) {
-      return false;
-    }
-    
-    return response.ok;
-  } catch (error) {
-    console.error('[Proxy Test] Erreur:', error.message);
-    return false;
-  }
-}
-
 // Variable globale pour stocker le proxy actuel en mémoire
 let currentProxy = process.env.PROXY_URL || null;
 
