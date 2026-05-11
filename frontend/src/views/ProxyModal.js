@@ -2,16 +2,50 @@ import { createElement } from '../utils/dom.js';
 
 /**
  * Retourne l'emoji du drapeau pour un code pays
- * @param {string} countryCode - Code pays ISO (ex: "FR", "US")
+ * @param {string} countryCode - Code pays ISO (ex: "FR", "US", "GB")
  * @returns {string}
  */
 function getCountryFlag(countryCode) {
-  if (!countryCode || countryCode.length !== 2) return '🌐';
-  const codePoints = countryCode
-    .toUpperCase()
-    .split('')
-    .map(char => 127397 + char.charCodeAt());
-  return String.fromCodePoint(...codePoints);
+  if (!countryCode) return '🌐';
+  
+  // Mapping manuel pour les codes spéciaux
+  const flagMap = {
+    'GB': '🇬🇧',
+    'UK': '🇬🇧', 
+    'US': '🇺🇸',
+    'FR': '🇫🇷',
+    'DE': '🇩🇪',
+    'ES': '🇪🇸',
+    'IT': '🇮🇹',
+    'JP': '🇯🇵',
+    'CA': '🇨🇦',
+    'AU': '🇦🇺',
+    'NL': '🇳🇱',
+    'SE': '🇸🇪',
+    'NO': '🇳🇴',
+    'DK': '🇩🇰',
+    'FI': '🇫🇮',
+    'PL': '🇵🇱',
+    'BR': '🇧🇷',
+    'IN': '🇮🇳',
+    'SG': '🇸🇬',
+    'KR': '🇰🇷'
+  };
+  
+  const code = countryCode.toUpperCase();
+  
+  // Si mapping manuel existe, l'utiliser
+  if (flagMap[code]) {
+    return flagMap[code];
+  }
+  
+  // Sinon essayer la conversion Unicode
+  if (code.length === 2) {
+    const codePoints = code.split('').map(char => 127397 + char.charCodeAt());
+    return String.fromCodePoint(...codePoints);
+  }
+  
+  return '🌐';
 }
 
 /**
