@@ -2,6 +2,7 @@ import { $ } from './utils/dom.js';
 import { ApiClient } from './api/ApiClient.js';
 import { SearchMode } from './modes/SearchMode.js';
 import { RipperMode } from './modes/RipperMode.js';
+import { ProxyModal } from './views/ProxyModal.js';
 
 /**
  * Application principale
@@ -9,6 +10,7 @@ import { RipperMode } from './modes/RipperMode.js';
 class App {
   constructor() {
     this.api = new ApiClient();
+    this.proxyModal = new ProxyModal();
     
     // Deux modes complètement séparés
     this.searchMode = new SearchMode(this.api);
@@ -19,10 +21,11 @@ class App {
   }
 
   init() {
-    // Bouton actualiser proxy
-    const refreshProxyBtn = $('#refresh-proxy-btn');
-    if (refreshProxyBtn) {
-      refreshProxyBtn.addEventListener('click', () => this.refreshProxy());
+    // Bouton proxy modal
+    const proxyBtn = $('#refresh-proxy-btn');
+    if (proxyBtn) {
+      proxyBtn.addEventListener('click', () => this.showProxyModal());
+      this.updateProxyButton(); // Mettre à jour au démarrage
     }
     
     // Toggle entre modes
@@ -56,33 +59,32 @@ class App {
     this.currentMode = mode;
   }
 
-  async refreshProxy() {
+  async showProxyModal() {
+    await this.proxyModal.show();
+    
+    // Callback quand proxy sélectionné
+    this.proxyModal.onSelect = (proxy) => {
+      this.updateProxyButton();
+    };
+  }
+
+  async updateProxyButton() {
     const btn = $('#refresh-proxy-btn');
     if (!btn) return;
     
-    const originalText = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = '⏳ ...';
-    
     try {
-      const response = await fetch('/api/refresh-proxy', { method: 'POST' });
+      const response = await fetch('/api/proxy-status');
       const data = await response.json();
       
-      if (data.ok) {
-        btn.textContent = '✅ OK';
-        alert(`✅ Proxy actualisé !\n\n${data.message}`);
+      if (data.enabled && data.country) {
+        btn.textContent = `Proxy: ${data.country}`;
+        btn.title = `${data.country} - ${data.city}`;
       } else {
-        btn.textContent = '❌ Erreur';
-        alert(`❌ Erreur : ${data.error}`);
+        btn.textContent = 'Proxy';
+        btn.title = 'Sélectionner un proxy';
       }
     } catch (error) {
-      btn.textContent = '❌ Erreur';
-      alert(`❌ Impossible d'actualiser le proxy : ${error.message}`);
-    } finally {
-      setTimeout(() => {
-        btn.disabled = false;
-        btn.textContent = originalText;
-      }, 2000);
+      btn.textContent = 'Proxy';
     }
   }
 }

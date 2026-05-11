@@ -686,6 +686,101 @@ body {
   gap: 0.75rem;
 }
 
+/* Modal Proxy */
+.modal-proxy {
+  max-width: 600px;
+}
+
+.proxy-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.proxy-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: #0f1114;
+  border: 2px solid #2a2d33;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.proxy-item:hover {
+  border-color: #3c4043;
+  background: #1a1d21;
+}
+
+.proxy-item.active {
+  border-color: #1a73e8;
+  background: rgba(26, 115, 232, 0.1);
+  cursor: default;
+}
+
+.proxy-item input[type="radio"] {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  cursor: pointer;
+}
+
+.proxy-item.active input[type="radio"] {
+  cursor: default;
+}
+
+.proxy-flag {
+  flex-shrink: 0;
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.proxy-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.proxy-location {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #e8eaed;
+  margin-bottom: 0.25rem;
+}
+
+.proxy-address {
+  font-size: 0.8rem;
+  font-family: 'Courier New', monospace;
+  color: #9aa0a6;
+}
+
+.proxy-badge {
+  flex-shrink: 0;
+  padding: 0.25rem 0.75rem;
+  background: #1a73e8;
+  color: #fff;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.proxy-empty {
+  text-align: center;
+  color: #9aa0a6;
+  padding: 2rem;
+  font-size: 0.95rem;
+}
+
+.modal-footer .btn-refresh {
+  margin-right: auto;
+}
+
 /* Progress */
 .progress-container {
   padding: 1rem;
