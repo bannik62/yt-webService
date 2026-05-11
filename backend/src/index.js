@@ -10,7 +10,7 @@ import { getCorsOptions } from './corsOptions.js';
 import { SearchEngine } from './search/SearchEngine.js';
 import { probePlaylistCount } from './ripper/probe.js';
 import { JobManager } from './ripper/JobManager.js';
-import { initProxyAtStartup, fetchWebShareProxy, setCurrentProxy, getCurrentProxy } from './proxy/proxyManager.js';
+import { initProxyAtStartup, getProxyPool, selectProxyByIndex, refreshProxyPool, getCurrentProxy, getCurrentProxyInfo } from './proxy/proxyManager.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COOKIES_PATH = path.join(__dirname, '..', 'cookies.txt');
@@ -45,14 +45,62 @@ app.get('/health', async () => ({ ok: true }));
 // Route pour obtenir le statut du proxy
 app.get('/api/proxy-status', async () => {
   const proxy = getCurrentProxy();
+  const info = getCurrentProxyInfo();
   return {
     enabled: !!proxy,
-    masked: proxy ? proxy.replace(/:([^:@]+)@/, ':****@') : null
+    masked: proxy ? proxy.replace(/:([^:@]+)@/, ':****@') : null,
+    country: info?.country || null,
+    city: info?.city || null
   };
 });
 
-// Route pour actualiser le proxy (nécessite WEBSHARE_API_KEY)
-app.post('/api/refresh-proxy', async (request, reply) => {
+// Route pour obtenir la liste complète des proxies
+app.get('/api/proxies', async (request, reply) => {
+  const pool = getProxyPool();
+  
+  if (pool.length === 0) {
+    return reply.status(404).send({
+      ok: false,
+      error: 'Aucun proxy disponible. Configurez WEBSHARE_API_KEY.'
+    });
+  }
+  
+  return {
+    ok: true,
+    proxies: pool,
+    total: pool.length
+  };
+});
+
+// Route pour sélectionner un proxy par index
+app.post('/api/proxies/select', async (request, reply) => {
+  const { index } = request.body || {};
+  
+  if (typeof index !== 'number') {
+    return reply.status(400).send({
+      ok: false,
+      error: 'Index manquant ou invalide'
+    });
+  }
+  
+  try {
+    const info = selectProxyByIndex(index);
+    
+    return {
+      ok: true,
+      message: `Proxy sélectionné: ${info.country} - ${info.city}`,
+      proxy: info
+    };
+  } catch (error) {
+    return reply.status(400).send({
+      ok: false,
+      error: error.message
+    });
+  }
+});
+
+// Route pour actualiser le pool de proxies (refetch depuis WebShare)
+app.post('/api/proxies/refresh', async (request, reply) => {
   const apiKey = process.env.WEBSHARE_API_KEY;
   
   if (!apiKey) {
@@ -63,24 +111,21 @@ app.post('/api/refresh-proxy', async (request, reply) => {
   }
   
   try {
-    app.log.info('Actualisation du proxy WebShare...');
-    const { proxy, country, city } = await fetchWebShareProxy(apiKey);
-    setCurrentProxy(proxy);
-    
-    const masked = proxy.replace(/:([^:@]+)@/, ':****@');
+    app.log.info('Rafraîchissement du pool de proxies...');
+    const count = await refreshProxyPool(apiKey);
+    const info = getCurrentProxyInfo();
     
     return {
       ok: true,
-      proxy: masked,
-      country,
-      city,
-      message: `Nouveau proxy activé: ${country} - ${city}`
+      message: `Pool rafraîchi: ${count} proxies disponibles`,
+      current: info,
+      total: count
     };
   } catch (error) {
     app.log.error('Erreur actualisation proxy:', error);
     return reply.status(500).send({
       ok: false,
-      error: error.message || 'Échec de l\'actualisation du proxy'
+      error: error.message || 'Échec du rafraîchissement du pool'
     });
   }
 });
