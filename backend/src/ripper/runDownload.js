@@ -5,12 +5,9 @@ import youtubedl from 'youtube-dl-exec';
 import { parseItemOfTotal, parseProgressLine } from './ytdlpHelpers.js';
 import fs from 'node:fs';
 import { getCurrentProxy } from '../proxy/proxyManager.js';
+import { getCookiesPath, hasCookies } from '../utils/cookiesHelper.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const COOKIES_PATH = path.join(__dirname, '..', '..', 'cookies.txt');
-
-// Vérifier si le fichier cookies existe
-const hasCookies = fs.existsSync(COOKIES_PATH);
 
 /**
  * Lance le téléchargement MP3 avec yt-dlp + ffmpeg
@@ -122,8 +119,9 @@ export async function runDownload(opts) {
   };
   
   // Utiliser les cookies si disponibles (plus fiable que username/password)
-  if (hasCookies) {
-    dlFlags.cookies = COOKIES_PATH;
+  const cookiesPath = getCookiesPath();
+  if (cookiesPath) {
+    dlFlags.cookies = cookiesPath;
   }
   
   // Utiliser un proxy si configuré (pour contourner le blocage YouTube sur VPS)

@@ -1,14 +1,10 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import youtubedl from 'youtube-dl-exec';
-import fs from 'node:fs';
 import { getCurrentProxy } from '../proxy/proxyManager.js';
+import { getCookiesPath, hasCookies } from '../utils/cookiesHelper.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const COOKIES_PATH = path.join(__dirname, '..', '..', 'cookies.txt');
-
-// Vérifier si le fichier cookies existe
-const hasCookies = fs.existsSync(COOKIES_PATH);
 
 /**
  * Probe une URL YouTube pour déterminer le nombre de morceaux
@@ -40,8 +36,9 @@ export async function probePlaylistCount(url, { noPlaylist } = {}) {
   };
   
   // Utiliser les cookies si disponibles
-  if (hasCookies) {
-    flags.cookies = COOKIES_PATH;
+  const cookiesPath = getCookiesPath();
+  if (cookiesPath) {
+    flags.cookies = cookiesPath;
   }
   
   // Utiliser un proxy si configuré
