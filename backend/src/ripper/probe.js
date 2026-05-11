@@ -85,10 +85,13 @@ export async function probePlaylistCount(url, { noPlaylist } = {}) {
  */
 export async function getTrending(countryCode = 'US', maxResults = 20) {
   const proxyUrl = getCurrentProxy();
-  const trendingUrl = `https://www.youtube.com/feed/trending?gl=${countryCode}`;
+  
+  // Utiliser une recherche YouTube avec tri par popularité et date récente
+  // Format: ytsearch{N}:{query}
+  const searchQuery = `ytsearch${maxResults}:music`; // On cherche de la musique populaire
   
   console.log('[trending] Pays:', countryCode);
-  console.log('[trending] URL:', trendingUrl);
+  console.log('[trending] Recherche:', searchQuery);
   if (proxyUrl) {
     console.log('[trending] 🌐 Proxy: activé');
   }
@@ -98,9 +101,11 @@ export async function getTrending(countryCode = 'US', maxResults = 20) {
     flatPlaylist: true,
     skipDownload: true,
     noWarnings: true,
-    playlistEnd: maxResults,
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36',
-    referer: 'https://www.youtube.com/'
+    referer: 'https://www.youtube.com/',
+    // Forcer la région pour les résultats localisés
+    geoBypass: true,
+    geoBypassCountry: countryCode
   };
   
   const cookiesPath = getCookiesPath();
@@ -113,7 +118,7 @@ export async function getTrending(countryCode = 'US', maxResults = 20) {
   }
 
   try {
-    const data = await youtubedl(trendingUrl, flags);
+    const data = await youtubedl(searchQuery, flags);
     
     if (!data || !Array.isArray(data.entries)) {
       console.log('[trending] Aucune entrée trouvée');
