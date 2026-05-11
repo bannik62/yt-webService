@@ -37,6 +37,13 @@ export class SearchMode {
       this.downloadListView.addItem(item);
     };
     
+    // Clic "Lire la playlist"
+    this.downloadListView.onPlay = (items) => {
+      if (items.length > 0) {
+        this.videoModal.show(items[0], items, 0);
+      }
+    };
+    
     // Clic "Télécharger la playlist" → Batch download
     this.downloadListView.onDownload = (urls) => {
       this.handleBatchDownload(urls);

@@ -609,6 +609,15 @@ body {
   filter: brightness(1.08);
 }
 
+.btn-secondary {
+  background: #3c4043;
+  color: #fff;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #4c5053;
+}
+
 .btn-ghost {
   background: transparent;
   color: #8ab4f8;
@@ -735,8 +744,21 @@ body {
   padding: 1rem 1.5rem;
   border-top: 1px solid #2a2d33;
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   gap: 0.75rem;
+}
+
+.modal-nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.modal-counter {
+  font-size: 0.9rem;
+  color: #999;
+  font-weight: 500;
 }
 
 /* Modal Proxy */

@@ -11,9 +11,11 @@ export class DownloadListView {
     this.itemsContainer = $('#download-list-items');
     this.countBadge = $('#download-list-count');
     this.downloadBtn = $('#download-list-btn');
+    this.playBtn = $('#download-list-play');
     this.clearBtn = $('#download-list-clear');
     
     this.onDownload = null;
+    this.onPlay = null;
     
     this.init();
     this.render();
@@ -25,6 +27,12 @@ export class DownloadListView {
     this.downloadBtn?.addEventListener('click', () => {
       if (!this.list.isEmpty && this.onDownload) {
         this.onDownload(this.list.getUrls());
+      }
+    });
+    
+    this.playBtn?.addEventListener('click', () => {
+      if (!this.list.isEmpty && this.onPlay) {
+        this.onPlay(this.list.getAll());
       }
     });
     
@@ -76,6 +84,13 @@ export class DownloadListView {
         ? `🎵 Télécharger (${items.length})`
         : 'Liste vide';
       this.downloadBtn.textContent = text;
+    }
+    if (this.playBtn) {
+      this.playBtn.disabled = items.length === 0;
+      const text = items.length > 0 
+        ? `▶ Lire (${items.length})`
+        : '▶ Lire';
+      this.playBtn.textContent = text;
     }
     if (this.clearBtn) {
       this.clearBtn.hidden = items.length === 0;
