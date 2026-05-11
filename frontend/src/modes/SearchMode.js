@@ -27,6 +27,11 @@ export class SearchMode {
       this.videoModal.show(item);
     };
     
+    // Quick add depuis SearchView (bouton +)
+    this.searchView.onQuickAdd = (item) => {
+      this.downloadListView.addItem(item);
+    };
+    
     // Clic "Ajouter" dans modal → Playlist
     this.videoModal.onAdd = (item) => {
       this.downloadListView.addItem(item);

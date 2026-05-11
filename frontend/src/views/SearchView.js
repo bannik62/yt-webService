@@ -81,6 +81,19 @@ export class SearchView {
       content.appendChild(meta);
       li.appendChild(content);
       
+      // Bouton + discret pour ajouter directement à la playlist
+      const addBtn = createElement('button', { 
+        className: 'quick-add-btn',
+        innerHTML: '+'
+      });
+      
+      addBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // Empêche d'ouvrir la modale
+        this.onQuickAdd?.(item);
+      });
+      
+      li.appendChild(addBtn);
+      
       // Clic → ouvre modal vidéo
       li.addEventListener('click', () => {
         this.onResultClick?.(item);
