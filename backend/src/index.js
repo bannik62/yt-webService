@@ -102,7 +102,8 @@ app.get('/health', async () => ({ ok: true }));
 /**
  * Vérifie que le worker local répond, si WORKER_LOCAL_URL est défini
  * (service déployé depuis le bundle worker copié sur la machine hôte).
- * Ex. côté VPS avec tunnel SSH -R : http://127.0.0.1:7410 (cf. SSH_RPORT sur le worker).
+ * Tunnel SSH -R écoute sur l’hôte : depuis l’API **dans Docker**, utiliser
+ * http://host.docker.internal:<port> (cf. SSH_RPORT sur le worker, ex. 7410 et extra_hosts compose).
  * Logs périodiques optionnels : WORKER_CONNECTIVITY_LOG_MS (voir workerConnectivityHeartbeat.js).
  */
 app.get('/api/worker-local/health', async (request, reply) => {
