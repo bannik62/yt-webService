@@ -8,6 +8,29 @@ import { pickTrendingKeyword } from './trendingKeywords.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
+ * Erreurs de tunnel HTTP(S) côté proxy (crédits, auth, refus).
+ * @param {unknown} err
+ */
+function isLikelyProxyTunnelFailure(err) {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /402|403|407|Payment Required|Tunnel connection failed|ProxyError|urlopen error/i.test(
+    msg
+  );
+}
+
+/** @param {unknown} err @param {unknown} [proxyErr] */
+function buildTrendingError(err, proxyErr) {
+  const e = err instanceof Error ? err.message : String(err);
+  const p = proxyErr instanceof Error ? proxyErr.message : '';
+  if (/402|Payment Required/i.test(p) || /402|Payment Required/i.test(e)) {
+    return new Error(
+      'Proxy : 402 Payment Required (souvent quotas WebShare épuisés). Choisis un autre proxy, désactive la sélection proxy, ou vérifie ton abonnement. Sans proxy, l’IP du serveur peut être bloquée par YouTube.'
+    );
+  }
+  return new Error('Impossible de récupérer les tendances');
+}
+
+/**
  * Probe une URL YouTube pour déterminer le nombre de morceaux
  * @param {string} url
  * @param {object} options
@@ -85,7 +108,7 @@ export async function probePlaylistCount(url, { noPlaylist, proxyUrl: proxyOverr
  * @returns {Promise<{items: Array, keyword: string}>}
  */
 export async function getTrending(maxResults = 20, musicOnly = false, opts = {}) {
-  const proxyUrl = opts.proxyUrl ?? getCurrentProxy();
+  const requestedProxyUrl = opts.proxyUrl ?? getCurrentProxy();
 
   const searchTerm = pickTrendingKeyword(musicOnly);
   const searchQuery = `ytsearch${maxResults}:${searchTerm}`;
@@ -93,11 +116,11 @@ export async function getTrending(maxResults = 20, musicOnly = false, opts = {})
   console.log('[trending] Musique uniquement:', musicOnly);
   console.log('[trending] Mot-clé:', searchTerm);
   console.log('[trending] Recherche:', searchQuery);
-  if (proxyUrl) {
+  if (requestedProxyUrl) {
     console.log('[trending] 🌐 Proxy: activé');
   }
 
-  const flags = {
+  const baseFlags = {
     dumpSingleJson: true,
     flatPlaylist: true,
     skipDownload: true,
@@ -105,54 +128,75 @@ export async function getTrending(maxResults = 20, musicOnly = false, opts = {})
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36',
     referer: 'https://www.youtube.com/'
   };
-  
+
   const cookiesPath = getCookiesPath();
   if (cookiesPath) {
-    flags.cookies = cookiesPath;
-  }
-  
-  if (proxyUrl) {
-    flags.proxy = proxyUrl;
+    baseFlags.cookies = cookiesPath;
   }
 
-  try {
-    const data = await youtubedl(searchQuery, flags);
-    
-    if (!data || !Array.isArray(data.entries)) {
-      console.log('[trending] Aucune entrée trouvée');
-      return { items: [], keyword: searchTerm };
+  const runSearch = async (proxyForRequest) => {
+    const flags = { ...baseFlags };
+    if (proxyForRequest) {
+      flags.proxy = proxyForRequest;
     }
-    
-    const items = data.entries
-      .filter(entry => entry && entry.id)
-      .map(entry => {
-        // Essayer différentes sources de thumbnail
-        let thumbnail = null;
-        if (entry.thumbnail) {
-          thumbnail = entry.thumbnail;
-        } else if (entry.thumbnails && entry.thumbnails.length > 0) {
-          // Prendre la meilleure qualité disponible
-          const best = entry.thumbnails[entry.thumbnails.length - 1];
-          thumbnail = best.url;
-        } else {
-          // Fallback: construire l'URL de la miniature YouTube standard
-          thumbnail = `https://i.ytimg.com/vi/${entry.id}/mqdefault.jpg`;
-        }
-        
-        return {
-          id: entry.id,
-          title: entry.title || 'Sans titre',
-          url: `https://www.youtube.com/watch?v=${entry.id}`,
-          thumbnail: thumbnail,
-          duration: entry.duration || 0,
-          channel: entry.uploader || entry.channel || '—'
-        };
-      });
-    
-    console.log('[trending] Résultat:', items.length, 'vidéos');
-    return { items, keyword: searchTerm };
-  } catch (err) {
-    console.error('[trending] Erreur:', err.message);
-    throw new Error('Impossible de récupérer les tendances');
+    return youtubedl(searchQuery, flags);
+  };
+
+  let data;
+  try {
+    data = await runSearch(requestedProxyUrl);
+  } catch (firstErr) {
+    if (requestedProxyUrl && isLikelyProxyTunnelFailure(firstErr)) {
+      console.warn(
+        '[trending] Échec via proxy, nouvel essai sans proxy:',
+        firstErr instanceof Error ? firstErr.message : firstErr
+      );
+      try {
+        data = await runSearch(undefined);
+      } catch (secondErr) {
+        console.error(
+          '[trending] Erreur (sans proxy):',
+          secondErr instanceof Error ? secondErr.message : secondErr
+        );
+        throw buildTrendingError(secondErr, firstErr);
+      }
+    } else {
+      console.error(
+        '[trending] Erreur:',
+        firstErr instanceof Error ? firstErr.message : firstErr
+      );
+      throw buildTrendingError(firstErr, null);
+    }
   }
+
+  if (!data || !Array.isArray(data.entries)) {
+    console.log('[trending] Aucune entrée trouvée');
+    return { items: [], keyword: searchTerm };
+  }
+
+  const items = data.entries
+    .filter((entry) => entry && entry.id)
+    .map((entry) => {
+      let thumbnail = null;
+      if (entry.thumbnail) {
+        thumbnail = entry.thumbnail;
+      } else if (entry.thumbnails && entry.thumbnails.length > 0) {
+        const best = entry.thumbnails[entry.thumbnails.length - 1];
+        thumbnail = best.url;
+      } else {
+        thumbnail = `https://i.ytimg.com/vi/${entry.id}/mqdefault.jpg`;
+      }
+
+      return {
+        id: entry.id,
+        title: entry.title || 'Sans titre',
+        url: `https://www.youtube.com/watch?v=${entry.id}`,
+        thumbnail: thumbnail,
+        duration: entry.duration || 0,
+        channel: entry.uploader || entry.channel || '—'
+      };
+    });
+
+  console.log('[trending] Résultat:', items.length, 'vidéos');
+  return { items, keyword: searchTerm };
 }
