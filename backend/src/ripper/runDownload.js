@@ -1,21 +1,21 @@
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import ffmpegStatic from 'ffmpeg-static';
 import youtubedl from 'youtube-dl-exec';
 import { parseItemOfTotal, parseProgressLine } from './ytdlpHelpers.js';
-import fs from 'node:fs';
 import { getCurrentProxy } from '../proxy/proxyManager.js';
 import { getCookiesPath, hasCookies } from '../utils/cookiesHelper.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+export const DOWNLOAD_OUTPUT_AUDIO = 'audio';
+export const DOWNLOAD_OUTPUT_VIDEO = 'video';
 
 /**
- * Lance le téléchargement MP3 avec yt-dlp + ffmpeg
+ * Lance le téléchargement avec yt-dlp + ffmpeg (MP3 ou MP4 selon output).
  * @param {object} opts
  * @param {string} opts.url
  * @param {string} opts.targetDir
  * @param {boolean} opts.noPlaylist
- * @param {number} opts.maxDownloads - 0 = illimité si playlist
+ * @param {number} opts.maxDownloads - 0 si une seule piste ; sinon limite playlist
+ * @param {'audio' | 'video'} [opts.output] - défaut audio (MP3)
  * @param {(line: string) => void} opts.onLog
  * @param {(p: { filePct: number; itemIndex: number; itemTotal: number }) => void} opts.onProgress
  */
@@ -27,8 +27,14 @@ export async function runDownload(opts) {
     maxDownloads,
     onLog,
     onProgress,
-    proxyUrl: proxyOverride = null
+    proxyUrl: proxyOverride = null,
+    output: outputRaw = DOWNLOAD_OUTPUT_AUDIO
   } = opts;
+
+  const output =
+    outputRaw === DOWNLOAD_OUTPUT_VIDEO
+      ? DOWNLOAD_OUTPUT_VIDEO
+      : DOWNLOAD_OUTPUT_AUDIO;
 
   const limit =
     typeof maxDownloads === 'number' &&
@@ -74,9 +80,10 @@ export async function runDownload(opts) {
     if (Boolean(noPlaylist)) count = 1;
     else if (limit > 0) count = Math.min(count, limit);
     plannedTotal = Math.max(1, count);
+    const kindLabel = output === DOWNLOAD_OUTPUT_VIDEO ? 'vidéo(s)' : 'morceau(x)';
     const label =
       info.kind === 'playlist'
-        ? `Playlist « ${info.title || 'sans titre'} » : ${plannedTotal} morceau(x) à télécharger.`
+        ? `Playlist « ${info.title || 'sans titre'} » : ${plannedTotal} ${kindLabel} à télécharger.`
         : `Une piste à télécharger${info.title ? ` — ${info.title}` : ''}.`;
     onLog(label);
     onProgress({ filePct: 0, itemIndex: 1, itemTotal: plannedTotal });
@@ -101,9 +108,6 @@ export async function runDownload(opts) {
   const ffmpegPath = ffmpegStatic || undefined;
 
   const dlFlags = {
-    extractAudio: true,
-    audioFormat: 'mp3',
-    audioQuality: '0',  // Comme l'app Electron qui fonctionne
     output: outTemplate,
     newline: true,
     progress: true,
@@ -118,6 +122,17 @@ export async function runDownload(opts) {
       // Sec-Fetch-* supprimés: auto-générés par navigateurs, inutiles pour yt-dlp
     ]
   };
+
+  if (output === DOWNLOAD_OUTPUT_VIDEO) {
+    dlFlags.format = 'bestvideo+bestaudio/best';
+    dlFlags.mergeOutputFormat = 'mp4';
+    onLog('📹 Sortie : vidéo MP4 (meilleur flux vidéo + audio)');
+  } else {
+    dlFlags.extractAudio = true;
+    dlFlags.audioFormat = 'mp3';
+    dlFlags.audioQuality = '0';
+    onLog('🎵 Sortie : audio MP3');
+  }
   
   // Utiliser les cookies si disponibles (plus fiable que username/password)
   const cookiesPath = getCookiesPath();

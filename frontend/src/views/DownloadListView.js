@@ -88,7 +88,7 @@ export class DownloadListView {
         this._downloadBusy && items.length > 0
           ? '⏳ Téléchargement...'
           : items.length > 0
-            ? `🎵 Télécharger (${items.length})`
+            ? `📹 Télécharger MP4 (${items.length})`
             : 'Liste vide';
       this.downloadBtn.textContent = text;
     }
@@ -105,7 +105,7 @@ export class DownloadListView {
     
     // Liste vide
     if (items.length === 0) {
-      this.itemsContainer.innerHTML = '<p class="list-empty">Recherche et ajoute des morceaux à télécharger</p>';
+      this.itemsContainer.innerHTML = '<p class="list-empty">Recherche et ajoute des vidéos — téléchargement en MP4</p>';
       return;
     }
     
@@ -287,7 +287,7 @@ export class DownloadListView {
       } else {
         this.downloadBtn.textContent =
           items.length > 0
-            ? `🎵 Télécharger (${items.length})`
+            ? `📹 Télécharger MP4 (${items.length})`
             : 'Liste vide';
       }
     }

@@ -10,6 +10,7 @@ import { getCorsOptions } from './corsOptions.js';
 import { SearchEngine } from './search/SearchEngine.js';
 import { probePlaylistCount, getTrending } from './ripper/probe.js';
 import { JobManager } from './ripper/JobManager.js';
+import { normalizePlaylistMaxDownloads } from './ripper/playlistLimit.js';
 import { initProxyAtStartup, getProxyPool, selectProxyByIndex, refreshProxyPool, getCurrentProxy, getCurrentProxyInfo, resolveProxyUrl } from './proxy/proxyManager.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -24,6 +25,15 @@ const searchEngine = new SearchEngine({
 });
 
 const jobManager = new JobManager();
+
+function mediaContentType(filename) {
+  const n = filename.toLowerCase();
+  if (n.endsWith('.mp3')) return 'audio/mpeg';
+  if (n.endsWith('.mp4')) return 'video/mp4';
+  if (n.endsWith('.webm')) return 'video/webm';
+  if (n.endsWith('.mkv')) return 'video/x-matroska';
+  return 'application/octet-stream';
+}
 
 /**
  * @param {unknown} raw
@@ -218,8 +228,9 @@ app.post('/api/probe', async (request, reply) => {
     let effectiveCount = result.count;
     if (Boolean(noPlaylist)) {
       effectiveCount = 1;
-    } else if (maxDownloads && maxDownloads > 0) {
-      effectiveCount = Math.min(result.count, maxDownloads);
+    } else {
+      const limit = normalizePlaylistMaxDownloads(false, maxDownloads);
+      effectiveCount = Math.min(result.count, limit);
     }
     
     return {
@@ -255,10 +266,11 @@ app.post('/api/download', async (request, reply) => {
   const clientIp = request.headers['x-forwarded-for'] || request.ip;
 
   try {
+    const noPl = Boolean(noPlaylist);
     const jobId = jobManager.createJob({
       url: url.trim(),
-      noPlaylist: Boolean(noPlaylist),
-      maxDownloads: Number(maxDownloads) || 0,
+      noPlaylist: noPl,
+      maxDownloads: normalizePlaylistMaxDownloads(noPl, maxDownloads),
       ip: clientIp,
       proxyIndex: p.index
     });
@@ -402,7 +414,7 @@ app.get('/api/jobs/:jobId/file/:index', async (request, reply) => {
     const stats = await stat(file.path);
     const stream = createReadStream(file.path);
     
-    reply.header('Content-Type', 'audio/mpeg');
+    reply.header('Content-Type', mediaContentType(file.name));
     reply.header('Content-Disposition', `attachment; filename="${encodeURIComponent(file.name)}"`);
     reply.header('Content-Length', stats.size);
     
@@ -412,9 +424,12 @@ app.get('/api/jobs/:jobId/file/:index', async (request, reply) => {
         await fs.unlink(file.path);
         console.log(`[Cleanup] Fichier supprimé: ${file.name}`);
         
-        // Si tous les fichiers sont téléchargés, supprimer le dossier du job
+        // Si tous les fichiers média sont partis, supprimer le dossier du job
         const remainingFiles = await fs.readdir(job.jobDir);
-        if (remainingFiles.filter(f => f.endsWith('.mp3')).length === 0) {
+        const hasMediaLeft = remainingFiles.some((f) =>
+          /\.(mp3|mp4|webm|mkv)$/i.test(f)
+        );
+        if (!hasMediaLeft) {
           await fs.rm(job.jobDir, { recursive: true, force: true });
           console.log(`[Cleanup] Dossier job supprimé: ${jobId}`);
         }

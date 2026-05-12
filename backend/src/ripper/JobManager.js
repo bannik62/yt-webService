@@ -3,7 +3,12 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { runDownload } from './runDownload.js';
+import {
+  runDownload,
+  DOWNLOAD_OUTPUT_AUDIO,
+  DOWNLOAD_OUTPUT_VIDEO
+} from './runDownload.js';
+import { PLAYLIST_MAX_TRACKS } from './playlistLimit.js';
 import { resolveProxyUrl } from '../proxy/proxyManager.js';
 
 /**
@@ -51,6 +56,7 @@ export class JobManager extends EventEmitter {
       urls: [url],
       noPlaylist,
       maxDownloads,
+      output: DOWNLOAD_OUTPUT_AUDIO,
       ip,
       proxyIndex,
       status: 'queued',
@@ -86,7 +92,8 @@ export class JobManager extends EventEmitter {
       id: jobId,
       urls: urls,
       noPlaylist: true, // Toujours single pour batch
-      maxDownloads: 10, // Limite à 10 si playlist détectée
+      maxDownloads: PLAYLIST_MAX_TRACKS,
+      output: DOWNLOAD_OUTPUT_VIDEO,
       ip,
       proxyIndex,
       status: 'queued',
@@ -209,7 +216,8 @@ export class JobManager extends EventEmitter {
           url,
           targetDir: job.jobDir,
           noPlaylist: job.noPlaylist,
-          maxDownloads: job.maxDownloads || 10, // Limite playlists à 10
+          maxDownloads: job.maxDownloads ?? 0,
+          output: job.output || DOWNLOAD_OUTPUT_AUDIO,
           proxyUrl,
           onLog: (line) => {
             job.logs.push(line);
@@ -229,7 +237,7 @@ export class JobManager extends EventEmitter {
       }
 
       // Lister les fichiers téléchargés
-      const files = await this.#listDownloadedFiles(jobId, job.jobDir);
+      const files = await this.#listDownloadedFiles(jobId, job.jobDir, job);
       job.files = files;
       job.status = 'completed';
       if (job.startedAt) {
@@ -256,21 +264,29 @@ export class JobManager extends EventEmitter {
     }
   }
 
-  async #listDownloadedFiles(jobId, jobDir) {
+  #mediaSuffixes(job) {
+    return job.output === DOWNLOAD_OUTPUT_VIDEO
+      ? ['.mp4', '.webm', '.mkv']
+      : ['.mp3'];
+  }
+
+  async #listDownloadedFiles(jobId, jobDir, job) {
     try {
       const entries = await fs.readdir(jobDir, { withFileTypes: true });
       const files = [];
+      const suffixes = this.#mediaSuffixes(job);
 
       for (const entry of entries) {
-        if (entry.isFile() && entry.name.endsWith('.mp3')) {
-          const filePath = path.join(jobDir, entry.name);
-          const stats = await fs.stat(filePath);
-          files.push({
-            name: entry.name,
-            path: filePath,
-            size: stats.size
-          });
-        }
+        if (!entry.isFile()) continue;
+        const lower = entry.name.toLowerCase();
+        if (!suffixes.some((s) => lower.endsWith(s))) continue;
+        const filePath = path.join(jobDir, entry.name);
+        const stats = await fs.stat(filePath);
+        files.push({
+          name: entry.name,
+          path: filePath,
+          size: stats.size
+        });
       }
 
       return files;
