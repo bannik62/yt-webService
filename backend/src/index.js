@@ -15,6 +15,7 @@ import { normalizePlaylistMaxDownloads } from './ripper/playlistLimit.js';
 import { initProxyAtStartup, getProxyPool, selectProxyByIndex, refreshProxyPool, getCurrentProxy, getCurrentProxyInfo, resolveProxyUrl } from './proxy/proxyManager.js';
 import workerIngestRoutes from './routes/workerIngest.js';
 import { startWorkerConnectivityHeartbeat } from './workerConnectivityHeartbeat.js';
+import { recordWorkerHealthy } from './workerIngestGate.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COOKIES_PATH = path.join(__dirname, '..', 'cookies.txt');
@@ -58,6 +59,20 @@ function normalizeProxyIndex(raw) {
     return { ok: false, error: 'proxyIndex hors limites' };
   }
   return { ok: true, index: n };
+}
+
+/**
+ * En-tête `X-Worker-Session` (UUID sessionStorage navigateur).
+ * @param {string | string[] | undefined} raw
+ * @returns {string}
+ */
+function parseWorkerSessionId(raw) {
+  if (raw === undefined || raw === null) return '';
+  const head = Array.isArray(raw) ? raw[0] : String(raw);
+  const t = head.trim();
+  if (t.length === 0 || t.length > 128) return '';
+  if (!/^[a-zA-Z0-9._-]+$/.test(t)) return '';
+  return t;
 }
 
 const app = Fastify({ logger: true });
@@ -121,6 +136,9 @@ app.get('/api/worker-local/health', async (request, reply) => {
       signal: AbortSignal.timeout(8000)
     });
     const body = await res.json().catch(() => ({}));
+    if (res.ok) {
+      recordWorkerHealthy();
+    }
     return {
       configured: true,
       reachable: res.ok,
@@ -326,6 +344,9 @@ app.post('/api/download', async (request, reply) => {
   }
 
   const clientIp = request.headers['x-forwarded-for'] || request.ip;
+  const workerSessionId = parseWorkerSessionId(
+    request.headers['x-worker-session']
+  );
 
   try {
     const noPl = Boolean(noPlaylist);
@@ -334,7 +355,8 @@ app.post('/api/download', async (request, reply) => {
       noPlaylist: noPl,
       maxDownloads: normalizePlaylistMaxDownloads(noPl, maxDownloads),
       ip: clientIp,
-      proxyIndex: p.index
+      proxyIndex: p.index,
+      workerSessionId
     });
     
     return { jobId };
@@ -367,12 +389,16 @@ app.post('/api/download-batch', async (request, reply) => {
   }
 
   const clientIp = request.headers['x-forwarded-for'] || request.ip;
+  const workerSessionId = parseWorkerSessionId(
+    request.headers['x-worker-session']
+  );
 
   try {
     const jobId = jobManager.createBatchJob({
       urls: urls.map(u => String(u).trim()),
       ip: clientIp,
-      proxyIndex: p.index
+      proxyIndex: p.index,
+      workerSessionId
     });
     
     return { jobId };

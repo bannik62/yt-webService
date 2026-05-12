@@ -5,6 +5,11 @@
 # Worker via tunnel SSH (-R) : le port est sur l’hôte Linux, pas dans le conteneur api.
 # Utiliser host.docker.internal (extra_hosts) plutôt que 127.0.0.1 depuis le conteneur.
 # WORKER_LOCAL_URL par défaut dans deploy : http://host.docker.internal:7410
+# Le tunnel worker doit écouter « au-delà » de 127.0.0.1 sur le VPS (SSH_REMOTE_BIND + GatewayPorts sshd)
+# ou api en Host network avec 127.0.0.1:SSH_RPORT.
+# WORKER_INGEST_MAX_IDLE_MS (défaut 900000 dans le code si absent) désactive POST /api/worker/* après X ms sans succès GET {WORKER_LOCAL_URL}/health ; 0 = désactive cette garde.
+# WORKER_INGEST_PING_INTERVAL_MS défaut 30000 : fréquence min des pings santé lorsque WORKER_CONNECTIVITY_LOG_MS est absent mais la garde ingest est active.
+# WORKER_LOCAL_DELEGATION_WAIT_MS (défaut 90000 ms) : après erreur quota proxy avec en-tête de session navigateur, délai avant échec « délégation » sans ingest worker.
 services:
   api:
     extra_hosts:

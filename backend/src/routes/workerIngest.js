@@ -5,6 +5,7 @@ import {
   DOWNLOAD_OUTPUT_AUDIO,
   DOWNLOAD_OUTPUT_VIDEO
 } from '../ripper/runDownload.js';
+import { checkWorkerIngestGate } from '../workerIngestGate.js';
 
 /**
  * @param {import('fastify').FastifyRequest} request
@@ -59,6 +60,15 @@ export default async function workerIngestRoutes(fastify, opts) {
   fastify.post('/jobs/reserve', async (request, reply) => {
     if (!requireIngestSecret(request, reply)) return;
 
+    const gate = checkWorkerIngestGate();
+    if (gate.blocked) {
+      request.log.warn(
+        { tag: 'ingest', blocked: true, reason: gate.logReason },
+        `[ingest] Refus réservation — ${gate.message}`
+      );
+      return reply.status(503).send({ error: gate.message, code: gate.code });
+    }
+
     const body = request.body && typeof request.body === 'object' ? request.body : {};
     const rawOut = body.output;
     const output =
@@ -71,10 +81,23 @@ export default async function workerIngestRoutes(fastify, opts) {
   fastify.post('/ingest/:jobId', async (request, reply) => {
     if (!requireIngestSecret(request, reply)) return;
 
+    const gate = checkWorkerIngestGate();
+    if (gate.blocked) {
+      request.log.warn(
+        { tag: 'ingest', blocked: true, reason: gate.logReason, route: 'ingest' },
+        `[ingest] Refus upload — ${gate.message}`
+      );
+      return reply.status(503).send({ error: gate.message, code: gate.code });
+    }
+
     const { jobId } = request.params;
     const job = jobManager.getJob(jobId);
 
-    if (!job?.workerIngest || job.status !== 'awaiting_upload') {
+    const canReceive =
+      job?.workerIngest &&
+      (job.status === 'awaiting_upload' ||
+        job.status === 'awaiting_local_worker');
+    if (!canReceive) {
       return reply
         .status(404)
         .send({ error: 'Job introuvable ou ne peut plus recevoir de fichier' });

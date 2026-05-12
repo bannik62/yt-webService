@@ -277,6 +277,10 @@ export class SearchMode {
         this.downloadListView.setQueueWaitMessage(
           `⏳ En file d'attente — position ${data.position}/${data.queueLength}${eta}`
         );
+      } else if (data.status === 'awaiting_local_worker') {
+        this.downloadListView.setQueueWaitMessage(
+          'Préparation côté navigateur… Tu peux laisser cette page ouverte.'
+        );
       } else {
         this.downloadListView.clearQueueWaitMessage();
       }

@@ -4,6 +4,10 @@ import youtubedl from 'youtube-dl-exec';
 import { parseItemOfTotal, parseProgressLine } from './ytdlpHelpers.js';
 import { getCurrentProxy } from '../proxy/proxyManager.js';
 import { getCookiesPath, hasCookies } from '../utils/cookiesHelper.js';
+import {
+  ProxyQuotaError,
+  isProxyQuotaMessage
+} from './proxyQuotaError.js';
 
 export const DOWNLOAD_OUTPUT_AUDIO = 'audio';
 export const DOWNLOAD_OUTPUT_VIDEO = 'video';
@@ -88,6 +92,10 @@ export async function runDownload(opts) {
     onLog(label);
     onProgress({ filePct: 0, itemIndex: 1, itemTotal: plannedTotal });
   } catch (e) {
+    const probeTxt = `${e?.message ?? ''}\n${e?.cause?.message ?? ''}`;
+    if (isProxyQuotaMessage(probeTxt)) {
+      throw new ProxyQuotaError(probeTxt.trim().slice(0, 2048));
+    }
     onLog(
       `Analyse partielle: ${e?.message || String(e)} (téléchargement quand même).`
     );
@@ -159,6 +167,9 @@ export async function runDownload(opts) {
     stdio: ['ignore', 'pipe', 'pipe']
   });
 
+  /** Log stderr pour analyse d’erreurs (dont 402 quota proxy). */
+  let stderrCaptured = '';
+
   const sendLine = (line) => {
     onLog(line);
     const meta = parseItemOfTotal(line);
@@ -180,11 +191,31 @@ export async function runDownload(opts) {
     text.split(/\r?\n/).filter(Boolean).forEach(sendLine);
   });
   child.stderr?.on('data', (chunk) => {
+    stderrCaptured += chunk.toString('utf8');
     const text = chunk.toString('utf8');
     text.split(/\r?\n/).filter(Boolean).forEach(sendLine);
   });
 
-  await child;
+  try {
+    await child;
+  } catch (execErr) {
+    const bundled = [
+      stderrCaptured,
+      execErr instanceof Error ? execErr.message : '',
+      execErr &&
+      typeof execErr === 'object' &&
+      'stderr' in execErr &&
+      String(execErr.stderr)
+    ]
+      .filter(Boolean)
+      .join('\n');
+    if (isProxyQuotaMessage(bundled)) {
+      throw new ProxyQuotaError(
+        bundled.trim().slice(0, 4096) || 'Proxy quota (402)'
+      );
+    }
+    throw execErr;
+  }
   console.log('[yt-dlp] Téléchargement terminé avec succès');
   onLog('✅ Téléchargement terminé !');
   emitProgress(100, plannedTotal);

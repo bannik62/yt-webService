@@ -1,3 +1,5 @@
+import { DelegationTimedOutError } from './proxyQuotaError.js';
+
 /**
  * Remplace les erreurs brutes youtube-dl-exec / yt-dlp par un texte lisible pour l’UI.
  * Le détail complet reste dans les logs serveur (console.error sur le job).
@@ -5,6 +7,19 @@
  * @returns {string}
  */
 export function formatDownloadErrorForUser(err) {
+  if (
+    err instanceof DelegationTimedOutError ||
+    (err &&
+      typeof err === 'object' &&
+      'code' in err &&
+      err.code === 'WORKER_LOCAL_DELEGATION_TIMEOUT')
+  ) {
+    return (
+      'Le téléchargement n’a pas pu être finalisé à temps depuis ton navigateur. ' +
+      'Réessaie plus tard.'
+    );
+  }
+
   const raw = err instanceof Error ? err.message : String(err);
   const msg = raw;
 

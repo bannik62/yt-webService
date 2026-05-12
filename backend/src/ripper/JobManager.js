@@ -11,6 +11,17 @@ import {
 import { PLAYLIST_MAX_TRACKS } from './playlistLimit.js';
 import { formatDownloadErrorForUser } from './downloadErrorMessage.js';
 import { resolveProxyUrl } from '../proxy/proxyManager.js';
+import { ProxyQuotaError, DelegationTimedOutError } from './proxyQuotaError.js';
+
+/**
+ * @returns {number}
+ */
+function delegationFallbackWaitMs() {
+  const raw = process.env.WORKER_LOCAL_DELEGATION_WAIT_MS;
+  if (raw === undefined || raw === '') return 90000;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 3000 ? n : 90000;
+}
 
 /**
  * Gestionnaire de queue de jobs de téléchargement
@@ -23,6 +34,8 @@ export class JobManager extends EventEmitter {
   #tempDir = path.join(os.tmpdir(), 'yt-ripper-jobs');
   /** Durées des derniers jobs terminés avec succès (ms) — estimation d'attente */
   #recentDurationsMs = [];
+  /** JobId → résolve `Promise.race` délégation (402 + session navigateur) */
+  #delegationWake = new Map();
   static #MAX_DURATION_SAMPLES = 10;
 
   constructor() {
@@ -48,7 +61,14 @@ export class JobManager extends EventEmitter {
    * @param {number | undefined} params.proxyIndex - Index dans le pool WebShare
    * @returns {string} jobId
    */
-  createJob({ url, noPlaylist, maxDownloads, ip, proxyIndex }) {
+  createJob({
+    url,
+    noPlaylist,
+    maxDownloads,
+    ip,
+    proxyIndex,
+    workerSessionId = ''
+  }) {
     const jobId = randomUUID();
     const jobDir = path.join(this.#tempDir, jobId);
 
@@ -60,6 +80,8 @@ export class JobManager extends EventEmitter {
       output: DOWNLOAD_OUTPUT_AUDIO,
       ip,
       proxyIndex,
+      workerSessionId:
+        typeof workerSessionId === 'string' ? workerSessionId : '',
       status: 'queued',
       logs: [],
       progress: { filePct: 0, itemIndex: 1, itemTotal: 1 },
@@ -85,7 +107,12 @@ export class JobManager extends EventEmitter {
    * @param {number | undefined} params.proxyIndex
    * @returns {string} jobId
    */
-  createBatchJob({ urls, ip, proxyIndex }) {
+  createBatchJob({
+    urls,
+    ip,
+    proxyIndex,
+    workerSessionId = ''
+  }) {
     const jobId = randomUUID();
     const jobDir = path.join(this.#tempDir, jobId);
 
@@ -97,6 +124,8 @@ export class JobManager extends EventEmitter {
       output: DOWNLOAD_OUTPUT_VIDEO,
       ip,
       proxyIndex,
+      workerSessionId:
+        typeof workerSessionId === 'string' ? workerSessionId : '',
       status: 'queued',
       logs: [],
       progress: { filePct: 0, itemIndex: 1, itemTotal: urls.length },
@@ -171,7 +200,10 @@ export class JobManager extends EventEmitter {
     if (!job?.workerIngest) {
       return { ok: false, error: 'Job introuvable' };
     }
-    if (job.status !== 'awaiting_upload') {
+    const canReceive =
+      job.status === 'awaiting_upload' ||
+      job.status === 'awaiting_local_worker';
+    if (!canReceive) {
       return { ok: false, error: 'Ce job ne peut plus recevoir de fichier' };
     }
 
@@ -200,6 +232,11 @@ export class JobManager extends EventEmitter {
           size: file.size
         }))
       });
+      const wakeDelegation = this.#delegationWake.get(jobId);
+      if (wakeDelegation) {
+        this.#delegationWake.delete(jobId);
+        wakeDelegation();
+      }
       return { ok: true };
     } catch (err) {
       console.error('[JobManager] finalizeWorkerIngestFile', err);
@@ -220,6 +257,9 @@ export class JobManager extends EventEmitter {
     if (!job) return null;
     if (job.status === 'running') {
       return { status: 'running' };
+    }
+    if (job.status === 'awaiting_local_worker') {
+      return { status: 'awaiting_local_worker' };
     }
     if (job.status === 'awaiting_upload') {
       return { status: 'awaiting_upload' };
@@ -274,6 +314,45 @@ export class JobManager extends EventEmitter {
     };
     this.on('job-event', handler);
     return () => this.off('job-event', handler);
+  }
+
+  /**
+   * Après erreur quota proxy avec session navigateur : attente ingest local (phase ultérieure) puis échec time-out.
+   * @param {string} jobId
+   * @param {object} job
+   */
+  async #relayWaitAfterProxyQuota(jobId, job) {
+    const waitLine =
+      'Préparation côté navigateur… Tu peux garder cette page ouverte quelques instants.';
+    job.workerIngest = true;
+    job.status = 'awaiting_local_worker';
+    this.#emitJobEvent(jobId, 'status', { status: 'awaiting_local_worker' });
+    job.logs.push(`\n${waitLine}\n`);
+    this.#emitJobEvent(jobId, 'log', { line: waitLine });
+
+    const ms = delegationFallbackWaitMs();
+    const ingestPromise = new Promise((resolve) => {
+      this.#delegationWake.set(jobId, resolve);
+    });
+    let timerId;
+    const timeoutPromise = new Promise((resolve) => {
+      timerId = setTimeout(resolve, ms);
+    });
+    await Promise.race([ingestPromise, timeoutPromise]);
+    clearTimeout(timerId);
+    this.#delegationWake.delete(jobId);
+
+    if (job.status === 'completed') {
+      return;
+    }
+
+    job.status = 'failed';
+    const err = new DelegationTimedOutError();
+    job.error = formatDownloadErrorForUser(err);
+    this.#emitJobEvent(jobId, 'complete', {
+      success: false,
+      error: job.error
+    });
   }
 
   async #processQueue() {
@@ -343,13 +422,40 @@ export class JobManager extends EventEmitter {
         }))
       });
     } catch (err) {
-      job.status = 'failed';
-      console.error(`[JobManager] Job ${jobId} échec:`, err);
-      job.error = formatDownloadErrorForUser(err);
-      this.#emitJobEvent(jobId, 'complete', {
-        success: false,
-        error: job.error
-      });
+      const sessionTrimmed =
+        typeof job.workerSessionId === 'string'
+          ? job.workerSessionId.trim()
+          : '';
+      const delegation =
+        err instanceof ProxyQuotaError && sessionTrimmed.length > 0;
+
+      if (delegation) {
+        console.warn(
+          `[JobManager] Job ${jobId}: quota proxy avec session navigateur — attente relay (${delegationFallbackWaitMs()} ms)`
+        );
+        try {
+          await this.#relayWaitAfterProxyQuota(jobId, job);
+        } catch (relayErr) {
+          console.error(
+            `[JobManager] Job ${jobId} erreur pendant attente relay:`,
+            relayErr
+          );
+          job.status = 'failed';
+          job.error = formatDownloadErrorForUser(relayErr);
+          this.#emitJobEvent(jobId, 'complete', {
+            success: false,
+            error: job.error
+          });
+        }
+      } else {
+        job.status = 'failed';
+        console.error(`[JobManager] Job ${jobId} échec:`, err);
+        job.error = formatDownloadErrorForUser(err);
+        this.#emitJobEvent(jobId, 'complete', {
+          success: false,
+          error: job.error
+        });
+      }
     } finally {
       this.#currentJob = null;
       this.#processQueue();
@@ -398,7 +504,12 @@ export class JobManager extends EventEmitter {
   async cleanupOldJobs(maxAgeMs = 3600_000) {
     const now = Date.now();
     for (const [jobId, job] of this.#jobs.entries()) {
-      if (now - job.createdAt > maxAgeMs && job.status !== 'running') {
+      if (
+        now - job.createdAt > maxAgeMs &&
+        job.status !== 'running' &&
+        job.status !== 'awaiting_local_worker' &&
+        job.status !== 'awaiting_upload'
+      ) {
         try {
           if (job.jobDir) await fs.rm(job.jobDir, { recursive: true, force: true });
         } catch (err) {

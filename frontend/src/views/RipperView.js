@@ -139,6 +139,11 @@ export class RipperView {
         );
       } else if (data.status === 'running') {
         this.setHint('Téléchargement en cours…', false);
+      } else if (data.status === 'awaiting_local_worker') {
+        this.setHint(
+          'Préparation côté navigateur… Tu peux garder cette page ouverte quelques instants.',
+          false
+        );
       }
     });
     

@@ -2,10 +2,26 @@
  * Client API centralisé
  */
 import { getStoredProxyIndex } from '../utils/proxyPreference.js';
+import { getOrCreateWorkerSessionId } from '../utils/workerSession.js';
 
 export class ApiClient {
   constructor(baseUrl = '') {
     this.baseUrl = baseUrl;
+  }
+
+  /**
+   * En-têtes optionnels pour corrélation session navigateur (relai worker futur).
+   * @private
+   * @returns {Record<string, string>}
+   */
+  _workerSessionHeaders() {
+    try {
+      const id = getOrCreateWorkerSessionId();
+      if (!id || !/^[a-zA-Z0-9._-]{8,128}$/.test(id)) return {};
+      return { 'X-Worker-Session': id };
+    } catch {
+      return {};
+    }
   }
 
   /**
@@ -93,7 +109,10 @@ export class ApiClient {
 
       const res = await fetch(`${this.baseUrl}/api/probe`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...this._workerSessionHeaders()
+        },
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(30000)
       });
@@ -122,7 +141,10 @@ export class ApiClient {
 
       const res = await fetch(`${this.baseUrl}/api/download`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...this._workerSessionHeaders()
+        },
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(30000)
       });
@@ -151,7 +173,10 @@ export class ApiClient {
 
       const res = await fetch(`${this.baseUrl}/api/download-batch`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...this._workerSessionHeaders()
+        },
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(30000)
       });
