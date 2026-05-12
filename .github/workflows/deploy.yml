@@ -37,7 +37,6 @@ jobs:
             "cat > /var/www/html/ytWeb/.env << 'EOF'
           WEBSHARE_API_KEY=${{ secrets.WEBSHARE_API_KEY }}
           WORKER_LOCAL_URL=http://host.docker.internal:7410
-          WORKER_CONNECTIVITY_LOG_MS=10000
           EOF
           chmod 600 /var/www/html/ytWeb/.env"
 

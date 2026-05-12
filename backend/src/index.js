@@ -119,7 +119,7 @@ app.get('/health', async () => ({ ok: true }));
  * (service déployé depuis le bundle worker copié sur la machine hôte).
  * Tunnel SSH -R écoute sur l’hôte : depuis l’API **dans Docker**, utiliser
  * http://host.docker.internal:<port> (cf. SSH_RPORT sur le worker, ex. 7410 et extra_hosts compose).
- * Logs périodiques optionnels : WORKER_CONNECTIVITY_LOG_MS (voir workerConnectivityHeartbeat.js).
+ * Ping périodique silencieux côté job : workerConnectivityHeartbeat.js (pour la garde ingest).
  */
 app.get('/api/worker-local/health', async (request, reply) => {
   const base = process.env.WORKER_LOCAL_URL?.trim().replace(/\/$/, '');

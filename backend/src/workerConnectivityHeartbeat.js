@@ -1,15 +1,15 @@
 /**
- * Logs périodiques : ping GET {WORKER_LOCAL_URL}/health (même logique que /api/worker-local/health).
+ * Ping périodique GET {WORKER_LOCAL_URL}/health pour alimenter workerIngestGate
+ * (`recordWorkerHealthy`). Aucune journalisation ligne à ligne pour ne pas spammer les logs prod.
  *
- * - WORKER_CONNECTIVITY_LOG_MS : intervalle en ms ; absent ou vide = pas de ligne info/warn systématique (les transitions garde-ingest gardent une trace).
- * - WORKER_LOCAL_URL : depuis l’API **dans Docker**, utiliser
- *   `http://host.docker.internal:7410` (+ `extra_hosts` dans compose) pour atteindre le tunnel
- *   sur l’hôte VPS ; `http://127.0.0.1:7410` ne marche que si Node tourne hors conteneur.
+ * Démarre seulement si WORKER_INGEST_MAX_IDLE_MS > 0 (garde ingest active ; défaut code 900_000 ms).
+ * Intervalle : WORKER_INGEST_PING_INTERVAL_MS (défaut 30_000 ms).
  *
- * Garde ingest : voir workerIngestGate.js (WORKER_INGEST_MAX_IDLE_MS, WORKER_INGEST_PING_INTERVAL_MS).
+ * Les changements garde fermée ↔ ouverte gardent une trace courte (warn/info `ingest_gate`).
  *
  * @param {import('fastify').FastifyInstance} fastify
  */
+
 import {
   recordWorkerHealthy,
   checkWorkerIngestGate,
@@ -18,16 +18,7 @@ import {
 
 export function startWorkerConnectivityHeartbeat(fastify) {
   const base = process.env.WORKER_LOCAL_URL?.trim().replace(/\/$/, '');
-  if (!base) {
-    return;
-  }
-
-  const logRaw = process.env.WORKER_CONNECTIVITY_LOG_MS;
-  let logMs = 0;
-  if (logRaw !== undefined && logRaw !== '') {
-    const n = Number(logRaw);
-    if (Number.isFinite(n) && n > 0) logMs = n;
-  }
+  if (!base) return;
 
   const idleRaw =
     process.env.WORKER_INGEST_MAX_IDLE_MS === undefined ||
@@ -38,28 +29,18 @@ export function startWorkerConnectivityHeartbeat(fastify) {
   const gateActive =
     Number.isFinite(maxIdleMs) && maxIdleMs > 0 ? true : false;
 
+  if (!gateActive) return;
+
   const guardPingRaw = process.env.WORKER_INGEST_PING_INTERVAL_MS;
   const guardPingMs =
     guardPingRaw !== undefined && guardPingRaw !== ''
       ? Number(guardPingRaw)
       : 30000;
 
-  let intervalMs = 0;
-  if (gateActive && logMs > 0) {
-    intervalMs =
-      guardPingMs > 0 ? Math.min(logMs, guardPingMs) : logMs;
-  } else if (gateActive) {
-    intervalMs =
-      Number.isFinite(guardPingMs) && guardPingMs > 0 ? guardPingMs : 60000;
-  } else if (logMs > 0) {
-    intervalMs = logMs;
-  }
+  const intervalMs =
+    Number.isFinite(guardPingMs) && guardPingMs > 0 ? guardPingMs : 60000;
 
-  if (!intervalMs || intervalMs <= 0) return;
-
-  const wantLogs = logMs > 0;
-
-  /** @type {boolean | null} null = pas encore après le 1ᵉ ping (évite faux « réactivée » au boot) */
+  /** @type {boolean | null} */
   let prevGateOpen = null;
 
   const tick = async () => {
@@ -67,50 +48,13 @@ export function startWorkerConnectivityHeartbeat(fastify) {
       const res = await fetch(`${base}/health`, {
         signal: AbortSignal.timeout(8000)
       });
-      const body = await res.json().catch(() => ({}));
+      await res.json().catch(() => ({}));
       if (res.ok) {
         recordWorkerHealthy();
-        if (wantLogs) {
-          fastify.log.info(
-            {
-              tag: 'connectivity',
-              target: 'worker',
-              ok: true,
-              status: res.status,
-              url: base
-            },
-            `[connectivity] worker OK (${res.status}) ${base}`
-          );
-        }
-      } else if (wantLogs) {
-        fastify.log.warn(
-          {
-            tag: 'connectivity',
-            target: 'worker',
-            ok: false,
-            status: res.status,
-            url: base,
-            body
-          },
-          `[connectivity] worker HTTP ${res.status} ${base}`
-        );
       }
-    } catch (err) {
-      if (wantLogs) {
-        fastify.log.warn(
-          {
-            tag: 'connectivity',
-            target: 'worker',
-            ok: false,
-            url: base,
-            err: err instanceof Error ? err.message : String(err)
-          },
-          `[connectivity] worker injoignable ${base}`
-        );
-      }
+    } catch {
+      /* injoignable : pas de log périodique */
     }
-
-    if (!gateActive) return;
 
     const gateNow = isWorkerIngestGateOpen();
     const decisionIfClosed = gateNow ? null : checkWorkerIngestGate();
@@ -139,10 +83,6 @@ export function startWorkerConnectivityHeartbeat(fastify) {
 
     prevGateOpen = gateNow;
   };
-
-  fastify.log.info(
-    `[connectivity] ping worker GET ${base}/health toutes les ${intervalMs} ms${wantLogs ? ' (+ logs CONNECTIVITY)' : ''}${gateActive ? ` ; garde ingest si idle > ${maxIdleMs} ms` : ''}.`
-  );
 
   void tick();
   setInterval(() => {
