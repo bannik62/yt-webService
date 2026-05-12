@@ -9,6 +9,7 @@ import {
   DOWNLOAD_OUTPUT_VIDEO
 } from './runDownload.js';
 import { PLAYLIST_MAX_TRACKS } from './playlistLimit.js';
+import { formatDownloadErrorForUser } from './downloadErrorMessage.js';
 import { resolveProxyUrl } from '../proxy/proxyManager.js';
 
 /**
@@ -253,7 +254,8 @@ export class JobManager extends EventEmitter {
       });
     } catch (err) {
       job.status = 'failed';
-      job.error = err.message || String(err);
+      console.error(`[JobManager] Job ${jobId} échec:`, err);
+      job.error = formatDownloadErrorForUser(err);
       this.#emitJobEvent(jobId, 'complete', {
         success: false,
         error: job.error
