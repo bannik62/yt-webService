@@ -1,7 +1,8 @@
 # Production (VPS) : web sur localhost uniquement — Apache reverse proxy vers 127.0.0.1:7000
 #
-# Aucun fichier obligatoire : CORS par défaut ci-dessous. Pour surcharger, crée /var/www/html/ytWeb/.env
-# (Compose charge automatiquement .env pour ${...}) ou exporte les variables avant `docker compose`.
+# Variables utilisées depuis /var/www/html/ytWeb/.env (voir deploy.yml) ou l’host :
+# WEBSHARE_API_KEY, WORKER_INGEST_SECRET (secrets GitHub recommandés)
+# Worker via tunnel SSH : WORKER_LOCAL_URL=http://127.0.0.1:7410, WORKER_CONNECTIVITY_LOG_MS=10000 etc.
 services:
   api:
     environment:
@@ -10,6 +11,9 @@ services:
       SEARCH_MAX_RESULTS: ${SEARCH_MAX_RESULTS:-10}
       PROXY_URL: ${PROXY_URL:-}
       WEBSHARE_API_KEY: ${WEBSHARE_API_KEY:-}
+      WORKER_LOCAL_URL: ${WORKER_LOCAL_URL:-}
+      WORKER_CONNECTIVITY_LOG_MS: ${WORKER_CONNECTIVITY_LOG_MS:-}
+      WORKER_INGEST_SECRET: ${WORKER_INGEST_SECRET:-}
 
   web:
     ports:
