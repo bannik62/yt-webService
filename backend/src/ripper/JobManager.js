@@ -124,6 +124,93 @@ export class JobManager extends EventEmitter {
   }
 
   /**
+   * Job réservé pour upload depuis le worker local (pas de téléchargement VPS, pas de file d’attente).
+   * @param {object} [opts]
+   * @param {'audio' | 'video'} [opts.output]
+   * @returns {Promise<string>} jobId
+   */
+  async createAwaitingWorkerIngest({ output = DOWNLOAD_OUTPUT_VIDEO } = {}) {
+    const jobId = randomUUID();
+    const jobDir = path.join(this.#tempDir, jobId);
+    const out =
+      output === DOWNLOAD_OUTPUT_AUDIO
+        ? DOWNLOAD_OUTPUT_AUDIO
+        : DOWNLOAD_OUTPUT_VIDEO;
+
+    const job = {
+      id: jobId,
+      urls: [],
+      workerIngest: true,
+      ip: null,
+      proxyIndex: undefined,
+      noPlaylist: true,
+      maxDownloads: 0,
+      output: out,
+      status: 'awaiting_upload',
+      logs: ['\n[worker] Job réservé — en attente de l’upload du fichier.\n'],
+      progress: { filePct: 0, itemIndex: 1, itemTotal: 1 },
+      createdAt: Date.now(),
+      jobDir,
+      files: [],
+      error: null
+    };
+
+    this.#jobs.set(jobId, job);
+    await fs.mkdir(jobDir, { recursive: true });
+    return jobId;
+  }
+
+  /**
+   * Après écriture du fichier média dans jobDir.
+   * @param {string} jobId
+   * @param {{ path: string, name: string }} entry
+   * @returns {Promise<{ ok: true } | { ok: false, error: string }>}
+   */
+  async finalizeWorkerIngestFile(jobId, { path: filePath, name }) {
+    const job = this.#jobs.get(jobId);
+    if (!job?.workerIngest) {
+      return { ok: false, error: 'Job introuvable' };
+    }
+    if (job.status !== 'awaiting_upload') {
+      return { ok: false, error: 'Ce job ne peut plus recevoir de fichier' };
+    }
+
+    const dirResolved = path.resolve(job.jobDir);
+    const resolved = path.resolve(filePath);
+    if (
+      resolved !== dirResolved &&
+      !resolved.startsWith(dirResolved + path.sep)
+    ) {
+      return { ok: false, error: 'Chemin fichier invalide' };
+    }
+
+    try {
+      const stats = await fs.stat(resolved);
+      job.files = [{ name, path: resolved, size: stats.size }];
+      job.status = 'completed';
+      job.logs.push(`\n[worker] Fichier reçu : ${name} (${stats.size} octets)\n`);
+      this.#emitJobEvent(jobId, 'log', {
+        line: `[worker] Fichier reçu : ${name}`
+      });
+      this.#emitJobEvent(jobId, 'complete', {
+        success: true,
+        files: job.files.map((file, index) => ({
+          name: file.name,
+          url: `/api/jobs/${jobId}/file/${index}`,
+          size: file.size
+        }))
+      });
+      return { ok: true };
+    } catch (err) {
+      console.error('[JobManager] finalizeWorkerIngestFile', err);
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err)
+      };
+    }
+  }
+
+  /**
    * État file d'attente pour affichage client (SSE)
    * @param {string} jobId
    * @returns {{ status: string, position?: number, queueLength?: number, estimatedSeconds?: number | null } | null}
@@ -133,6 +220,9 @@ export class JobManager extends EventEmitter {
     if (!job) return null;
     if (job.status === 'running') {
       return { status: 'running' };
+    }
+    if (job.status === 'awaiting_upload') {
+      return { status: 'awaiting_upload' };
     }
     if (job.status !== 'queued') {
       return null;

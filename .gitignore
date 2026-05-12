@@ -9,4 +9,12 @@ frontend/dist/
 backend/cookies.txt
 cookies.txt
 *.md
+!docs/PLAN-worker-local.md
 *.sh
+
+# Worker local — déployé / copié hors dépôt pendant les tests (bundle complet ignoré)
+serveurLocal/
+local-worker/
+home-worker/
+*.local.worker.env
+

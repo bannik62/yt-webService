@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
+import multipart from '@fastify/multipart';
 import { createReadStream, existsSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import fs from 'node:fs/promises';
@@ -12,6 +13,8 @@ import { probePlaylistCount, getTrending } from './ripper/probe.js';
 import { JobManager } from './ripper/JobManager.js';
 import { normalizePlaylistMaxDownloads } from './ripper/playlistLimit.js';
 import { initProxyAtStartup, getProxyPool, selectProxyByIndex, refreshProxyPool, getCurrentProxy, getCurrentProxyInfo, resolveProxyUrl } from './proxy/proxyManager.js';
+import workerIngestRoutes from './routes/workerIngest.js';
+import { startWorkerConnectivityHeartbeat } from './workerConnectivityHeartbeat.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COOKIES_PATH = path.join(__dirname, '..', 'cookies.txt');
@@ -61,18 +64,76 @@ const app = Fastify({ logger: true });
 
 await app.register(cors, getCorsOptions());
 
-// Rate limiting: protection contre le spam
+await app.register(multipart, {
+  limits: {
+    fileSize: 512 * 1024 * 1024,
+    files: 1
+  }
+});
+
+// Rate limiting: protection contre le spam (localhost + routes worker exclus des compteurs)
 await app.register(rateLimit, {
-  max: 20,                    // 20 requêtes max
-  timeWindow: '1 minute',     // par minute
-  allowList: ['127.0.0.1'],   // Localhost illimité (pour les tests)
+  max: 20, // 20 requêtes max
+  timeWindow: '1 minute', // par minute
+  allowList: async (req, key) => {
+    if (
+      key === '127.0.0.1' ||
+      key === '::1' ||
+      key === '::ffff:127.0.0.1'
+    ) {
+      return true;
+    }
+    const url = String(req.url || req.raw?.url || '').split('?')[0];
+    return url.startsWith('/api/worker');
+  },
   errorResponseBuilder: () => ({
     error: '🚫 Trop de requêtes. Réessaye dans 1 minute.',
     statusCode: 429
   })
 });
 
+await app.register(workerIngestRoutes, {
+  prefix: '/api/worker',
+  jobManager
+});
+
 app.get('/health', async () => ({ ok: true }));
+
+/**
+ * Vérifie que le worker local répond, si WORKER_LOCAL_URL est défini
+ * (service déployé depuis le bundle worker copié sur la machine hôte).
+ * Ex. côté VPS avec tunnel SSH -R : http://127.0.0.1:7410 (cf. SSH_RPORT sur le worker).
+ * Logs périodiques optionnels : WORKER_CONNECTIVITY_LOG_MS (voir workerConnectivityHeartbeat.js).
+ */
+app.get('/api/worker-local/health', async (request, reply) => {
+  const base = process.env.WORKER_LOCAL_URL?.trim().replace(/\/$/, '');
+  if (!base) {
+    return {
+      configured: false,
+      message:
+        'WORKER_LOCAL_URL non définie. Ex. http://IP:4100 pour joindre le serveur local.'
+    };
+  }
+
+  try {
+    const res = await fetch(`${base}/health`, {
+      signal: AbortSignal.timeout(8000)
+    });
+    const body = await res.json().catch(() => ({}));
+    return {
+      configured: true,
+      reachable: res.ok,
+      status: res.status,
+      worker: body
+    };
+  } catch (err) {
+    return reply.status(502).send({
+      configured: true,
+      reachable: false,
+      error: err instanceof Error ? err.message : String(err)
+    });
+  }
+});
 
 // Route pour obtenir le statut du proxy
 app.get('/api/proxy-status', async () => {
@@ -484,6 +545,8 @@ try {
   }
   
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+  startWorkerConnectivityHeartbeat(app);
 } catch (err) {
   app.log.error(err);
   process.exit(1);

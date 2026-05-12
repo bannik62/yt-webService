@@ -1,0 +1,119 @@
+import path from 'node:path';
+import { createWriteStream } from 'node:fs';
+import { pipeline } from 'node:stream/promises';
+import {
+  DOWNLOAD_OUTPUT_AUDIO,
+  DOWNLOAD_OUTPUT_VIDEO
+} from '../ripper/runDownload.js';
+
+/**
+ * @param {import('fastify').FastifyRequest} request
+ * @param {import('fastify').FastifyReply} reply
+ */
+function requireIngestSecret(request, reply) {
+  const secret = process.env.WORKER_INGEST_SECRET?.trim();
+  if (!secret) {
+    reply.status(503).send({
+      error:
+        'WORKER_INGEST_SECRET non configuré côté API (variable d’environnement).'
+    });
+    return false;
+  }
+  const auth = request.headers.authorization || '';
+  const m = /^Bearer\s+(.+)$/i.exec(auth);
+  const token = m?.[1]?.trim();
+  if (token !== secret) {
+    reply.status(401).send({ error: 'Non autorisé' });
+    return false;
+  }
+  return true;
+}
+
+const ALLOWED_EXT = new Set([
+  '.mp3',
+  '.mp4',
+  '.webm',
+  '.mkv',
+  '.m4a',
+  '.opus'
+]);
+
+function sanitizeFilename(name, fallbackExt) {
+  const base = path
+    .basename(name || 'upload')
+    .replace(/[^\w.\- ()\u00C0-\u024F]/g, '_');
+  if (!base || base === '.' || base === '..') {
+    return `upload${fallbackExt}`;
+  }
+  return base;
+}
+
+/**
+ * Ingestion fichiers depuis le worker maison (plugin Fastify, préfixe /api/worker).
+ * @param {import('fastify').FastifyInstance} fastify
+ * @param {{ jobManager: import('../ripper/JobManager.js').JobManager }} opts
+ */
+export default async function workerIngestRoutes(fastify, opts) {
+  const { jobManager } = opts;
+
+  fastify.post('/jobs/reserve', async (request, reply) => {
+    if (!requireIngestSecret(request, reply)) return;
+
+    const body = request.body && typeof request.body === 'object' ? request.body : {};
+    const rawOut = body.output;
+    const output =
+      rawOut === 'audio' ? DOWNLOAD_OUTPUT_AUDIO : DOWNLOAD_OUTPUT_VIDEO;
+
+    const jobId = await jobManager.createAwaitingWorkerIngest({ output });
+    return reply.send({ jobId });
+  });
+
+  fastify.post('/ingest/:jobId', async (request, reply) => {
+    if (!requireIngestSecret(request, reply)) return;
+
+    const { jobId } = request.params;
+    const job = jobManager.getJob(jobId);
+
+    if (!job?.workerIngest || job.status !== 'awaiting_upload') {
+      return reply
+        .status(404)
+        .send({ error: 'Job introuvable ou ne peut plus recevoir de fichier' });
+    }
+
+    const data = await request.file();
+    if (!data) {
+      return reply.status(400).send({ error: 'Champ multipart "file" requis' });
+    }
+
+    const ext = path.extname(data.filename || '').toLowerCase();
+    if (!ALLOWED_EXT.has(ext)) {
+      return reply.status(400).send({
+        error: `Extension refusée : ${ext || '(vide)'} — autoriser : ${[...ALLOWED_EXT].join(', ')}`
+      });
+    }
+
+    const safeName = sanitizeFilename(data.filename, ext);
+    const destPath = path.join(job.jobDir, safeName);
+
+    await pipeline(data.file, createWriteStream(destPath));
+
+    const done = await jobManager.finalizeWorkerIngestFile(jobId, {
+      path: destPath,
+      name: safeName
+    });
+
+    if (!done.ok) {
+      return reply.status(500).send({ error: done.error || 'Échec enregistrement' });
+    }
+
+    return reply.send({
+      ok: true,
+      jobId,
+      files: job.files.map((f, index) => ({
+        name: f.name,
+        url: `/api/jobs/${jobId}/file/${index}`,
+        size: f.size
+      }))
+    });
+  });
+}
