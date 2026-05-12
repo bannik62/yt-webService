@@ -94,6 +94,9 @@ export async function runDownload(opts) {
   } catch (e) {
     const probeTxt = `${e?.message ?? ''}\n${e?.cause?.message ?? ''}`;
     if (isProxyQuotaMessage(probeTxt)) {
+      console.warn(
+        '[Proxy] Tunnel / quota (402 Payment Required ou équivalent) — réponse du proxy lors de la phase analyse yt-dlp (WebShare / uplink quota).'
+      );
       throw new ProxyQuotaError(probeTxt.trim().slice(0, 2048));
     }
     onLog(
@@ -210,6 +213,9 @@ export async function runDownload(opts) {
       .filter(Boolean)
       .join('\n');
     if (isProxyQuotaMessage(bundled)) {
+      console.warn(
+        '[Proxy] Tunnel / quota (402 Payment Required ou équivalent) — réponse du proxy pendant yt-dlp (WebShare / uplink quota).'
+      );
       throw new ProxyQuotaError(
         bundled.trim().slice(0, 4096) || 'Proxy quota (402)'
       );

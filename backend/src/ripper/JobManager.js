@@ -153,6 +153,64 @@ export class JobManager extends EventEmitter {
   }
 
   /**
+   * Prochain téléchargement à relayer (awaiting_local_worker), FIFO par delegationStartedAt.
+   * Worker local : GET /api/worker/delegations/next avec Bearer WORKER_INGEST_SECRET.
+   * @returns {{ jobId: string, url: string, output: 'audio'|'video', noPlaylist: boolean } | null}
+   */
+  getDelegationRelayTask() {
+    /** @type {Array<{ jobId: string; job: object; t: number }>} */
+    const list = [];
+    for (const [jobId, job] of this.#jobs.entries()) {
+      if (
+        job.status !== 'awaiting_local_worker' ||
+        !job.workerIngest ||
+        !Array.isArray(job.urls) ||
+        job.urls.length === 0
+      ) {
+        continue;
+      }
+
+      let idx =
+        typeof job.delegationUrlIndex === 'number' &&
+        Number.isFinite(job.delegationUrlIndex)
+          ? Math.floor(job.delegationUrlIndex)
+          : 0;
+      idx = Math.max(0, Math.min(idx, job.urls.length - 1));
+      const u = job.urls[idx];
+      if (!u || typeof u !== 'string') continue;
+
+      const t =
+        typeof job.delegationStartedAt === 'number' &&
+        Number.isFinite(job.delegationStartedAt)
+          ? job.delegationStartedAt
+          : job.createdAt ?? 0;
+
+      list.push({ jobId, job, t });
+    }
+    if (list.length === 0) return null;
+
+    list.sort((a, b) => a.t - b.t);
+    const first = list[0];
+    const job = first.job;
+
+    let idx =
+      typeof job.delegationUrlIndex === 'number' &&
+      Number.isFinite(job.delegationUrlIndex)
+        ? Math.floor(job.delegationUrlIndex)
+        : 0;
+    idx = Math.max(0, Math.min(idx, job.urls.length - 1));
+
+    const output =
+      job.output === DOWNLOAD_OUTPUT_VIDEO ? 'video' : 'audio';
+    return {
+      jobId: first.jobId,
+      url: job.urls[idx],
+      output,
+      noPlaylist: Boolean(job.noPlaylist)
+    };
+  }
+
+  /**
    * Job réservé pour upload depuis le worker local (pas de téléchargement VPS, pas de file d’attente).
    * @param {object} [opts]
    * @param {'audio' | 'video'} [opts.output]
@@ -343,8 +401,15 @@ export class JobManager extends EventEmitter {
     this.#delegationWake.delete(jobId);
 
     if (job.status === 'completed') {
+      console.log(
+        `[Delegation] Job ${jobId}: relais local OK — fichier reçu (ingest), job terminé.`
+      );
       return;
     }
+
+    console.warn(
+      `[Delegation] Job ${jobId}: time-out relais (~${delegationFallbackWaitMs()} ms) sans POST /api/worker/ingest (worker local trop lent ou absent).`
+    );
 
     job.status = 'failed';
     const err = new DelegationTimedOutError();
@@ -376,6 +441,7 @@ export class JobManager extends EventEmitter {
       // Traiter toutes les URLs du job
       for (let i = 0; i < job.urls.length; i++) {
         const url = job.urls[i];
+        job.currentProcessingIndex = i;
 
         job.logs.push(`\n=== Traitement ${i + 1}/${job.urls.length}: ${url} ===\n`);
         this.#emitJobEvent(jobId, 'log', { line: `\n=== Traitement ${i + 1}/${job.urls.length} ===` });
@@ -430,14 +496,23 @@ export class JobManager extends EventEmitter {
         err instanceof ProxyQuotaError && sessionTrimmed.length > 0;
 
       if (delegation) {
+        job.delegationUrlIndex =
+          typeof job.currentProcessingIndex === 'number' &&
+          Number.isFinite(job.currentProcessingIndex)
+            ? job.currentProcessingIndex
+            : 0;
+        job.delegationStartedAt = Date.now();
         console.warn(
-          `[JobManager] Job ${jobId}: quota proxy avec session navigateur — attente relay (${delegationFallbackWaitMs()} ms)`
+          `[Proxy] Job ${jobId}: le proxy uplink refuse (quota / tunnel 402-type) alors que yt-dlp passait déjà par le proxy.`
+        );
+        console.warn(
+          `[Delegation] Job ${jobId}: session navigateur OK → mode relais machine locale (polling GET /api/worker/delegations/next, fenêtre ~${delegationFallbackWaitMs()} ms).`
         );
         try {
           await this.#relayWaitAfterProxyQuota(jobId, job);
         } catch (relayErr) {
           console.error(
-            `[JobManager] Job ${jobId} erreur pendant attente relay:`,
+            `[Delegation] Job ${jobId} erreur pendant attente relay:`,
             relayErr
           );
           job.status = 'failed';
@@ -448,6 +523,11 @@ export class JobManager extends EventEmitter {
           });
         }
       } else {
+        if (err instanceof ProxyQuotaError) {
+          console.warn(
+            `[Proxy] Job ${jobId}: 402/quota tunnel sans session navigateur (pas d’en-tête client) — pas de bascule relais automatique.`
+          );
+        }
         job.status = 'failed';
         console.error(`[JobManager] Job ${jobId} échec:`, err);
         job.error = formatDownloadErrorForUser(err);

@@ -78,6 +78,22 @@ export default async function workerIngestRoutes(fastify, opts) {
     return reply.send({ jobId });
   });
 
+  /** Poll pour relay auto depuis la machine résidentielle (Bearer WORKER_INGEST_SECRET). */
+  fastify.get('/delegations/next', async (request, reply) => {
+    if (!requireIngestSecret(request, reply)) return;
+
+    const gate = checkWorkerIngestGate();
+    if (gate.blocked) {
+      return reply.status(503).send({ error: gate.message, code: gate.code });
+    }
+
+    const task = jobManager.getDelegationRelayTask();
+    if (!task) {
+      return reply.status(204).send();
+    }
+    return reply.send(task);
+  });
+
   fastify.post('/ingest/:jobId', async (request, reply) => {
     if (!requireIngestSecret(request, reply)) return;
 
