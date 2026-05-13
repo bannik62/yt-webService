@@ -98,6 +98,34 @@ export default async function workerIngestRoutes(fastify, opts) {
     }
   );
 
+  /** Rapport de progression yt-dlp pendant le relais (SSE barre côté client). */
+  fastify.post('/jobs/:jobId/progress', async (request, reply) => {
+    if (!requireIngestSecret(request, reply)) return;
+
+    const gate = checkWorkerIngestGate();
+    if (gate.blocked) {
+      return reply.status(503).send({ error: gate.message, code: gate.code });
+    }
+
+    const { jobId } = request.params;
+    const body =
+      request.body && typeof request.body === 'object' ? request.body : {};
+    const result = jobManager.reportWorkerRelayProgress(jobId, {
+      filePct: body.filePct
+    });
+
+    if (!result.ok) {
+      const status =
+        result.error === 'Job introuvable' ||
+        result.error === 'Job pas en attente du relais local'
+          ? 404
+          : 400;
+      return reply.status(status).send({ error: result.error });
+    }
+
+    return reply.send({ ok: true });
+  });
+
   fastify.post('/ingest/:jobId', async (request, reply) => {
     if (!requireIngestSecret(request, reply)) return;
 

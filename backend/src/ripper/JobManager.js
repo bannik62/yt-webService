@@ -306,6 +306,49 @@ export class JobManager extends EventEmitter {
   }
 
   /**
+   * Progression yt-dlp rapportée par le worker pendant une délégation (`awaiting_local_worker`).
+   * @param {string} jobId
+   * @param {{ filePct: unknown }} payload
+   * @returns {{ ok: true } | { ok: false, error: string }}
+   */
+  reportWorkerRelayProgress(jobId, { filePct }) {
+    const job = this.#jobs.get(jobId);
+    if (!job?.workerIngest) {
+      return { ok: false, error: 'Job introuvable' };
+    }
+    if (job.status !== 'awaiting_local_worker') {
+      return {
+        ok: false,
+        error: 'Job pas en attente du relais local'
+      };
+    }
+
+    let pct = Number(filePct);
+    if (!Number.isFinite(pct)) {
+      return { ok: false, error: 'filePct invalide' };
+    }
+    pct = Math.max(0, Math.min(100, pct));
+
+    const urlLen = Array.isArray(job.urls) ? job.urls.length : 0;
+    const itemTotal = Math.max(1, urlLen);
+    let idx =
+      typeof job.delegationUrlIndex === 'number' &&
+      Number.isFinite(job.delegationUrlIndex)
+        ? Math.floor(job.delegationUrlIndex)
+        : 0;
+    idx = Math.max(0, Math.min(idx, itemTotal - 1));
+    const itemIndex = idx + 1;
+
+    job.progress = {
+      filePct: pct,
+      itemIndex,
+      itemTotal
+    };
+    this.#emitJobEvent(jobId, 'progress', { progress: job.progress });
+    return { ok: true };
+  }
+
+  /**
    * État file d'attente pour affichage client (SSE)
    * @param {string} jobId
    * @returns {{ status: string, position?: number, queueLength?: number, estimatedSeconds?: number | null } | null}

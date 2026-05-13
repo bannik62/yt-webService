@@ -15,6 +15,29 @@ export function parseProgressLine(line) {
 }
 
 /**
+ * Pourcentage approximatif quand yt-dlp passe merge / ffmpeg sans ligne `[download] …%`.
+ * @param {string} line
+ * @param {number} [lastPct]
+ * @returns {number|null}
+ */
+export function inferPhaseProgressHint(line, lastPct = 0) {
+  const lp =
+    typeof lastPct === 'number' && Number.isFinite(lastPct) ? lastPct : 0;
+  if (/\[Merger\]|Merging formats into/i.test(line)) {
+    return Math.max(lp, 90);
+  }
+  if (/\[ExtractAudio\]|Destination:\s*.+\.(?:mp3|m4a|opus)/i.test(line)) {
+    return Math.max(lp, 85);
+  }
+  if (/\[Fixup\]|Correcting container/i.test(line)) {
+    return Math.max(lp, 96);
+  }
+  const ffmpegPct = line.match(/\[download\]\s+[^[\]]*?(\d+(?:\.\d+)?)%/);
+  if (ffmpegPct) return Math.max(lp, Number(ffmpegPct[1]));
+  return null;
+}
+
+/**
  * Parse "item N of Total" depuis une ligne yt-dlp
  * @param {string} line
  * @returns {{item: number, total: number}|null}

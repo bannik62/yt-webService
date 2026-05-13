@@ -1,7 +1,11 @@
 import path from 'node:path';
 import ffmpegStatic from 'ffmpeg-static';
 import youtubedl from 'youtube-dl-exec';
-import { parseItemOfTotal, parseProgressLine } from './ytdlpHelpers.js';
+import {
+  inferPhaseProgressHint,
+  parseItemOfTotal,
+  parseProgressLine
+} from './ytdlpHelpers.js';
 import { getCurrentProxy } from '../proxy/proxyManager.js';
 import { getCookiesPath, hasCookies } from '../utils/cookiesHelper.js';
 import {
@@ -197,15 +201,22 @@ export async function runDownload(opts) {
       itemIndex = Math.min(meta.item, plannedTotal);
     }
     const pct = parseProgressLine(line);
+    const phasePct =
+      pct == null ? inferPhaseProgressHint(line, lastFilePct) : null;
+
     if (pct == null) {
       onLog(line);
     }
+
     if (pct != null) {
       if (pct < 5 && lastFilePct > 85 && itemIndex < plannedTotal && !meta) {
         itemIndex++;
       }
       lastFilePct = pct;
       emitProgress(pct, itemIndex);
+    } else if (phasePct != null && phasePct !== lastFilePct) {
+      lastFilePct = phasePct;
+      emitProgress(phasePct, itemIndex);
     }
   };
 
