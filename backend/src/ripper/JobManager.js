@@ -17,6 +17,7 @@ import {
   transcodeWorkerIngest,
   getFfmpegBinOrNull
 } from './transcodeIngest.js';
+import { incrementDownloadStats } from '../downloadStats.js';
 
 /**
  * @param {unknown} v — `'audio' \| 'video'` ou constante download
@@ -468,6 +469,7 @@ export class JobManager extends EventEmitter {
           size: file.size
         }))
       });
+      void incrementDownloadStats({ files: job.files.length });
       const wakeDelegation = this.#delegationWake.get(jobId);
       if (wakeDelegation) {
         this.#delegationWake.delete(jobId);
@@ -802,6 +804,7 @@ export class JobManager extends EventEmitter {
           size: file.size
         }))
       });
+      void incrementDownloadStats({ files: files.length });
     } catch (err) {
       const sessionTrimmed =
         typeof job.workerSessionId === 'string'

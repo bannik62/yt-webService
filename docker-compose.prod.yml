@@ -2,6 +2,10 @@
 #
 # Variables utilisées depuis /var/www/html/ytWeb/.env (voir deploy.yml) ou l’host :
 # WEBSHARE_API_KEY, WORKER_INGEST_SECRET (secrets GitHub recommandés)
+# ADMIN_STATS_SECRET : Bearer pour GET /api/admin/download-stats (compteur téléchargements).
+# DOWNLOAD_STATS_PATH : optionnel, chemin absolu du JSON de stats dans le conteneur api.
+# LOG_LEVEL : pino (ex. info, warn) — warn réduit le bruit des logs HTTP.
+# LOG_FILTER_DELEGATIONS_POLL : vide ou 1 = masquer les logs du poll GET /api/worker/delegations/next ; 0 = tout afficher.
 # Build image web : VITE_FB_APP_ID (chiffres uniquement, app Meta) pour la balise fb:app_id / Sharing Debugger.
 # Worker via tunnel SSH (-R) : le port est sur l’hôte Linux, pas dans le conteneur api.
 # Utiliser host.docker.internal (extra_hosts) plutôt que 127.0.0.1 depuis le conteneur.
@@ -23,6 +27,10 @@ services:
       WEBSHARE_API_KEY: ${WEBSHARE_API_KEY:-}
       WORKER_LOCAL_URL: ${WORKER_LOCAL_URL:-}
       WORKER_INGEST_SECRET: ${WORKER_INGEST_SECRET:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      ADMIN_STATS_SECRET: ${ADMIN_STATS_SECRET:-}
+      DOWNLOAD_STATS_PATH: ${DOWNLOAD_STATS_PATH:-}
+      LOG_FILTER_DELEGATIONS_POLL: ${LOG_FILTER_DELEGATIONS_POLL:-}
 
   web:
     ports:

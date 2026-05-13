@@ -6,6 +6,7 @@ node_modules
 *.log
 dist/
 frontend/dist/
+backend/data/download-stats.json
 backend/cookies.txt
 cookies.txt
 *.md

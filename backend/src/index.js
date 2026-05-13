@@ -16,6 +16,11 @@ import { initProxyAtStartup, getProxyPool, selectProxyByIndex, refreshProxyPool,
 import workerIngestRoutes from './routes/workerIngest.js';
 import { startWorkerConnectivityHeartbeat } from './workerConnectivityHeartbeat.js';
 import { recordWorkerHealthy } from './workerIngestGate.js';
+import { readDownloadStats } from './downloadStats.js';
+import {
+  createPinoDelegationsPollFilterStream,
+  isDelegationsPollLogFilterEnabled
+} from './pinoDelegationsPollFilterStream.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COOKIES_PATH = path.join(__dirname, '..', 'cookies.txt');
@@ -90,7 +95,18 @@ function normalizeDownloadOutput(raw, defaultOutput) {
   return { ok: false, error: 'output doit être audio ou video' };
 }
 
-const app = Fastify({ logger: true });
+const logLevel = process.env.LOG_LEVEL?.trim() || 'info';
+
+const logStream = isDelegationsPollLogFilterEnabled()
+  ? createPinoDelegationsPollFilterStream()
+  : process.stdout;
+
+const app = Fastify({
+  logger: {
+    level: logLevel,
+    stream: logStream
+  }
+});
 
 await app.register(cors, getCorsOptions());
 
@@ -138,6 +154,25 @@ await app.register(workerIngestRoutes, {
 });
 
 app.get('/health', async () => ({ ok: true }));
+
+/**
+ * Stats téléchargements réussis (persistées sur le VPS). Protégé par Bearer ADMIN_STATS_SECRET.
+ */
+app.get('/api/admin/download-stats', async (request, reply) => {
+  const secret = process.env.ADMIN_STATS_SECRET?.trim();
+  if (!secret) {
+    return reply.status(503).send({
+      error:
+        'ADMIN_STATS_SECRET non configuré (variable d’environnement sur l’API).'
+    });
+  }
+  const auth = request.headers.authorization || '';
+  const m = /^Bearer\s+(.+)$/i.exec(auth);
+  if (m?.[1]?.trim() !== secret) {
+    return reply.status(401).send({ error: 'Non autorisé' });
+  }
+  return readDownloadStats();
+});
 
 /**
  * Vérifie que le worker local répond, si WORKER_LOCAL_URL est défini
