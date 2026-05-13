@@ -543,7 +543,9 @@ try {
   
   await app.listen({ port: PORT, host: HOST });
   app.log.info(`API http://${HOST}:${PORT}`);
-  
+
+  await startWorkerConnectivityHeartbeat(app);
+
   // Vérifier le statut de l'authentification YouTube
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('🔐 Statut authentification YouTube:');
@@ -572,8 +574,6 @@ try {
   }
   
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-
-  startWorkerConnectivityHeartbeat(app);
 } catch (err) {
   app.log.error(err);
   process.exit(1);

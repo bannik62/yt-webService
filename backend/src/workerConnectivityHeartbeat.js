@@ -16,7 +16,13 @@ import {
   isWorkerIngestGateOpen
 } from './workerIngestGate.js';
 
-export function startWorkerConnectivityHeartbeat(fastify) {
+/**
+ * Lance le ping santé worker. À la première connexion après listen, attend une fois le 1er tick
+ * pour éviter que GET /delegations/next renvoie 503 (WORKER_INGEST_UNAVAILABLE) par simple course
+ * contre le tout premier heartbeat.
+ * @returns {Promise<void>}
+ */
+export async function startWorkerConnectivityHeartbeat(fastify) {
   const base = process.env.WORKER_LOCAL_URL?.trim().replace(/\/$/, '');
   if (!base) return;
 
@@ -42,6 +48,8 @@ export function startWorkerConnectivityHeartbeat(fastify) {
 
   /** @type {boolean | null} */
   let prevGateOpen = null;
+  /** premier health OK après boot API (pour un log diagnostic unique) */
+  let loggedFirstHealthy = false;
 
   const tick = async () => {
     try {
@@ -51,6 +59,13 @@ export function startWorkerConnectivityHeartbeat(fastify) {
       await res.json().catch(() => ({}));
       if (res.ok) {
         recordWorkerHealthy();
+        if (!loggedFirstHealthy) {
+          loggedFirstHealthy = true;
+          fastify.log.info(
+            { tag: 'ingest_gate', transitioned: 'first_health_since_boot', base },
+            `[ingest] Garde ingest : premier health OK (${base}/health)`
+          );
+        }
       }
     } catch {
       /* injoignable : pas de log périodique */
@@ -84,7 +99,7 @@ export function startWorkerConnectivityHeartbeat(fastify) {
     prevGateOpen = gateNow;
   };
 
-  void tick();
+  await tick();
   setInterval(() => {
     void tick();
   }, intervalMs);

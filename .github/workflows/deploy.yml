@@ -31,17 +31,19 @@ jobs:
             ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/html/ytWeb/
 
       # Recrée tout le .env à chaque déploiement — tout ce qui n’est pas listé ici est perdu.
-      # Ajouter les secrets GitHub nécessaires + les réutiliser en dessous.
+      # Secrets GitHub recommandés : WEBSHARE_API_KEY, WORKER_INGEST_SECRET,
+      # WORKER_LOCAL_URL (optionnel ; défaut runner ci‑dessous si vide).
       - name: Create .env file with secrets
         run: |
-          ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "cat > /var/www/html/ytWeb/.env << 'EOF'
-          WEBSHARE_API_KEY=${{ secrets.WEBSHARE_API_KEY }}
-          WORKER_INGEST_SECRET=${{ secrets.WORKER_INGEST_SECRET }}
-          WORKER_LOCAL_URL=http://host.docker.internal:7410
-          EOF
-          chmod 600 /var/www/html/ytWeb/.env"
+          WLU="${{ secrets.WORKER_LOCAL_URL }}"
+          if [ -z "$WLU" ]; then WLU="http://host.docker.internal:7410"; fi
+          {
+            printf '%s\n' "WEBSHARE_API_KEY=${{ secrets.WEBSHARE_API_KEY }}"
+            printf '%s\n' "WORKER_INGEST_SECRET=${{ secrets.WORKER_INGEST_SECRET }}"
+            printf '%s\n' "WORKER_LOCAL_URL=${WLU}"
+          } | ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} \
+              ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+              "umask 077; cat > /var/www/html/ytWeb/.env && chmod 600 /var/www/html/ytWeb/.env"
 
       - name: Docker Compose (prod)
         run: |
