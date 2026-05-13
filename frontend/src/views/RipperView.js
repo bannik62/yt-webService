@@ -245,45 +245,6 @@ export class RipperView {
     }
   }
 
-  _progressAnimLoop = () => {
-    this._progressRaf = null;
-    const t = this._progressTarget;
-    if (!this.progress || !t) {
-      return;
-    }
-
-    if (!this._progressShown) {
-      this._progressShown = { overall: 0, filePct: 0 };
-    }
-    const s = this._progressShown;
-
-    let alpha = 0.12;
-    if (t.overall >= 99) {
-      alpha = 0.35;
-    }
-
-    s.overall += (t.overall - s.overall) * alpha;
-    s.filePct += (t.filePct - s.filePct) * alpha;
-
-    const eps = 0.08;
-    if (Math.abs(t.overall - s.overall) < eps) s.overall = t.overall;
-    if (Math.abs(t.filePct - s.filePct) < eps) s.filePct = t.filePct;
-
-    this._paintProgressFrame();
-
-    const done =
-      Math.abs(t.overall - s.overall) < 0.02 &&
-      Math.abs(t.filePct - s.filePct) < 0.02;
-    if (!done) {
-      this._progressRaf = requestAnimationFrame(this._progressAnimLoop);
-    }
-  };
-
-  _scheduleProgressAnim() {
-    if (this._progressRaf != null) return;
-    this._progressRaf = requestAnimationFrame(this._progressAnimLoop);
-  }
-
   updateProgress({ filePct, itemIndex, itemTotal }) {
     if (!this.progress) return;
 
@@ -298,20 +259,18 @@ export class RipperView {
       itemTotal: Number.isFinite(tot) && tot > 0 ? tot : 1
     });
 
+    this._stopProgressAnim();
+    const fileClamp = Math.min(100, Math.max(0, f));
     this._progressTarget = {
       overall,
-      filePct: Math.min(100, Math.max(0, f)),
+      filePct: fileClamp,
       itemIndex: Number.isFinite(idx) ? idx : 1,
       itemTotal: Number.isFinite(tot) && tot > 0 ? tot : 1
     };
+    this._progressShown = { overall, filePct: fileClamp };
 
-    if (!this._progressShown) {
-      this._progressShown = { overall: 0, filePct: 0 };
-      this._ensureProgressDom();
-      this._paintProgressFrame();
-    }
-
-    this._scheduleProgressAnim();
+    this._ensureProgressDom();
+    this._paintProgressFrame();
   }
 
   _handleJobComplete(data) {

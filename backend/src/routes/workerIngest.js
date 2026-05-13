@@ -126,6 +126,38 @@ export default async function workerIngestRoutes(fastify, opts) {
     return reply.send({ ok: true });
   });
 
+  /** Lignes yt-dlp pendant le relais → événements SSE `log` (Ripper / stream job). */
+  fastify.post('/jobs/:jobId/relay-log', async (request, reply) => {
+    if (!requireIngestSecret(request, reply)) return;
+
+    const gate = checkWorkerIngestGate();
+    if (gate.blocked) {
+      return reply.status(503).send({ error: gate.message, code: gate.code });
+    }
+
+    const { jobId } = request.params;
+    const body =
+      request.body && typeof request.body === 'object' ? request.body : {};
+    const line =
+      typeof body.line === 'string'
+        ? body.line
+        : typeof body.text === 'string'
+          ? body.text
+          : '';
+    const result = jobManager.appendWorkerRelayLog(jobId, line);
+
+    if (!result.ok) {
+      const status =
+        result.error === 'Job introuvable' ||
+        result.error === 'Job pas en attente du relais local'
+          ? 404
+          : 400;
+      return reply.status(status).send({ error: result.error });
+    }
+
+    return reply.send({ ok: true });
+  });
+
   fastify.post('/ingest/:jobId', async (request, reply) => {
     if (!requireIngestSecret(request, reply)) return;
 

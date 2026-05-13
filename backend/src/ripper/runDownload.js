@@ -119,6 +119,21 @@ export async function runDownload(opts) {
     });
   }
 
+  /** Les % yt-dlp « téléchargement » ne remplissent que 0–10 % de la barre ; ~90 % restent pour extract/ffmpeg/post. */
+  const DOWNLOAD_PHASE_BAR_MAX = 10;
+  function emitProgressScaled(rawPct, idx) {
+    const r = Number(rawPct);
+    if (!Number.isFinite(r)) return;
+    const scaled = Math.min(
+      DOWNLOAD_PHASE_BAR_MAX,
+      Math.max(
+        0,
+        Math.round((Math.min(100, r) / 100) * DOWNLOAD_PHASE_BAR_MAX)
+      )
+    );
+    emitProgress(scaled, idx);
+  }
+
   const outTemplate = path.join(targetDir, '%(title)s [%(id)s].%(ext)s');
   const ffmpegPath = ffmpegStatic || undefined;
 
@@ -213,10 +228,10 @@ export async function runDownload(opts) {
         itemIndex++;
       }
       lastFilePct = pct;
-      emitProgress(pct, itemIndex);
+      emitProgressScaled(pct, itemIndex);
     } else if (phasePct != null && phasePct !== lastFilePct) {
       lastFilePct = phasePct;
-      emitProgress(phasePct, itemIndex);
+      emitProgressScaled(phasePct, itemIndex);
     }
   };
 
@@ -258,6 +273,7 @@ export async function runDownload(opts) {
     throw execErr;
   }
   console.log('[yt-dlp] Téléchargement terminé avec succès');
+  emitProgress(88, itemIndex);
   onLog('✅ Téléchargement terminé !');
-  emitProgress(100, plannedTotal);
+  emitProgress(100, itemIndex);
 }

@@ -12,6 +12,11 @@ import { PLAYLIST_MAX_TRACKS } from './playlistLimit.js';
 import { formatDownloadErrorForUser } from './downloadErrorMessage.js';
 import { resolveProxyUrl } from '../proxy/proxyManager.js';
 import { ProxyQuotaError, DelegationTimedOutError } from './proxyQuotaError.js';
+import {
+  needsWorkerIngestTranscode,
+  transcodeWorkerIngest,
+  getFfmpegBinOrNull
+} from './transcodeIngest.js';
 
 /**
  * @returns {number}
@@ -21,6 +26,88 @@ function delegationFallbackWaitMs() {
   if (raw === undefined || raw === '') return 90000;
   const n = Number(raw);
   return Number.isFinite(n) && n >= 3000 ? n : 90000;
+}
+
+/**
+ * @param {string} s
+ */
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Dernier segment d’un chemin (nom de fichier), sans exposer tmp / UUID.
+ * @param {string} raw
+ */
+function safeBasenameFromPath(raw) {
+  const u = String(raw).split('\\').join('/').trim();
+  if (!u) return '';
+  const base = path.basename(u.replace(/\/+$/, ''));
+  return base || u;
+}
+
+/**
+ * Masque les chemins tmp / job dans les lignes de log (VPS `runDownload` + relay `relay-log`).
+ * Remplace les chemins par le **nom de fichier** seul quand c’est possible.
+ * @param {string} line
+ */
+function sanitizeJobLogLineForSse(line) {
+  let s = String(line).replace(/\r/g, '');
+  const t = s.trim();
+
+  const downloadDest = t.match(/^\[download\]\s*Destination:\s*(.+)$/i);
+  if (downloadDest) {
+    const name = safeBasenameFromPath(downloadDest[1]);
+    return name ? `[download] ${name}` : '[download]';
+  }
+
+  if (/^\[download\]\s+Merging formats into\s+/i.test(t)) {
+    const rest = t.replace(/^\[download\]\s+Merging formats into\s+/i, '').trim();
+    const unquoted = rest.replace(/^["']|["']$/g, '');
+    const name = safeBasenameFromPath(unquoted);
+    return name ? `[download] Fusion : ${name}` : '[download] Fusion des formats';
+  }
+
+  const extractDest = t.match(/^\[ExtractAudio\]\s*Destination:\s*(.+)$/i);
+  if (extractDest) {
+    const name = safeBasenameFromPath(extractDest[1]);
+    return name ? `[ExtractAudio] ${name}` : '[ExtractAudio]';
+  }
+
+  const delMatch = t.match(/^Deleting original file\s+(.+)$/i);
+  if (delMatch) {
+    const rest = delMatch[1].trim();
+    const paren = /\s+(\([^)]*\))\s*$/.exec(rest);
+    const pathOnly = paren ? rest.slice(0, paren.index).trim() : rest;
+    const suffix = paren ? ` ${paren[1]}` : '';
+    const name = safeBasenameFromPath(pathOnly);
+    return name ? `Deleting original file ${name}${suffix}` : t;
+  }
+
+  const tmpBase = path.join(os.tmpdir(), 'yt-ripper-jobs').replace(/\\/g, '/');
+  const uuidSeg =
+    '[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}';
+  const jobDirPrefix = new RegExp(
+    `${escapeRegExp(tmpBase)}/${uuidSeg}/`,
+    'gi'
+  );
+
+  const unified = s.split('\\').join('/');
+  let out = unified.replace(jobDirPrefix, '');
+  out = out.replace(
+    /yt-ripper-jobs\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\//gi,
+    ''
+  );
+  out = out.replace(/["']([^"'\n]*)yt-ripper-jobs[^"'\n]*["']/gi, (_q, inner) => {
+    const name = safeBasenameFromPath(inner);
+    return name ? `"${name}"` : '"[fichier]"';
+  });
+  return out.trimEnd();
+}
+
+/** Après cette ligne relay, la barre ~90 % (reste : upload → VPS + encodage éventuel → 100 % à finalize). */
+function isRelayYtdlpTerminalSuccessLog(line) {
+  return /✅\s*Téléchargement terminé\s*!/i.test(String(line).trim());
 }
 
 /**
@@ -275,12 +362,87 @@ export class JobManager extends EventEmitter {
     }
 
     try {
-      const stats = await fs.stat(resolved);
-      job.files = [{ name, path: resolved, size: stats.size }];
+      const extLower = path.extname(name).toLowerCase();
+      let outPath = resolved;
+      let outName = name;
+
+      if (needsWorkerIngestTranscode(job, extLower)) {
+        const ffmpegBin = getFfmpegBinOrNull();
+        if (!ffmpegBin) {
+          throw new Error(
+            'ffmpeg indisponible sur le serveur : impossible de convertir le fichier ingéré.'
+          );
+        }
+        const base = path.basename(name, extLower);
+        const outExt =
+          job.output === DOWNLOAD_OUTPUT_AUDIO ? '.mp3' : '.mp4';
+        const targetPath = path.join(job.jobDir, `${base}${outExt}`);
+
+        this.#emitJobEvent(jobId, 'log', {
+          line:
+            job.output === DOWNLOAD_OUTPUT_AUDIO
+              ? '[VPS] Encodage MP3 sur le serveur (ffmpeg)…'
+              : '[VPS] Encodage MP4 sur le serveur (ffmpeg)…'
+        });
+
+        const mode =
+          job.output === DOWNLOAD_OUTPUT_AUDIO ? 'audio-mp3' : 'video-mp4';
+
+        await transcodeWorkerIngest({
+          ffmpegBin,
+          inputPath: resolved,
+          outputPath: targetPath,
+          mode,
+          onProgress: (p) => {
+            const urlLen = Array.isArray(job.urls) ? job.urls.length : 0;
+            const itemTotal = Math.max(1, urlLen);
+            let idx =
+              typeof job.delegationUrlIndex === 'number' &&
+              Number.isFinite(job.delegationUrlIndex)
+                ? Math.floor(job.delegationUrlIndex)
+                : 0;
+            idx = Math.max(0, Math.min(idx, itemTotal - 1));
+            const mapped = 90 + Math.min(9, Math.round((p / 100) * 9));
+            job.progress = {
+              filePct: mapped,
+              itemIndex: idx + 1,
+              itemTotal
+            };
+            this.#emitJobEvent(jobId, 'progress', { progress: job.progress });
+          }
+        });
+
+        if (targetPath !== resolved) {
+          await fs.unlink(resolved).catch(() => {});
+        }
+        outPath = targetPath;
+        outName = `${base}${outExt}`;
+      }
+
+      const stats = await fs.stat(outPath);
+      job.files = [{ name: outName, path: outPath, size: stats.size }];
       job.status = 'completed';
-      job.logs.push(`\n[worker] Fichier reçu : ${name} (${stats.size} octets)\n`);
+
+      const urlLen = Array.isArray(job.urls) ? job.urls.length : 0;
+      const itemTotal = Math.max(1, urlLen);
+      let idx =
+        typeof job.delegationUrlIndex === 'number' &&
+        Number.isFinite(job.delegationUrlIndex)
+          ? Math.floor(job.delegationUrlIndex)
+          : 0;
+      idx = Math.max(0, Math.min(idx, itemTotal - 1));
+      job.progress = {
+        filePct: 100,
+        itemIndex: idx + 1,
+        itemTotal
+      };
+      this.#emitJobEvent(jobId, 'progress', { progress: job.progress });
+
+      job.logs.push(
+        `\n[worker] Fichier prêt : ${outName} (${stats.size} octets)\n`
+      );
       this.#emitJobEvent(jobId, 'log', {
-        line: `[worker] Fichier reçu : ${name}`
+        line: `[worker] Fichier prêt : ${outName}`
       });
       this.#emitJobEvent(jobId, 'complete', {
         success: true,
@@ -298,6 +460,17 @@ export class JobManager extends EventEmitter {
       return { ok: true };
     } catch (err) {
       console.error('[JobManager] finalizeWorkerIngestFile', err);
+      job.status = 'failed';
+      job.error = formatDownloadErrorForUser(err);
+      this.#emitJobEvent(jobId, 'complete', {
+        success: false,
+        error: job.error
+      });
+      const wakeDelegation = this.#delegationWake.get(jobId);
+      if (wakeDelegation) {
+        this.#delegationWake.delete(jobId);
+        wakeDelegation();
+      }
       return {
         ok: false,
         error: err instanceof Error ? err.message : String(err)
@@ -323,11 +496,22 @@ export class JobManager extends EventEmitter {
       };
     }
 
+    if (!job.relayDownloadProgressAnnounced) {
+      job.relayDownloadProgressAnnounced = true;
+      const line =
+        '[relais] Téléchargement sur ta machine — la barre suit le pourcentage envoyé par le worker.';
+      job.logs.push(`${line}\n`);
+      this.#emitJobEvent(jobId, 'log', { line });
+    }
+
     let pct = Number(filePct);
     if (!Number.isFinite(pct)) {
       return { ok: false, error: 'filePct invalide' };
     }
     pct = Math.max(0, Math.min(100, pct));
+    /** Réserve ~90 % de la barre pour extract / upload / encodage : le worker ne remplit que 0–10 % ici. */
+    const displayPct =
+      pct >= 100 ? 10 : Math.round((Math.min(100, pct) / 100) * 10);
 
     const urlLen = Array.isArray(job.urls) ? job.urls.length : 0;
     const itemTotal = Math.max(1, urlLen);
@@ -340,11 +524,61 @@ export class JobManager extends EventEmitter {
     const itemIndex = idx + 1;
 
     job.progress = {
-      filePct: pct,
+      filePct: displayPct,
       itemIndex,
       itemTotal
     };
     this.#emitJobEvent(jobId, 'progress', { progress: job.progress });
+    return { ok: true };
+  }
+
+  /**
+   * Ligne de log yt-dlp (stdout/stderr) envoyée par le worker pendant le relais.
+   * @param {string} jobId
+   * @param {string} line
+   * @returns {{ ok: true } | { ok: false, error: string }}
+   */
+  appendWorkerRelayLog(jobId, line) {
+    const job = this.#jobs.get(jobId);
+    if (!job?.workerIngest) {
+      return { ok: false, error: 'Job introuvable' };
+    }
+    if (job.status !== 'awaiting_local_worker') {
+      return {
+        ok: false,
+        error: 'Job pas en attente du relais local'
+      };
+    }
+    const raw = typeof line === 'string' ? line : '';
+    const text = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+    if (!text) {
+      return { ok: false, error: 'line vide' };
+    }
+    const safe = sanitizeJobLogLineForSse(text);
+    if (!safe.trim()) {
+      return { ok: false, error: 'line vide' };
+    }
+    const clipped = safe.length > 8000 ? `${safe.slice(0, 7997)}…` : safe;
+    job.logs.push(`${clipped}\n`);
+    this.#emitJobEvent(jobId, 'log', { line: clipped });
+
+    if (isRelayYtdlpTerminalSuccessLog(clipped)) {
+      const urlLen = Array.isArray(job.urls) ? job.urls.length : 0;
+      const itemTotal = Math.max(1, urlLen);
+      let idx =
+        typeof job.delegationUrlIndex === 'number' &&
+        Number.isFinite(job.delegationUrlIndex)
+          ? Math.floor(job.delegationUrlIndex)
+          : 0;
+      idx = Math.max(0, Math.min(idx, itemTotal - 1));
+      job.progress = {
+        filePct: 90,
+        itemIndex: idx + 1,
+        itemTotal
+      };
+      this.#emitJobEvent(jobId, 'progress', { progress: job.progress });
+    }
+
     return { ok: true };
   }
 
@@ -434,8 +668,27 @@ export class JobManager extends EventEmitter {
     job.workerIngest = true;
     job.status = 'awaiting_local_worker';
     this.#emitJobEvent(jobId, 'status', { status: 'awaiting_local_worker' });
-    job.logs.push(`\n${waitLine}\n`);
+
+    const urlLen = Array.isArray(job.urls) ? job.urls.length : 0;
+    const itemTotal = Math.max(1, urlLen);
+    let idx =
+      typeof job.delegationUrlIndex === 'number' &&
+      Number.isFinite(job.delegationUrlIndex)
+        ? Math.floor(job.delegationUrlIndex)
+        : 0;
+    idx = Math.max(0, Math.min(idx, itemTotal - 1));
+    job.progress = {
+      filePct: 0,
+      itemIndex: idx + 1,
+      itemTotal
+    };
+    this.#emitJobEvent(jobId, 'progress', { progress: job.progress });
+
+    const stepLine =
+      'Étape : attente du worker (tunnel). Les messages d’avancement s’affichent ici sans chemins sensibles.';
+    job.logs.push(`\n${waitLine}\n${stepLine}\n`);
     this.#emitJobEvent(jobId, 'log', { line: waitLine });
+    this.#emitJobEvent(jobId, 'log', { line: stepLine });
     let timerId;
     const timeoutPromise = new Promise((resolve) => {
       timerId = setTimeout(resolve, ms);
@@ -500,8 +753,10 @@ export class JobManager extends EventEmitter {
           output: job.output || DOWNLOAD_OUTPUT_AUDIO,
           proxyUrl,
           onLog: (line) => {
-            job.logs.push(line);
-            this.#emitJobEvent(jobId, 'log', { line });
+            const safe = sanitizeJobLogLineForSse(line);
+            const lineOut = safe.endsWith('\n') ? safe : `${safe}\n`;
+            job.logs.push(lineOut);
+            this.#emitJobEvent(jobId, 'log', { line: safe });
           },
           onProgress: (progress) => {
             const overallItemIndex = i + 1;
