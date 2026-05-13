@@ -425,16 +425,17 @@ export class JobManager extends EventEmitter {
   async #relayWaitAfterProxyQuota(jobId, job) {
     const waitLine =
       'Préparation côté navigateur… Tu peux garder cette page ouverte quelques instants.';
+    const ms = delegationFallbackWaitMs();
+
+    const ingestPromise = new Promise((resolve) => {
+      this.#delegationWake.set(jobId, resolve);
+    });
+
     job.workerIngest = true;
     job.status = 'awaiting_local_worker';
     this.#emitJobEvent(jobId, 'status', { status: 'awaiting_local_worker' });
     job.logs.push(`\n${waitLine}\n`);
     this.#emitJobEvent(jobId, 'log', { line: waitLine });
-
-    const ms = delegationFallbackWaitMs();
-    const ingestPromise = new Promise((resolve) => {
-      this.#delegationWake.set(jobId, resolve);
-    });
     let timerId;
     const timeoutPromise = new Promise((resolve) => {
       timerId = setTimeout(resolve, ms);

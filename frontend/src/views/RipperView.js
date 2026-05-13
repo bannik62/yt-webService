@@ -19,7 +19,16 @@ export class RipperView {
     
     this.currentJob = null;
     this.eventSource = null;
-    
+
+    /** @type {number | null} */
+    this._progressRaf = null;
+    /** @type {{ overall: number, filePct: number, itemIndex: number, itemTotal: number } | null} */
+    this._progressTarget = null;
+    /** @type {{ overall: number, filePct: number } | null} */
+    this._progressShown = null;
+    /** @type {Record<string, HTMLElement | null> | null} */
+    this._progressDom = null;
+
     this.init();
   }
 
@@ -158,38 +167,171 @@ export class RipperView {
     });
     
     this.eventSource.addEventListener('error', () => {
+      this._stopProgressAnim();
       this.setHint('Connexion perdue', true);
       this.toggleButtons(false);
       this.eventSource?.close();
     });
   }
 
-  updateProgress({ filePct, itemIndex, itemTotal }) {
-    if (!this.progress) return;
-    
-    const overall = itemTotal > 0
-      ? Math.min(100, Math.round((((itemIndex - 1) + filePct / 100) / itemTotal) * 100))
-      : Math.round(filePct);
-    
+  /**
+   * Pourcentage global 0–100 (flottant), aligné sur le backend / RipperView d’origine.
+   * @param {{ filePct: number, itemIndex: number, itemTotal: number }} p
+   */
+  static _computeOverall(p) {
+    const { filePct, itemIndex, itemTotal } = p;
+    const f = Number(filePct);
+    const idx = Number(itemIndex);
+    const tot = Number(itemTotal);
+    if (!(Number.isFinite(f) && Number.isFinite(idx) && Number.isFinite(tot)) || tot <= 0) {
+      return Math.min(100, Math.max(0, f));
+    }
+    return Math.min(
+      100,
+      Math.max(0, (((idx - 1) + f / 100) / tot) * 100)
+    );
+  }
+
+  _stopProgressAnim() {
+    if (this._progressRaf != null) {
+      cancelAnimationFrame(this._progressRaf);
+      this._progressRaf = null;
+    }
+  }
+
+  _ensureProgressDom() {
+    if (!this.progress) return null;
+    if (this._progressDom) return this._progressDom;
+
     this.progress.innerHTML = `
       <div class="progress-meta">
-        <span>Fichier: ${Math.round(filePct)}%</span>
-        ${itemTotal > 1 ? `<span>Morceau ${itemIndex} / ${itemTotal}</span>` : ''}
+        <span class="progress-file-pct"></span>
+        <span class="progress-item-meta" hidden></span>
       </div>
-      <progress value="${overall}" max="100"></progress>
+      <progress class="progress-overall-bar" max="100" value="0"></progress>
       <div class="progress-foot">
         <span>Global</span>
-        <span>${overall}%</span>
+        <span class="progress-overall-pct"></span>
       </div>
     `;
+    this._progressDom = {
+      filePct: this.progress.querySelector('.progress-file-pct'),
+      itemMeta: this.progress.querySelector('.progress-item-meta'),
+      bar: this.progress.querySelector('.progress-overall-bar'),
+      overallPct: this.progress.querySelector('.progress-overall-pct')
+    };
+    return this._progressDom;
+  }
+
+  _paintProgressFrame() {
+    const shell = this._ensureProgressDom();
+    const t = this._progressTarget;
+    const s = this._progressShown;
+    if (!shell || !t || !s || !shell.bar || !shell.filePct || !shell.overallPct) {
+      return;
+    }
+
+    const fileR = Math.round(s.filePct);
+    const overallR = Math.round(s.overall);
+    shell.filePct.textContent = `Fichier: ${fileR}%`;
+    shell.bar.value = Math.min(100, Math.max(0, s.overall));
+    shell.overallPct.textContent = `${overallR}%`;
+
+    if (t.itemTotal > 1 && shell.itemMeta) {
+      shell.itemMeta.hidden = false;
+      shell.itemMeta.textContent = `Morceau ${t.itemIndex} / ${t.itemTotal}`;
+    } else if (shell.itemMeta) {
+      shell.itemMeta.hidden = true;
+    }
+  }
+
+  _progressAnimLoop = () => {
+    this._progressRaf = null;
+    const t = this._progressTarget;
+    if (!this.progress || !t) {
+      return;
+    }
+
+    if (!this._progressShown) {
+      this._progressShown = { overall: 0, filePct: 0 };
+    }
+    const s = this._progressShown;
+
+    let alpha = 0.12;
+    if (t.overall >= 99) {
+      alpha = 0.35;
+    }
+
+    s.overall += (t.overall - s.overall) * alpha;
+    s.filePct += (t.filePct - s.filePct) * alpha;
+
+    const eps = 0.08;
+    if (Math.abs(t.overall - s.overall) < eps) s.overall = t.overall;
+    if (Math.abs(t.filePct - s.filePct) < eps) s.filePct = t.filePct;
+
+    this._paintProgressFrame();
+
+    const done =
+      Math.abs(t.overall - s.overall) < 0.02 &&
+      Math.abs(t.filePct - s.filePct) < 0.02;
+    if (!done) {
+      this._progressRaf = requestAnimationFrame(this._progressAnimLoop);
+    }
+  };
+
+  _scheduleProgressAnim() {
+    if (this._progressRaf != null) return;
+    this._progressRaf = requestAnimationFrame(this._progressAnimLoop);
+  }
+
+  updateProgress({ filePct, itemIndex, itemTotal }) {
+    if (!this.progress) return;
+
+    const f = Number(filePct);
+    const idx = Number(itemIndex);
+    const tot = Number(itemTotal);
+    if (!Number.isFinite(f)) return;
+
+    const overall = RipperView._computeOverall({
+      filePct: f,
+      itemIndex: Number.isFinite(idx) ? idx : 1,
+      itemTotal: Number.isFinite(tot) && tot > 0 ? tot : 1
+    });
+
+    this._progressTarget = {
+      overall,
+      filePct: Math.min(100, Math.max(0, f)),
+      itemIndex: Number.isFinite(idx) ? idx : 1,
+      itemTotal: Number.isFinite(tot) && tot > 0 ? tot : 1
+    };
+
+    if (!this._progressShown) {
+      this._progressShown = { overall: 0, filePct: 0 };
+      this._ensureProgressDom();
+      this._paintProgressFrame();
+    }
+
+    this._scheduleProgressAnim();
   }
 
   _handleJobComplete(data) {
+    this._stopProgressAnim();
     this.eventSource?.close();
     this.toggleButtons(false);
     
     if (data.success && data.files) {
       this.setHint(`✅ ${data.files.length} fichier(s) prêt(s) ! Téléchargement en cours...`, false);
+      if (this.progress) {
+        this._progressTarget = {
+          overall: 100,
+          filePct: 100,
+          itemIndex: this._progressTarget?.itemIndex ?? 1,
+          itemTotal: this._progressTarget?.itemTotal ?? 1
+        };
+        this._progressShown = { overall: 100, filePct: 100 };
+        this._ensureProgressDom();
+        this._paintProgressFrame();
+      }
     } else {
       this.setHint(data.error || 'Échec du téléchargement', true);
     }
@@ -212,6 +354,10 @@ export class RipperView {
   }
 
   clearLogs() {
+    this._stopProgressAnim();
+    this._progressTarget = null;
+    this._progressShown = null;
+    this._progressDom = null;
     if (this.logs) this.logs.innerHTML = '';
     if (this.progress) this.progress.innerHTML = '';
   }

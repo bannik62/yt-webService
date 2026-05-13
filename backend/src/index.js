@@ -87,6 +87,16 @@ await app.register(multipart, {
 });
 
 // Rate limiting: protection contre le spam (localhost + routes worker exclus des compteurs)
+/** yt-dlp coûteux : routes search/trending ont une limite plus basse (voir routes). */
+const rateLimitSearchTrending = {
+  config: {
+    rateLimit: {
+      max: 5,
+      timeWindow: '1 minute'
+    }
+  }
+};
+
 await app.register(rateLimit, {
   max: 20, // 20 requêtes max
   timeWindow: '1 minute', // par minute
@@ -245,7 +255,7 @@ app.post('/api/proxies/refresh', async (request, reply) => {
   }
 });
 
-app.get('/api/search', async (request, reply) => {
+app.get('/api/search', rateLimitSearchTrending, async (request, reply) => {
   const q = request.query.q;
   try {
     const payload = await searchEngine.search(
@@ -264,7 +274,7 @@ app.get('/api/search', async (request, reply) => {
 });
 
 // Découverte : mot-clé aléatoire (recherche YouTube, pas le feed officiel Tendances)
-app.get('/api/trending', async (request, reply) => {
+app.get('/api/trending', rateLimitSearchTrending, async (request, reply) => {
   const maxResults = Number(request.query.limit) || 20;
   const musicOnly = request.query.musicOnly === 'true';
 

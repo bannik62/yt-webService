@@ -118,7 +118,7 @@ export function getProxyUrlAtIndex(index) {
  * @returns {string | null}
  */
 export function resolveProxyUrl(proxyIndex) {
-  if (proxyIndex !== undefined && proxyIndex !== null) {
+  if (typeof proxyIndex === 'number' && Number.isInteger(proxyIndex)) {
     const url = getProxyUrlAtIndex(proxyIndex);
     if (url) return url;
   }
