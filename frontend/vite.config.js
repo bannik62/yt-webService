@@ -14,6 +14,11 @@ export default defineConfig(({ mode }) => {
     /\/$/,
     ''
   );
+  const fbAppId = (env.VITE_FB_APP_ID || '').trim();
+  const fbAppIdMeta =
+    /^[0-9]+$/.test(fbAppId) ?
+      `    <meta property="fb:app_id" content="${fbAppId}" />`
+    : '';
 
   return {
     plugins: [
@@ -21,7 +26,11 @@ export default defineConfig(({ mode }) => {
         name: 'html-site-url',
         enforce: 'post',
         transformIndexHtml(html) {
-          return html.replaceAll('%SITE_URL%', siteUrl);
+          const withSite = html.replaceAll('%SITE_URL%', siteUrl);
+          return withSite.replace(
+            /[ \t]*%FB_APP_ID_META%[ \t]*\r?\n?/,
+            fbAppIdMeta ? `${fbAppIdMeta}\n` : ''
+          );
         },
         writeBundle(options) {
           const dir = options.dir;

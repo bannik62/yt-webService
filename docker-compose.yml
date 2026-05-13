@@ -16,6 +16,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_FB_APP_ID: ${VITE_FB_APP_ID:-}
     depends_on:
       - api
     restart: unless-stopped

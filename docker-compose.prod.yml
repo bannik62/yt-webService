@@ -2,6 +2,7 @@
 #
 # Variables utilisées depuis /var/www/html/ytWeb/.env (voir deploy.yml) ou l’host :
 # WEBSHARE_API_KEY, WORKER_INGEST_SECRET (secrets GitHub recommandés)
+# Build image web : VITE_FB_APP_ID (chiffres uniquement, app Meta) pour la balise fb:app_id / Sharing Debugger.
 # Worker via tunnel SSH (-R) : le port est sur l’hôte Linux, pas dans le conteneur api.
 # Utiliser host.docker.internal (extra_hosts) plutôt que 127.0.0.1 depuis le conteneur.
 # WORKER_LOCAL_URL par défaut dans deploy : http://host.docker.internal:7410

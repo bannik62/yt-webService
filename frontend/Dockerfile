@@ -1,6 +1,9 @@
 FROM node:20-bookworm-slim AS build
 
 WORKDIR /app
+ARG VITE_FB_APP_ID=
+ENV VITE_FB_APP_ID=$VITE_FB_APP_ID
+
 COPY package.json package-lock.json* ./
 RUN npm install
 
