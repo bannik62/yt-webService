@@ -81,7 +81,7 @@ await app.register(cors, getCorsOptions());
 
 await app.register(multipart, {
   limits: {
-    fileSize: 512 * 1024 * 1024,
+    fileSize: 800 * 1024 * 1024,
     files: 1
   }
 });

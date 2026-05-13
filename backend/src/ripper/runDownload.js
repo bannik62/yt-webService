@@ -167,19 +167,39 @@ export async function runDownload(opts) {
   console.log('[yt-dlp] URL:', url.trim());
 
   const child = youtubedl.exec(url.trim(), dlFlags, {
-    stdio: ['ignore', 'pipe', 'pipe']
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, PYTHONUNBUFFERED: '1' }
   });
 
   /** Log stderr pour analyse d’erreurs (dont 402 quota proxy). */
   let stderrCaptured = '';
 
+  /**
+   * yt-dlp réécrit souvent la ligne de % avec \r sans \n ; split('\n') seul masque la progression.
+   */
+  function createCrLfFeed() {
+    let buf = '';
+    return (chunk) => {
+      buf += chunk.toString('utf8');
+      const normalized = buf.replace(/\r/g, '\n');
+      const parts = normalized.split('\n');
+      buf = parts.pop() ?? '';
+      return parts;
+    };
+  }
+
+  const feedStdout = createCrLfFeed();
+  const feedStderr = createCrLfFeed();
+
   const sendLine = (line) => {
-    onLog(line);
     const meta = parseItemOfTotal(line);
     if (meta && meta.item > 0) {
       itemIndex = Math.min(meta.item, plannedTotal);
     }
     const pct = parseProgressLine(line);
+    if (pct == null) {
+      onLog(line);
+    }
     if (pct != null) {
       if (pct < 5 && lastFilePct > 85 && itemIndex < plannedTotal && !meta) {
         itemIndex++;
@@ -190,13 +210,17 @@ export async function runDownload(opts) {
   };
 
   child.stdout?.on('data', (chunk) => {
-    const text = chunk.toString('utf8');
-    text.split(/\r?\n/).filter(Boolean).forEach(sendLine);
+    for (const raw of feedStdout(chunk)) {
+      const t = raw.trim();
+      if (t) sendLine(t);
+    }
   });
   child.stderr?.on('data', (chunk) => {
     stderrCaptured += chunk.toString('utf8');
-    const text = chunk.toString('utf8');
-    text.split(/\r?\n/).filter(Boolean).forEach(sendLine);
+    for (const raw of feedStderr(chunk)) {
+      const t = raw.trim();
+      if (t) sendLine(t);
+    }
   });
 
   try {
