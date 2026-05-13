@@ -1,7 +1,11 @@
 import { $, createElement } from '../utils/dom.js';
+import {
+  tryAcquireUserDownload,
+  releaseUserDownload
+} from '../downloadGate.js';
 
 /**
- * Gère l'interface ripper (URL → MP3)
+ * Gère l'interface ripper (URL → MP3 uniquement)
  */
 export class RipperView {
   constructor(apiClient) {
@@ -85,10 +89,10 @@ export class RipperView {
         return;
       }
 
-      let message = this.getMode() === 'single'
-        ? '1 morceau (vidéo seule)'
-        : `≈ ${result.effectiveCount} morceau(x) (${result.kind === 'playlist' ? 'playlist' : 'piste'})`;
-      
+      let message =
+        this.getMode() === 'single'
+          ? '1 morceau (audio / MP3)'
+          : `≈ ${result.effectiveCount} morceau(x) (${result.kind === 'playlist' ? 'playlist' : 'piste'})`;
       if (result.title) message += ` — ${result.title}`;
       this.setHint(message, false);
     } catch (err) {
@@ -105,6 +109,14 @@ export class RipperView {
       return;
     }
 
+    if (!tryAcquireUserDownload()) {
+      this.setHint(
+        'Un téléchargement est déjà en cours (recherche ou ripper). Attends la fin.',
+        true
+      );
+      return;
+    }
+
     this.toggleButtons(true);
     this.setHint('Démarrage du téléchargement…', false);
     this.clearLogs();
@@ -113,12 +125,14 @@ export class RipperView {
       const result = await this.api.startDownload({
         url,
         noPlaylist: this.getMode() === 'single',
-        maxDownloads: this.getMaxDownloads()
+        maxDownloads: this.getMaxDownloads(),
+        output: 'audio'
       });
 
       this.currentJob = result.jobId;
       this.connectToJobStream(result.jobId);
     } catch (err) {
+      releaseUserDownload();
       this.setHint(err.message || 'Erreur lors du lancement', true);
       this.toggleButtons(false);
     }
@@ -168,6 +182,7 @@ export class RipperView {
     
     this.eventSource.addEventListener('error', () => {
       this._stopProgressAnim();
+      releaseUserDownload();
       this.setHint('Connexion perdue', true);
       this.toggleButtons(false);
       this.eventSource?.close();
@@ -276,6 +291,7 @@ export class RipperView {
   _handleJobComplete(data) {
     this._stopProgressAnim();
     this.eventSource?.close();
+    releaseUserDownload();
     this.toggleButtons(false);
     
     if (data.success && data.files) {

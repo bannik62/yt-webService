@@ -57,9 +57,6 @@
           <button type="button" id="download-list-play" class="btn btn-secondary" disabled>
             ▶ Lire
           </button>
-          <button type="button" id="download-list-btn" class="btn btn-primary" disabled>
-            Liste vide
-          </button>
         </div>
       </aside>
 
@@ -73,13 +70,18 @@
           
           <!-- Toggle mode -->
           <div class="mode-selector">
-            <label class="mode-option">
+            <label class="mode-option mode-option--with-mode-icon mode-option--search" title="Recherche">
               <input type="radio" name="mode" value="search" checked />
-              <span>Recherche</span>
+              <span class="mode-option__icon" aria-hidden="true">🔍</span>
+              <span class="mode-option__text">Recherche</span>
             </label>
-            <label class="mode-option">
+            <label class="mode-option mode-option--with-mode-icon mode-option--ripper" title="Ripper">
               <input type="radio" name="mode" value="ripper" />
-              <span>Ripper</span>
+              <!-- Pas d’emoji « MP3 » Unicode : picto texte ; repli possible : 💿 -->
+              <span class="mode-option__icon mode-option__icon--ripper" aria-hidden="true">
+                <span class="ripper-mp3-badge">MP3</span>
+              </span>
+              <span class="mode-option__text">Ripper</span>
             </label>
           </div>
           
@@ -96,15 +98,25 @@
         </header>
 
         <!-- Vue Recherche -->
-        <div class="view-container" id="search-container">
-          <div class="search-header">
-            <button type="button" id="trending-btn" class="btn btn-secondary" title="Découverte aléatoire (recherche YouTube)">
-              🔥 Tendances
+        <div class="view-container view-mode-animate" id="search-container">
+        <div class="search-header">
+          <div class="search-header-trending">
+            <label class="trending-inline-label" for="trending-music-only">
+              <input type="checkbox" id="trending-music-only" />
+              <span>🎵 Musique uniquement</span>
+            </label>
+            <button
+              type="button"
+              id="trending-btn"
+              class="btn btn-secondary"
+              title="Découverte aléatoire (recherche YouTube)"
+            >
+              Tendances
             </button>
           </div>
+        </div>
           
           <form class="search-form" id="search-form" action="#" method="get">
-            <label class="sr-only" for="search-input">Recherche</label>
             <input
               id="search-input"
               name="q"
@@ -113,6 +125,7 @@
               placeholder="Rechercher une musique…"
               maxlength="500"
               required
+              aria-label="Rechercher une musique sur YouTube"
             />
             <button type="submit">Rechercher</button>
           </form>
@@ -122,7 +135,7 @@
         </div>
 
         <!-- Vue Ripper -->
-        <div class="view-container" id="ripper-container" hidden>
+        <div class="view-container view-mode-animate" id="ripper-container" hidden>
           <form class="ripper-form" id="ripper-form" action="#" method="post">
             <div class="form-group">
               <label for="ripper-url">URL YouTube ou Playlist</label>

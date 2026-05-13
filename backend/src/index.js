@@ -75,6 +75,21 @@ function parseWorkerSessionId(raw) {
   return t;
 }
 
+/**
+ * @param {unknown} raw
+ * @param {'audio' | 'video'} defaultOutput
+ * @returns {{ ok: true, output: 'audio' | 'video' } | { ok: false, error: string }}
+ */
+function normalizeDownloadOutput(raw, defaultOutput) {
+  if (raw === undefined || raw === null || raw === '') {
+    return { ok: true, output: defaultOutput };
+  }
+  const s = String(raw).trim().toLowerCase();
+  if (s === 'audio' || s === 'mp3') return { ok: true, output: 'audio' };
+  if (s === 'video' || s === 'mp4') return { ok: true, output: 'video' };
+  return { ok: false, error: 'output doit être audio ou video' };
+}
+
 const app = Fastify({ logger: true });
 
 await app.register(cors, getCorsOptions());
@@ -340,11 +355,17 @@ app.post('/api/probe', async (request, reply) => {
 });
 
 app.post('/api/download', async (request, reply) => {
-  const { url, noPlaylist, maxDownloads, proxyIndex } = request.body || {};
+  const { url, noPlaylist, maxDownloads, proxyIndex, output } =
+    request.body || {};
 
   const p = normalizeProxyIndex(proxyIndex);
   if (!p.ok) {
     return reply.status(400).send({ error: p.error });
+  }
+
+  const o = normalizeDownloadOutput(output, 'audio');
+  if (!o.ok) {
+    return reply.status(400).send({ error: o.error });
   }
   
   if (!url || typeof url !== 'string') {
@@ -366,7 +387,8 @@ app.post('/api/download', async (request, reply) => {
       maxDownloads: normalizePlaylistMaxDownloads(noPl, maxDownloads),
       ip: clientIp,
       proxyIndex: p.index,
-      workerSessionId
+      workerSessionId,
+      output: o.output
     });
     
     return { jobId };
@@ -379,11 +401,16 @@ app.post('/api/download', async (request, reply) => {
 });
 
 app.post('/api/download-batch', async (request, reply) => {
-  const { urls, proxyIndex } = request.body || {};
+  const { urls, proxyIndex, output } = request.body || {};
 
   const p = normalizeProxyIndex(proxyIndex);
   if (!p.ok) {
     return reply.status(400).send({ error: p.error });
+  }
+
+  const o = normalizeDownloadOutput(output, 'video');
+  if (!o.ok) {
+    return reply.status(400).send({ error: o.error });
   }
   
   if (!Array.isArray(urls) || urls.length === 0) {
@@ -408,7 +435,8 @@ app.post('/api/download-batch', async (request, reply) => {
       urls: urls.map(u => String(u).trim()),
       ip: clientIp,
       proxyIndex: p.index,
-      workerSessionId
+      workerSessionId,
+      output: o.output
     });
     
     return { jobId };

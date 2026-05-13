@@ -129,13 +129,14 @@ export class ApiClient {
   }
 
   /**
-   * Lance un téléchargement MP3
+   * Lance un téléchargement (MP3 ou MP4 selon `output`)
    * @param {object} params
+   * @param {'audio' | 'video'} [params.output] — défaut `audio`
    * @returns {Promise<{jobId: string}>}
    */
-  async startDownload({ url, noPlaylist, maxDownloads }) {
+  async startDownload({ url, noPlaylist, maxDownloads, output = 'audio' }) {
     try {
-      const body = { url, noPlaylist, maxDownloads };
+      const body = { url, noPlaylist, maxDownloads, output };
       const px = getStoredProxyIndex();
       if (px !== undefined) body.proxyIndex = px;
 
@@ -163,11 +164,12 @@ export class ApiClient {
   /**
    * Lance un téléchargement batch (plusieurs URLs)
    * @param {string[]} urls
+   * @param {{ output?: 'audio' | 'video' }} [opts] — défaut `video` (MP4)
    * @returns {Promise<{jobId: string}>}
    */
-  async startBatchDownload(urls) {
+  async startBatchDownload(urls, opts = {}) {
     try {
-      const body = { urls };
+      const body = { urls, output: opts.output ?? 'video' };
       const px = getStoredProxyIndex();
       if (px !== undefined) body.proxyIndex = px;
 

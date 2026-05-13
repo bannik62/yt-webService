@@ -96,15 +96,36 @@ export class SearchView {
       content.appendChild(meta);
       li.appendChild(content);
 
+      const actions = createElement('div', { className: 'result-card-actions' });
+
+      const downloadBtn = createElement('button', {
+        type: 'button',
+        className: 'quick-download-btn',
+        title:
+          'Ajouter à la liste si besoin, puis télécharger uniquement cette vidéo en MP4',
+        'aria-label': 'Télécharger cette vidéo en MP4'
+      });
+      downloadBtn.innerHTML = '↓';
+      downloadBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.onQuickDownload?.(item);
+      });
+
       const addBtn = createElement('button', {
+        type: 'button',
         className: 'quick-add-btn',
+        title: 'Ajouter à la liste',
+        'aria-label': 'Ajouter à la liste',
         innerHTML: '+'
       });
       addBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         this.onQuickAdd?.(item);
       });
-      li.appendChild(addBtn);
+
+      actions.appendChild(downloadBtn);
+      actions.appendChild(addBtn);
+      li.appendChild(actions);
 
       li.addEventListener('click', () => {
         this.onResultClick?.(item);

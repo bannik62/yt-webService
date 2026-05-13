@@ -10,12 +10,10 @@ export class DownloadListView {
     this.container = $('#download-list');
     this.itemsContainer = $('#download-list-items');
     this.countBadge = $('#download-list-count');
-    this.downloadBtn = $('#download-list-btn');
     this.playBtn = $('#download-list-play');
     this.clearBtn = $('#download-list-clear');
     this.queueHint = $('#download-list-queue-hint');
     
-    this.onDownload = null;
     this.onPlay = null;
     /** Évite que render() réactive le bouton pendant un batch en cours */
     this._downloadBusy = false;
@@ -26,12 +24,6 @@ export class DownloadListView {
 
   init() {
     if (!this.container) return;
-    
-    this.downloadBtn?.addEventListener('click', () => {
-      if (!this.list.isEmpty && this.onDownload) {
-        this.onDownload(this.list.getUrls());
-      }
-    });
     
     this.playBtn?.addEventListener('click', () => {
       if (!this.list.isEmpty && this.onPlay) {
@@ -80,18 +72,6 @@ export class DownloadListView {
       this.countBadge.hidden = items.length === 0;
     }
     
-    // Boutons
-    if (this.downloadBtn) {
-      this.downloadBtn.disabled =
-        items.length === 0 || this._downloadBusy;
-      const text =
-        this._downloadBusy && items.length > 0
-          ? '⏳ Téléchargement...'
-          : items.length > 0
-            ? `📹 Télécharger MP4 (${items.length})`
-            : 'Liste vide';
-      this.downloadBtn.textContent = text;
-    }
     if (this.playBtn) {
       this.playBtn.disabled = items.length === 0;
       const text = items.length > 0 
@@ -105,7 +85,8 @@ export class DownloadListView {
     
     // Liste vide
     if (items.length === 0) {
-      this.itemsContainer.innerHTML = '<p class="list-empty">Recherche et ajoute des vidéos — téléchargement en MP4</p>';
+      this.itemsContainer.innerHTML =
+        '<p class="list-empty">+ pour enregistrer dans la liste · ↓ sur une carte : ajoute (si besoin) et télécharge seulement cette vidéo en MP4 (un téléchargement à la fois)</p>';
       return;
     }
     
@@ -279,18 +260,6 @@ export class DownloadListView {
    */
   setLoading(disabled) {
     this._downloadBusy = disabled;
-    const items = this.list.getAll();
-    if (this.downloadBtn) {
-      this.downloadBtn.disabled = disabled || items.length === 0;
-      if (disabled) {
-        this.downloadBtn.textContent = '⏳ Téléchargement...';
-      } else {
-        this.downloadBtn.textContent =
-          items.length > 0
-            ? `📹 Télécharger MP4 (${items.length})`
-            : 'Liste vide';
-      }
-    }
     if (this.clearBtn) this.clearBtn.disabled = disabled;
   }
 

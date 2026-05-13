@@ -2,8 +2,11 @@ import { $ } from '../utils/dom.js';
 import { SearchView } from '../views/SearchView.js';
 import { DownloadListView } from '../views/DownloadListView.js';
 import { VideoModal } from '../views/VideoModal.js';
-import { TrendingModal } from '../views/TrendingModal.js';
 import { DownloadList } from '../models/DownloadList.js';
+import {
+  tryAcquireUserDownload,
+  releaseUserDownload
+} from '../downloadGate.js';
 
 /**
  * Mode Search : Recherche YouTube + Playlist + Batch download
@@ -15,7 +18,6 @@ export class SearchMode {
     this.searchView = new SearchView(this.api);
     this.downloadListView = new DownloadListView(this.downloadList);
     this.videoModal = new VideoModal();
-    this.trendingModal = new TrendingModal();
 
     this.currentJobId = null;
     this.eventSource = null;
@@ -33,6 +35,13 @@ export class SearchMode {
     /** Après un lot sans nouveauté, attend un peu de scroll vers le haut avant de redemander */
     this._trendingAwaitingScrollUp = false;
 
+    /**
+     * Index dans la liste (sidebar) pour la barre de progression quand le job
+     * ne porte qu’une seule URL (téléchargement depuis une carte).
+     * @type {number | null}
+     */
+    this._singleCardDownloadListIndex = null;
+
     this.init();
   }
 
@@ -40,13 +49,11 @@ export class SearchMode {
     // Bouton tendances
     const trendingBtn = $('#trending-btn');
     if (trendingBtn) {
-      trendingBtn.addEventListener('click', () => this.showTrendingModal());
+      trendingBtn.addEventListener('click', () => {
+        const musicOnly = $('#trending-music-only')?.checked ?? false;
+        void this.loadTrending(musicOnly);
+      });
     }
-    
-    this.trendingModal.onConfirm = (musicOnly) => {
-      this.loadTrending(musicOnly);
-    };
-
     this.searchView.onBeforeSearch = () => this.stopTrendingInfiniteScroll();
 
     // Clic résultat recherche → Modal vidéo
@@ -57,6 +64,10 @@ export class SearchMode {
     // Quick add depuis SearchView (bouton +)
     this.searchView.onQuickAdd = (item) => {
       this.downloadListView.addItem(item);
+    };
+
+    this.searchView.onQuickDownload = (item) => {
+      void this.handleCardAddAndDownload(item);
     };
     
     // Clic "Ajouter" dans modal → Playlist
@@ -70,15 +81,6 @@ export class SearchMode {
         this.videoModal.show(items[0], items, 0);
       }
     };
-    
-    // Clic "Télécharger la playlist" → Batch download
-    this.downloadListView.onDownload = (urls) => {
-      this.handleBatchDownload(urls);
-    };
-  }
-
-  showTrendingModal() {
-    this.trendingModal.show();
   }
 
   async loadTrending(musicOnly = false) {
@@ -189,6 +191,26 @@ export class SearchMode {
     });
   }
 
+  /**
+   * Après ajout de cartes tendances, rétablit le scroll vertical pour éviter
+   * un saut en bas de page (souvent sur mobile / ancrage du navigateur).
+   * @param {number} y
+   */
+  _restoreScrollYAfterTrendingLayout(y) {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const h = Math.max(
+          document.documentElement.scrollHeight,
+          document.body?.scrollHeight ?? 0
+        );
+        const maxY = Math.max(0, h - window.innerHeight);
+        const clamped = Math.min(Math.max(0, y), maxY);
+        window.scrollTo(0, clamped);
+        this._maybeAutoLoadMoreTrending();
+      });
+    });
+  }
+
   stopTrendingInfiniteScroll() {
     this._detachTrendingScrollListener();
     this.trendingFeedActive = false;
@@ -198,6 +220,8 @@ export class SearchMode {
     if (!this.trendingFeedActive || this.trendingLoadingMore) return;
     this.trendingLoadingMore = true;
     this.searchView.setTrendingLoadingMore(true);
+
+    let scrollYBeforeAppend = window.scrollY;
 
     try {
       const data = await this.api.getTrending(20, this.trendingMusicOnly);
@@ -209,6 +233,7 @@ export class SearchMode {
 
       if (keyword) this.trendingKeywordsShown.push(keyword);
 
+      scrollYBeforeAppend = window.scrollY;
       this.searchView.appendResults(newItems);
       this.searchView.setHint(
         this._trendingHintText(this.trendingMusicOnly),
@@ -225,13 +250,15 @@ export class SearchMode {
     } finally {
       this.trendingLoadingMore = false;
       this.searchView.setTrendingLoadingMore(false);
-      this._maybeAutoLoadMoreTrending();
+      this._restoreScrollYAfterTrendingLayout(scrollYBeforeAppend);
     }
   }
 
   async handleBatchDownload(urls) {
     if (urls.length === 0) {
       alert('Aucune vidéo dans la liste');
+      releaseUserDownload();
+      this._singleCardDownloadListIndex = null;
       return;
     }
 
@@ -242,6 +269,8 @@ export class SearchMode {
       this.currentJobId = data.jobId;
       this.connectToJobStream(data.jobId);
     } catch (err) {
+      releaseUserDownload();
+      this._singleCardDownloadListIndex = null;
       // Messages d'erreur détaillés selon le type d'erreur
       let message = '❌ Erreur : ';
 
@@ -258,6 +287,39 @@ export class SearchMode {
       alert(message);
       this.downloadListView.setLoading(false);
     }
+  }
+
+  /**
+   * Carte résultat : ajoute la vidéo à la liste puis télécharge uniquement ce MP4
+   * (les autres entrées de la liste ne sont pas incluses au job).
+   * @param {object} item
+   */
+  async handleCardAddAndDownload(item) {
+    if (!tryAcquireUserDownload()) {
+      this.downloadListView.showNotification(
+        '⚠ Un téléchargement est déjà en cours. Attends la fin.',
+        true
+      );
+      return;
+    }
+
+    const alreadyIn = this.downloadList
+      .getAll()
+      .some((i) => i.url === item.url);
+    if (!alreadyIn) {
+      const added = this.downloadListView.addItem(item);
+      if (!added) {
+        releaseUserDownload();
+        return;
+      }
+    }
+
+    const listIndex = this.downloadList
+      .getAll()
+      .findIndex((i) => i.url === item.url);
+    this._singleCardDownloadListIndex = listIndex >= 0 ? listIndex : null;
+
+    await this.handleBatchDownload([item.url]);
   }
 
   connectToJobStream(jobId) {
@@ -300,6 +362,8 @@ export class SearchMode {
     
     this.eventSource.addEventListener('error', () => {
       this.downloadListView.clearQueueWaitMessage();
+      releaseUserDownload();
+      this._singleCardDownloadListIndex = null;
       this.downloadListView.setLoading(false);
       this.downloadListView.clearAllProgress();
       this.eventSource?.close();
@@ -307,19 +371,24 @@ export class SearchMode {
   }
 
   _handleProgress(data) {
-    // data = { filePct: 45, itemIndex: 2, itemTotal: 5 }
-    // itemIndex est 1-based, donc -1 pour l'index array
-    const listIndex = data.itemIndex - 1;
+    // Job carte = une seule URL : la barre doit suivre la ligne de cette vidéo
+    // dans la liste, pas l’index 0 imposé par itemIndex === 1.
+    const listIndex =
+      this._singleCardDownloadListIndex != null
+        ? this._singleCardDownloadListIndex
+        : data.itemIndex - 1;
     const progress = Math.round(data.filePct);
-    
+
     this.downloadListView.updateItemProgress(listIndex, progress);
   }
 
   _handleJobComplete(data) {
     this.eventSource?.close();
     this.downloadListView.clearQueueWaitMessage();
+    releaseUserDownload();
     this.downloadListView.setLoading(false);
-    
+    this._singleCardDownloadListIndex = null;
+
     if (data.success && data.files) {
       // Télécharger automatiquement chaque fichier (simple et direct)
       data.files.forEach((file, index) => {
@@ -333,13 +402,11 @@ export class SearchMode {
         }, index * 2000);
       });
       
-      // Demander si on vide la liste
+      const delayAfterLast =
+        data.files.length > 0 ? (data.files.length - 1) * 2000 + 800 : 0;
       setTimeout(() => {
         this.downloadListView.clearAllProgress();
-        if (confirm(`✅ ${data.files.length} téléchargement(s) terminé(s) !\n\nVider la playlist ?`)) {
-          this.downloadList.clear();
-        }
-      }, data.files.length * 2000 + 1000);
+      }, delayAfterLast);
     } else {
       this.downloadListView.clearAllProgress();
       alert(`❌ Erreur : ${data.error || 'Échec du téléchargement'}`);
@@ -347,20 +414,16 @@ export class SearchMode {
   }
 
   show() {
-    const searchContainer = $('#search-container');
     const sidebar = $('#download-list');
-    
-    if (searchContainer) searchContainer.hidden = false;
+
     if (sidebar) sidebar.hidden = false;
   }
 
   hide() {
-    const searchContainer = $('#search-container');
     const sidebar = $('#download-list');
-    
-    if (searchContainer) searchContainer.hidden = true;
+
     if (sidebar) sidebar.hidden = true;
-    
+
     // Fermer le modal et l'eventSource si ouverts
     this.videoModal.close();
     this.eventSource?.close();

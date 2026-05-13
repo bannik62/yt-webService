@@ -39,21 +39,14 @@ export class RipperMode {
   }
 
   show() {
-    const ripperContainer = $('#ripper-container');
     const sidebar = $('#download-list');
-    
-    if (ripperContainer) {
-      ripperContainer.hidden = false;
-    }
+
     if (sidebar) {
       sidebar.hidden = true;
     }
   }
 
   hide() {
-    const ripperContainer = $('#ripper-container');
-    if (ripperContainer) {
-      ripperContainer.hidden = true;
-    }
+    // La visibilité du conteneur ripper est gérée par main.js (transition).
   }
 }

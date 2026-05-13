@@ -19,6 +19,16 @@ import {
 } from './transcodeIngest.js';
 
 /**
+ * @param {unknown} v — `'audio' \| 'video'` ou constante download
+ */
+function coerceJobOutput(v) {
+  if (v === DOWNLOAD_OUTPUT_VIDEO || v === 'video') {
+    return DOWNLOAD_OUTPUT_VIDEO;
+  }
+  return DOWNLOAD_OUTPUT_AUDIO;
+}
+
+/**
  * @returns {number}
  */
 function delegationFallbackWaitMs() {
@@ -146,6 +156,7 @@ export class JobManager extends EventEmitter {
    * @param {number} params.maxDownloads
    * @param {string} params.ip - Pour rate limiting futur
    * @param {number | undefined} params.proxyIndex - Index dans le pool WebShare
+   * @param {'audio' | 'video'} [params.output] — défaut `audio`
    * @returns {string} jobId
    */
   createJob({
@@ -154,17 +165,19 @@ export class JobManager extends EventEmitter {
     maxDownloads,
     ip,
     proxyIndex,
-    workerSessionId = ''
+    workerSessionId = '',
+    output: outputRaw = 'audio'
   }) {
     const jobId = randomUUID();
     const jobDir = path.join(this.#tempDir, jobId);
+    const output = coerceJobOutput(outputRaw);
 
     const job = {
       id: jobId,
       urls: [url],
       noPlaylist,
       maxDownloads,
-      output: DOWNLOAD_OUTPUT_AUDIO,
+      output,
       ip,
       proxyIndex,
       workerSessionId:
@@ -192,23 +205,26 @@ export class JobManager extends EventEmitter {
    * @param {string[]} params.urls
    * @param {string} params.ip
    * @param {number | undefined} params.proxyIndex
+   * @param {'audio' | 'video'} [params.output] — défaut `video` (MP4)
    * @returns {string} jobId
    */
   createBatchJob({
     urls,
     ip,
     proxyIndex,
-    workerSessionId = ''
+    workerSessionId = '',
+    output: outputRaw = 'video'
   }) {
     const jobId = randomUUID();
     const jobDir = path.join(this.#tempDir, jobId);
+    const output = coerceJobOutput(outputRaw);
 
     const job = {
       id: jobId,
       urls: urls,
       noPlaylist: true, // Toujours single pour batch
       maxDownloads: PLAYLIST_MAX_TRACKS,
-      output: DOWNLOAD_OUTPUT_VIDEO,
+      output,
       ip,
       proxyIndex,
       workerSessionId:
