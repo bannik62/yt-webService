@@ -21,6 +21,11 @@ import {
   createPinoDelegationsPollFilterStream,
   isDelegationsPollLogFilterEnabled
 } from './pinoDelegationsPollFilterStream.js';
+import {
+  buildPublicOrigin,
+  isValidYoutubeVideoId,
+  renderSharePageHtml
+} from './sharePage.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COOKIES_PATH = path.join(__dirname, '..', 'cookies.txt');
@@ -154,6 +159,45 @@ await app.register(workerIngestRoutes, {
 });
 
 app.get('/health', async () => ({ ok: true }));
+
+/**
+ * Partage : HTML avec Open Graph (miniature YouTube) + redirection vers `/?v=`.
+ * Les apps de messagerie lisent cette page sans exécuter le JS du SPA.
+ */
+app.get('/v/:videoId', async (request, reply) => {
+  const videoId = String(request.params.videoId || '').trim();
+  if (!isValidYoutubeVideoId(videoId)) {
+    return reply
+      .status(404)
+      .type('text/html; charset=utf-8')
+      .send(
+        '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Introuvable</title></head><body><p>Lien de partage invalide.</p></body></html>'
+      );
+  }
+
+  let title = 'Vidéo YouTube';
+  try {
+    const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    const result = await Promise.race([
+      probePlaylistCount(watchUrl, {
+        noPlaylist: true,
+        proxyUrl: getCurrentProxy()
+      }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 12000)
+      )
+    ]);
+    if (result && typeof result.title === 'string' && result.title.trim()) {
+      title = result.title.trim().slice(0, 200);
+    }
+  } catch (err) {
+    request.log.debug({ err }, 'share page: titre par défaut');
+  }
+
+  const origin = buildPublicOrigin(request);
+  const html = renderSharePageHtml({ origin, videoId, title });
+  return reply.type('text/html; charset=utf-8').send(html);
+});
 
 /**
  * Stats téléchargements réussis (persistées sur le VPS). Protégé par Bearer ADMIN_STATS_SECRET.

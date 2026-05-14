@@ -68,6 +68,10 @@ export default defineConfig(({ mode }) => {
         '/health': {
           target: apiTarget,
           changeOrigin: true
+        },
+        '/v': {
+          target: apiTarget,
+          changeOrigin: true
         }
       }
     }

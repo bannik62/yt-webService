@@ -53,6 +53,40 @@ export class SearchMode {
     this.init();
   }
 
+  /**
+   * Ouvre la modal pour une vidéo identifiée par `?v=` ou après `/v/:id` → redirection.
+   * @param {string} videoId
+   * @returns {Promise<boolean>}
+   */
+  async openSharedVideoFromQuery(videoId) {
+    if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) return false;
+    const url = `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
+    try {
+      const data = await this.api.probe({ url, noPlaylist: true });
+      if (!data || data.ok !== true) return false;
+      const title =
+        typeof data.title === 'string' && data.title.trim()
+          ? data.title.trim()
+          : 'Vidéo YouTube';
+      const item = {
+        id: videoId,
+        title,
+        url,
+        channel: 'YouTube',
+        duration: null,
+        thumbnail: `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`
+      };
+      this.videoModal.show(item);
+      return true;
+    } catch {
+      this.downloadListView.showNotification(
+        'Impossible d’ouvrir cette vidéo (réseau ou analyse).',
+        true
+      );
+      return false;
+    }
+  }
+
   init() {
     // Bouton tendances
     const trendingBtn = $('#trending-btn');
@@ -77,7 +111,27 @@ export class SearchMode {
     this.searchView.onQuickDownload = (item) => {
       void this.handleCardAddAndDownload(item);
     };
-    
+
+    this.searchView.onShareLink = (item) => {
+      if (!item?.id) return;
+      const link = `${window.location.origin}/v/${encodeURIComponent(item.id)}`;
+      const ok = () =>
+        this.downloadListView.showNotification(
+          '✓ Lien de partage copié (miniature dans les apps)',
+          false
+        );
+      const fail = () =>
+        this.downloadListView.showNotification(
+          `Copie impossible — lien : ${link}`,
+          true
+        );
+      if (navigator.clipboard?.writeText) {
+        void navigator.clipboard.writeText(link).then(ok, fail);
+      } else {
+        fail();
+      }
+    };
+
     // Clic "Ajouter" dans modal → Playlist
     this.videoModal.onAdd = (item) => {
       this.downloadListView.addItem(item);

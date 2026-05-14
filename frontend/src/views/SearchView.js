@@ -11,7 +11,9 @@ export class SearchView {
     this.input = $('#search-input');
     this.hint = $('#search-hint');
     this.results = $('#search-results');
-    
+    /** @type {((item: object) => void) | null} */
+    this.onShareLink = null;
+
     this.init();
   }
 
@@ -123,8 +125,22 @@ export class SearchView {
         this.onQuickAdd?.(item);
       });
 
+      const shareBtn = createElement('button', {
+        type: 'button',
+        className: 'quick-share-btn',
+        title:
+          'Copier le lien de partage (aperçu avec miniature sur WhatsApp, Discord, etc.)',
+        'aria-label': 'Copier le lien de partage'
+      });
+      shareBtn.textContent = '⎘';
+      shareBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.onShareLink?.(item);
+      });
+
       actions.appendChild(downloadBtn);
       actions.appendChild(addBtn);
+      actions.appendChild(shareBtn);
       li.appendChild(actions);
 
       li.addEventListener('click', () => {

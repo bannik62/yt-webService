@@ -883,7 +883,8 @@ body.mode-ripper .search-sticky-stack {
 }
 
 .quick-download-btn,
-.quick-add-btn {
+.quick-add-btn,
+.quick-share-btn {
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -920,6 +921,17 @@ body.mode-ripper .search-sticky-stack {
   background: #ff2a1f;
   transform: scale(1.1);
   box-shadow: 0 3px 6px rgba(230, 33, 23, 0.4);
+}
+
+.quick-share-btn {
+  background: #7c3aed;
+  font-size: 14px;
+}
+
+.quick-share-btn:hover {
+  background: #8b5cf6;
+  transform: scale(1.1);
+  box-shadow: 0 3px 6px rgba(124, 58, 237, 0.45);
 }
 
 .result-thumb {

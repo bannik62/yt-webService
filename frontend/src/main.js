@@ -199,6 +199,24 @@ class App {
       this.updateProxyButton(); // Mettre à jour au démarrage
     }
 
+    // Lien profond ?v=VIDEOID : forcer le mode recherche avant lecture des radios
+    const shareV = new URLSearchParams(window.location.search).get('v');
+    if (shareV && /^[a-zA-Z0-9_-]{11}$/.test(shareV)) {
+      const searchRadio = document.querySelector(
+        'input[name="mode"][value="search"]'
+      );
+      const ripperRadio = document.querySelector(
+        'input[name="mode"][value="ripper"]'
+      );
+      if (searchRadio instanceof HTMLInputElement) {
+        searchRadio.checked = true;
+      }
+      if (ripperRadio instanceof HTMLInputElement) {
+        ripperRadio.checked = false;
+      }
+      this.currentMode = 'search';
+    }
+
     // Toggle entre modes
     const modeRadios = document.querySelectorAll('input[name="mode"]');
     modeRadios.forEach((radio) => {
@@ -220,6 +238,22 @@ class App {
 
     // Afficher le mode initial (sans animation au premier rendu)
     this.switchMode(this.currentMode, { instant: true });
+    this.handleSearchShareDeepLink();
+  }
+
+  handleSearchShareDeepLink() {
+    const params = new URLSearchParams(window.location.search);
+    const v = params.get('v');
+    if (!v || !/^[a-zA-Z0-9_-]{11}$/.test(v)) return;
+
+    void this.searchMode.openSharedVideoFromQuery(v).then((ok) => {
+      if (!ok) return;
+      params.delete('v');
+      const q = params.toString();
+      const next =
+        window.location.pathname + (q ? `?${q}` : '') + window.location.hash;
+      window.history.replaceState(null, '', next);
+    });
   }
 
   /**
