@@ -526,7 +526,7 @@ export class JobManager extends EventEmitter {
     if (!job.relayDownloadProgressAnnounced) {
       job.relayDownloadProgressAnnounced = true;
       const line =
-        '[relais] Téléchargement sur ta machine — la barre suit le pourcentage envoyé par le worker.';
+        '[relais] Téléchargement sur ta machine — la barre suit le pourcentage envoyé par le worker, clea peut prendre du temps selon la taille du fichier.';
       job.logs.push(`${line}\n`);
       this.#emitJobEvent(jobId, 'log', { line });
     }

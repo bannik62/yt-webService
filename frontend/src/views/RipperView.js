@@ -15,7 +15,6 @@ export class RipperView {
     this.modeRadios = document.getElementsByName('ripper-mode');
     this.maxInput = $('#ripper-max');
     this.maxContainer = $('#ripper-max-container');
-    this.probeBtn = $('#ripper-probe');
     this.downloadBtn = $('#ripper-download');
     this.hint = $('#ripper-hint');
     this.progress = $('#ripper-progress');
@@ -50,7 +49,6 @@ export class RipperView {
       });
     });
     
-    this.probeBtn?.addEventListener('click', () => this.handleProbe());
     this.downloadBtn?.addEventListener('click', () => this.handleDownload());
   }
 
@@ -65,59 +63,6 @@ export class RipperView {
     if (this.getMode() === 'single') return 0;
     const val = parseInt(this.maxInput?.value || '0', 10);
     return Number.isFinite(val) && val > 0 ? val : 0;
-  }
-
-  async handleProbe() {
-    const url = this.urlInput?.value.trim();
-    if (!url) {
-      this.setHint('URL manquante', true);
-      return;
-    }
-
-    this.setHint('Analyse en cours…', false);
-    this.toggleButtons(true);
-
-    try {
-      const result = await this.api.probe({
-        url,
-        noPlaylist: this.getMode() === 'single',
-        maxDownloads: this.getMaxDownloads()
-      });
-
-      if (!result.ok) {
-        this.setHint(result.error || 'Analyse impossible', true);
-        return;
-      }
-
-      const singleHead = () => {
-        if (result.sourceMediaKind === 'video') {
-          return '1 piste (sans playlist) — vidéo détectée';
-        }
-        if (result.sourceMediaKind === 'audio') {
-          return '1 piste (sans playlist) — flux audio';
-        }
-        return '1 piste (sans playlist)';
-      };
-      const head =
-        this.getMode() === 'single'
-          ? singleHead()
-          : `≈ ${result.effectiveCount} piste(s) (${result.kind === 'playlist' ? 'playlist' : 'sélection'})`;
-      const bits = [head];
-      if (result.title) bits.push(String(result.title));
-      const meta = [];
-      if (result.channel) meta.push(String(result.channel));
-      if (result.durationLabel) meta.push(String(result.durationLabel));
-      if (result.viewCount != null && Number.isFinite(Number(result.viewCount))) {
-        meta.push(`${Number(result.viewCount).toLocaleString('fr-FR')} vues`);
-      }
-      if (meta.length) bits.push(meta.join(' · '));
-      if (result.descriptionPreview) bits.push(String(result.descriptionPreview));
-      this.setHint(bits.join(' — '), false);
-    } catch (err) {
-      this.setHint(err.message || 'Erreur lors de l\'analyse', true);
-    } finally {
-      this.toggleButtons(false);
-    }
   }
 
   async handleDownload() {
@@ -370,7 +315,6 @@ export class RipperView {
   }
 
   toggleButtons(disabled) {
-    if (this.probeBtn) this.probeBtn.disabled = disabled;
     if (this.downloadBtn) this.downloadBtn.disabled = disabled;
     if (this.urlInput) this.urlInput.disabled = disabled;
     this.modeRadios.forEach(r => r.disabled = disabled);
