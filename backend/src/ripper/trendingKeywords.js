@@ -424,6 +424,15 @@ export const TRENDING_KEYWORDS_MUSIC = [
 "ville nocturne",
 "exploration urbaine",
 "caméra fixe",
+"caméra cachée",
+"captation",
+"vhs",
+"cassette",
+"rip cassette",
+"rip tv",
+"rip radio",
+"enregistrement tv",
+"enregistrement radio",
 "timelapse amateur"
 ];
 
