@@ -35,6 +35,9 @@ export class SearchMode {
     this.trendingKeywordsShown = [];
     /** @type {(() => void) | null} */
     this._onTrendingScroll = null;
+    /** Cible du listener scroll (window ou `.main-content` en desktop). */
+    /** @type {Window | HTMLElement | null} */
+    this._trendingScrollTarget = null;
     /** Après un lot sans nouveauté, attend un peu de scroll vers le haut avant de redemander */
     this._trendingAwaitingScrollUp = false;
 
@@ -194,8 +197,28 @@ export class SearchMode {
     return `${prefix} ${themes.length} thèmes — dernier : « ${last} » (scroll pour plus)`;
   }
 
-  /** Distance au bas du document (scroll fenêtre). */
-  _windowScrollGapToBottom() {
+  /**
+   * Desktop : le scroll est dans `.main-content` (body overflow hidden), pas sur `window`.
+   * @returns {HTMLElement | null}
+   */
+  _trendingScrollRootEl() {
+    let desktop = false;
+    try {
+      desktop = window.matchMedia('(min-width: 769px)').matches;
+    } catch {
+      desktop = window.innerWidth >= 769;
+    }
+    if (!desktop) return null;
+    const main = document.querySelector('.main-content');
+    return main instanceof HTMLElement ? main : null;
+  }
+
+  /** Distance au bas de la zone scrollable (fenêtre ou `.main-content`). */
+  _trendingScrollGapToBottom() {
+    const root = this._trendingScrollRootEl();
+    if (root) {
+      return root.scrollHeight - root.scrollTop - root.clientHeight;
+    }
     const h = Math.max(
       document.documentElement.scrollHeight,
       document.body?.scrollHeight ?? 0
@@ -204,10 +227,14 @@ export class SearchMode {
   }
 
   _detachTrendingScrollListener() {
-    if (this._onTrendingScroll) {
-      window.removeEventListener('scroll', this._onTrendingScroll);
+    if (this._onTrendingScroll && this._trendingScrollTarget) {
+      this._trendingScrollTarget.removeEventListener(
+        'scroll',
+        this._onTrendingScroll
+      );
     }
     this._onTrendingScroll = null;
+    this._trendingScrollTarget = null;
     this.searchView.setTrendingLoadingMore(false);
     this.trendingLoadingMore = false;
   }
@@ -218,7 +245,7 @@ export class SearchMode {
 
     this._onTrendingScroll = () => {
       if (!this.trendingFeedActive || this.trendingLoadingMore) return;
-      const gap = this._windowScrollGapToBottom();
+      const gap = this._trendingScrollGapToBottom();
       if (gap > 220) {
         this._trendingAwaitingScrollUp = false;
       }
@@ -228,11 +255,11 @@ export class SearchMode {
       }
     };
 
-    window.addEventListener('scroll', this._onTrendingScroll, {
+    this._trendingScrollTarget = this._trendingScrollRootEl() ?? window;
+    this._trendingScrollTarget.addEventListener('scroll', this._onTrendingScroll, {
       passive: true
     });
 
-    // Si la page est déjà courte (pas de scrollbar), charger la suite tout de suite
     this._maybeAutoLoadMoreTrending();
   }
 
@@ -248,7 +275,7 @@ export class SearchMode {
       ) {
         return;
       }
-      if (this._windowScrollGapToBottom() < 40) {
+      if (this._trendingScrollGapToBottom() < 40) {
         this.loadMoreTrending();
       }
     });
@@ -257,18 +284,28 @@ export class SearchMode {
   /**
    * Après ajout de cartes tendances, rétablit le scroll vertical pour éviter
    * un saut en bas de page (souvent sur mobile / ancrage du navigateur).
-   * @param {number} y
+   * @param {number} scrollTopBefore
    */
-  _restoreScrollYAfterTrendingLayout(y) {
+  _restoreScrollYAfterTrendingLayout(scrollTopBefore) {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        const h = Math.max(
-          document.documentElement.scrollHeight,
-          document.body?.scrollHeight ?? 0
-        );
-        const maxY = Math.max(0, h - window.innerHeight);
-        const clamped = Math.min(Math.max(0, y), maxY);
-        window.scrollTo(0, clamped);
+        const root = this._trendingScrollRootEl();
+        if (root) {
+          const maxScroll = Math.max(0, root.scrollHeight - root.clientHeight);
+          const clamped = Math.min(
+            Math.max(0, scrollTopBefore),
+            maxScroll
+          );
+          root.scrollTop = clamped;
+        } else {
+          const h = Math.max(
+            document.documentElement.scrollHeight,
+            document.body?.scrollHeight ?? 0
+          );
+          const maxY = Math.max(0, h - window.innerHeight);
+          const clamped = Math.min(Math.max(0, scrollTopBefore), maxY);
+          window.scrollTo(0, clamped);
+        }
         this._maybeAutoLoadMoreTrending();
       });
     });
@@ -284,7 +321,8 @@ export class SearchMode {
     this.trendingLoadingMore = true;
     this.searchView.setTrendingLoadingMore(true);
 
-    let scrollYBeforeAppend = window.scrollY;
+    const root = this._trendingScrollRootEl();
+    let scrollTopBeforeAppend = root ? root.scrollTop : window.scrollY;
 
     try {
       const data = await this.api.getTrending(20, this.trendingMusicOnly);
@@ -296,7 +334,7 @@ export class SearchMode {
 
       if (keyword) this.trendingKeywordsShown.push(keyword);
 
-      scrollYBeforeAppend = window.scrollY;
+      scrollTopBeforeAppend = root ? root.scrollTop : window.scrollY;
       this.searchView.appendResults(newItems);
       this.searchView.setHint(
         this._trendingHintText(this.trendingMusicOnly),
@@ -313,7 +351,7 @@ export class SearchMode {
     } finally {
       this.trendingLoadingMore = false;
       this.searchView.setTrendingLoadingMore(false);
-      this._restoreScrollYAfterTrendingLayout(scrollYBeforeAppend);
+      this._restoreScrollYAfterTrendingLayout(scrollTopBeforeAppend);
     }
   }
 
