@@ -8,6 +8,7 @@ import {
   tryAcquireUserDownload,
   releaseUserDownload
 } from '../downloadGate.js';
+import { getPublicShareBaseUrl } from '../config/publicSite.js';
 
 /**
  * Mode Search : Recherche YouTube + Playlist + Batch download
@@ -114,7 +115,7 @@ export class SearchMode {
 
     this.searchView.onShareLink = (item) => {
       if (!item?.id) return;
-      const link = `${window.location.origin}/v/${encodeURIComponent(item.id)}`;
+      const link = `${getPublicShareBaseUrl()}/v/${encodeURIComponent(item.id)}`;
       const ok = () =>
         this.downloadListView.showNotification(
           '✓ Lien de partage copié (miniature dans les apps)',
