@@ -71,6 +71,12 @@ export class DownloadListView {
       this.countBadge.textContent = items.length;
       this.countBadge.hidden = items.length === 0;
     }
+
+    const fabCount = $('#playlist-fab-count');
+    if (fabCount) {
+      fabCount.textContent = String(items.length);
+      fabCount.hidden = items.length === 0;
+    }
     
     if (this.playBtn) {
       this.playBtn.disabled = items.length === 0;
@@ -86,7 +92,7 @@ export class DownloadListView {
     // Liste vide
     if (items.length === 0) {
       this.itemsContainer.innerHTML =
-        '<p class="list-empty">+ pour enregistrer dans la liste · ↓ sur une carte : ajoute (si besoin) et télécharge seulement cette vidéo en MP4 (un téléchargement à la fois)</p>';
+        '<p class="list-empty">+ pour enregistrer dans la liste · ↓ sur une carte : télécharge cette vidéo en MP4 (fenêtre de progression · un téléchargement à la fois)</p>';
       return;
     }
     

@@ -463,6 +463,27 @@ body {
   gap: 1rem;
 }
 
+/* Phrase tendances / contexte + formulaire : bandeau sticky compact */
+.search-sticky-stack {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  margin: 0 -1.5rem 1rem;
+  padding: 0.35rem 1.5rem 0.55rem;
+  background: #0f1114;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.38);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.search-form-sticky {
+  padding: 0;
+}
+
+body.mode-ripper .search-chrome,
+body.mode-ripper .search-sticky-stack {
+  display: none;
+}
+
 .brand {
   display: flex;
   align-items: center;
@@ -524,6 +545,10 @@ body {
   margin-bottom: 1rem;
 }
 
+.search-chrome .search-header {
+  margin-bottom: 0.75rem;
+}
+
 .search-header-trending {
   display: flex;
   flex-wrap: wrap;
@@ -559,6 +584,10 @@ body {
   .search-header-trending {
     justify-content: flex-start;
   }
+}
+
+.search-form-sticky .search-form {
+  margin-bottom: 0;
 }
 
 .search-form {
@@ -822,9 +851,9 @@ body {
   margin-bottom: 1rem;
 }
 
-.hint.error {
-  color: #f28b82;
-  background: rgba(242, 139, 130, 0.1);
+.search-sticky-stack .hint--search-context {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
 }
 
 /* Buttons */
@@ -1024,6 +1053,65 @@ body {
   font-size: 0.9rem;
   color: #999;
   font-weight: 500;
+}
+
+/* Modal téléchargement direct (carte ↓) */
+.modal-download-progress {
+  max-width: 440px;
+}
+
+.modal-download-progress .modal-title {
+  white-space: normal;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.modal-download-progress-body {
+  padding-top: 0.5rem;
+}
+
+.download-modal-progress {
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: none;
+  background: #0f1114;
+  margin-bottom: 1rem;
+}
+
+.download-modal-progress::-webkit-progress-bar {
+  background: #0f1114;
+  border-radius: 999px;
+}
+
+.download-modal-progress::-webkit-progress-value {
+  background: linear-gradient(90deg, #b71c1c, #e53935);
+  border-radius: 999px;
+}
+
+.download-modal-progress::-moz-progress-bar {
+  background: linear-gradient(90deg, #b71c1c, #e53935);
+  border-radius: 999px;
+}
+
+.download-modal-status {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #9aa0a6;
+  min-height: 1.4em;
+  line-height: 1.45;
+}
+
+.download-modal-status[hidden] {
+  display: none;
+}
+
+.modal-download-progress-footer {
+  justify-content: flex-end;
 }
 
 /* Modal Proxy */
@@ -1240,25 +1328,117 @@ progress::-moz-progress-bar {
   filter: brightness(1.1);
 }
 
+/* —— FAB « Liste » (mobile, mode Recherche) + panneau —— */
+.playlist-fab,
+.playlist-sheet-backdrop {
+  display: none;
+}
+
+.playlist-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 280;
+  background: rgba(0, 0, 0, 0.5);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.playlist-fab {
+  position: fixed;
+  left: max(1rem, env(safe-area-inset-left));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 320;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.85rem;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #fff;
+  background: linear-gradient(145deg, #c5221f, #9a1a18);
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.12);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.playlist-fab:hover {
+  filter: brightness(1.06);
+}
+
+.playlist-fab:active {
+  transform: scale(0.97);
+}
+
+.playlist-fab__icon {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.playlist-fab__badge {
+  min-width: 1.35rem;
+  padding: 0.12rem 0.4rem;
+  border-radius: 999px;
+  background: #fff;
+  color: #c5221f;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+body.playlist-sheet-open {
+  overflow: hidden;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
+  body.mode-search .playlist-fab {
+    display: flex;
+  }
+
+  body.mode-search.playlist-sheet-open .playlist-sheet-backdrop {
+    display: block;
+  }
+
   .app-container {
     flex-direction: column;
   }
 
-  /* Forcer l'ordre : main-content en haut, sidebar en bas */
+  /* Scroll fenêtre : sticky du bandeau recherche (viewport) */
   .main-content {
     order: 1;
+    width: 100%;
+    overflow-y: visible;
   }
 
   .sidebar {
     order: 2;
     width: 100%;
+    max-width: 100%;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
     height: auto;
-    max-height: 40vh;
-    position: static;
+    max-height: min(88vh, 560px);
+    z-index: 300;
     border-right: none;
     border-top: 1px solid #2a2d33;
+    border-radius: 1rem 1rem 0 0;
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.55);
+    transform: translateY(105%);
+    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+  }
+
+  body.playlist-sheet-open .sidebar {
+    transform: translateY(0);
+    pointer-events: auto;
   }
 
   .list-notification {
@@ -1267,5 +1447,11 @@ progress::-moz-progress-bar {
 
   .results {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 769px) {
+  body.playlist-sheet-open {
+    overflow: auto;
   }
 }

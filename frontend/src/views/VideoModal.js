@@ -142,10 +142,10 @@ export class VideoModal {
     const body = createElement('div', { className: 'modal-body' });
 
     const iframeContainer = createElement('div', { className: 'video-container' });
-    const usePlaylistPlayer =
+    const hasPlaylistNav =
       this.playlist && this.playlist.length > 1;
 
-    if (usePlaylistPlayer) {
+    if (hasPlaylistNav) {
       const hostId = `modal-yt-player-${Date.now()}`;
       const host = createElement('div', {
         id: hostId,
@@ -192,50 +192,51 @@ export class VideoModal {
 
     // Footer avec bouton(s)
     const footer = createElement('div', { className: 'modal-footer' });
-    
-    // Navigation playlist (si applicable)
-    if (this.playlist && this.playlist.length > 1) {
+
+    /** Lecture « Ma liste » avec navigation : pas de bouton ajouter (déjà dans la liste). */
+    if (hasPlaylistNav) {
       const nav = createElement('div', { className: 'modal-nav' });
-      
+
       const prevBtn = createElement('button', {
         className: 'btn btn-secondary',
         type: 'button',
         disabled: this.currentIndex === 0,
         onClick: () => this.showPrevious()
       }, '← Précédent');
-      
-      const counter = createElement('span', {
-        className: 'modal-counter'
-      }, `${this.currentIndex + 1} / ${this.playlist.length}`);
-      
+
+      const counter = createElement(
+        'span',
+        { className: 'modal-counter' },
+        `${this.currentIndex + 1} / ${this.playlist.length}`
+      );
+
       const nextBtn = createElement('button', {
         className: 'btn btn-secondary',
         type: 'button',
         disabled: this.currentIndex === this.playlist.length - 1,
         onClick: () => this.showNext()
       }, 'Suivant →');
-      
+
       nav.appendChild(prevBtn);
       nav.appendChild(counter);
       nav.appendChild(nextBtn);
       footer.appendChild(nav);
     }
-    
-    const addBtn = createElement('button', {
-      className: 'btn btn-primary btn-large',
-      type: 'button',
-      onClick: () => {
-        if (this.onAdd) {
-          this.onAdd(this.currentItem);
-        }
-        // Ne pas fermer si on est en mode playlist
-        if (!this.playlist) {
+
+    if (!hasPlaylistNav) {
+      const addBtn = createElement('button', {
+        className: 'btn btn-primary btn-large',
+        type: 'button',
+        onClick: () => {
+          if (this.onAdd) {
+            this.onAdd(this.currentItem);
+          }
           this.close();
         }
-      }
-    }, '➕ Ajouter à ma liste');
-    
-    footer.appendChild(addBtn);
+      }, '➕ Ajouter à ma liste');
+
+      footer.appendChild(addBtn);
+    }
 
     // Assemblage
     modalContent.appendChild(header);

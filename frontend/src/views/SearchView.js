@@ -102,7 +102,7 @@ export class SearchView {
         type: 'button',
         className: 'quick-download-btn',
         title:
-          'Ajouter à la liste si besoin, puis télécharger uniquement cette vidéo en MP4',
+          'Télécharger cette vidéo en MP4 (fenêtre de progression, sans ajouter à la liste)',
         'aria-label': 'Télécharger cette vidéo en MP4'
       });
       downloadBtn.innerHTML = '↓';

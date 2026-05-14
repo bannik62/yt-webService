@@ -5,6 +5,85 @@ import { RipperMode } from './modes/RipperMode.js';
 import { ProxyModal } from './views/ProxyModal.js';
 
 /**
+ * Classes sur `body` pour le mode courant (FAB liste = mobile + recherche).
+ * @param {'search' | 'ripper'} mode
+ */
+function syncBodyModeClasses(mode) {
+  document.body.classList.toggle('mode-search', mode === 'search');
+  document.body.classList.toggle('mode-ripper', mode === 'ripper');
+}
+
+function closePlaylistSheet() {
+  document.body.classList.remove('playlist-sheet-open');
+  const fab = $('#playlist-fab');
+  const backdrop = $('#playlist-sheet-backdrop');
+  if (fab) {
+    fab.setAttribute('aria-expanded', 'false');
+    fab.classList.remove('playlist-fab--open');
+    fab.setAttribute('aria-label', 'Ouvrir ma liste de téléchargement');
+  }
+  if (backdrop) {
+    backdrop.hidden = true;
+    backdrop.setAttribute('aria-hidden', 'true');
+  }
+}
+
+function openPlaylistSheet() {
+  document.body.classList.add('playlist-sheet-open');
+  const fab = $('#playlist-fab');
+  const backdrop = $('#playlist-sheet-backdrop');
+  if (fab) {
+    fab.setAttribute('aria-expanded', 'true');
+    fab.classList.add('playlist-fab--open');
+    fab.setAttribute('aria-label', 'Fermer ma liste de téléchargement');
+  }
+  if (backdrop) {
+    backdrop.hidden = false;
+    backdrop.setAttribute('aria-hidden', 'false');
+  }
+  const sheet = $('#download-list');
+  if (sheet) {
+    const play = $('#download-list-play');
+    if (play instanceof HTMLElement && !play.disabled) {
+      play.focus();
+    } else {
+      if (!sheet.hasAttribute('tabindex')) sheet.setAttribute('tabindex', '-1');
+      sheet.focus();
+    }
+  }
+}
+
+function initPlaylistFab() {
+  const fab = $('#playlist-fab');
+  const backdrop = $('#playlist-sheet-backdrop');
+  if (!fab || !backdrop) return;
+
+  fab.addEventListener('click', () => {
+    if (document.body.classList.contains('playlist-sheet-open')) {
+      closePlaylistSheet();
+      fab.focus();
+    } else {
+      openPlaylistSheet();
+    }
+  });
+
+  backdrop.addEventListener('click', () => {
+    closePlaylistSheet();
+    fab.focus();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (
+      e.key === 'Escape' &&
+      document.body.classList.contains('playlist-sheet-open')
+    ) {
+      closePlaylistSheet();
+      fab.focus();
+    }
+  });
+}
+
+/**
  * @param {HTMLElement | null} el
  * @returns {Promise<void>}
  */
@@ -88,6 +167,8 @@ class App {
       }
     });
 
+    initPlaylistFab();
+
     // Afficher le mode initial (sans animation au premier rendu)
     this.switchMode(this.currentMode, { instant: true });
   }
@@ -113,6 +194,8 @@ class App {
       return;
     }
 
+    closePlaylistSheet();
+
     if (instant) {
       if (mode === 'search') {
         this.ripperMode.hide();
@@ -125,6 +208,7 @@ class App {
           searchEl.classList.remove('is-mode-out', 'is-mode-in-start');
         }
         this.searchMode.show();
+        syncBodyModeClasses('search');
       } else {
         this.searchMode.hide();
         if (searchEl) {
@@ -136,6 +220,7 @@ class App {
           ripperEl.classList.remove('is-mode-out', 'is-mode-in-start');
         }
         this.ripperMode.show();
+        syncBodyModeClasses('ripper');
       }
       this.currentMode = mode;
       return;
@@ -155,6 +240,7 @@ class App {
    * @param {'search' | 'ripper'} mode
    */
   async _switchModeAnimated(mode) {
+    closePlaylistSheet();
     const searchEl = $('#search-container');
     const ripperEl = $('#ripper-container');
 
@@ -167,6 +253,7 @@ class App {
       this.ripperMode.hide();
       await playViewEnterTransition(searchEl);
       this.searchMode.show();
+      syncBodyModeClasses('search');
     } else {
       await waitViewExitTransition(searchEl);
       if (searchEl) {
@@ -176,6 +263,7 @@ class App {
       this.searchMode.hide();
       await playViewEnterTransition(ripperEl);
       this.ripperMode.show();
+      syncBodyModeClasses('ripper');
     }
 
     this.currentMode = mode;

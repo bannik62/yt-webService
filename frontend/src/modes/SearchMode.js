@@ -2,6 +2,7 @@ import { $ } from '../utils/dom.js';
 import { SearchView } from '../views/SearchView.js';
 import { DownloadListView } from '../views/DownloadListView.js';
 import { VideoModal } from '../views/VideoModal.js';
+import { DownloadProgressModal } from '../views/DownloadProgressModal.js';
 import { DownloadList } from '../models/DownloadList.js';
 import {
   tryAcquireUserDownload,
@@ -18,6 +19,7 @@ export class SearchMode {
     this.searchView = new SearchView(this.api);
     this.downloadListView = new DownloadListView(this.downloadList);
     this.videoModal = new VideoModal();
+    this.downloadProgressModal = new DownloadProgressModal();
 
     this.currentJobId = null;
     this.eventSource = null;
@@ -35,12 +37,18 @@ export class SearchMode {
     /** Après un lot sans nouveauté, attend un peu de scroll vers le haut avant de redemander */
     this._trendingAwaitingScrollUp = false;
 
-    /**
-     * Index dans la liste (sidebar) pour la barre de progression quand le job
-     * ne porte qu’une seule URL (téléchargement depuis une carte).
-     * @type {number | null}
-     */
-    this._singleCardDownloadListIndex = null;
+    /** Téléchargement lancé depuis ↓ sur une carte : UI dans {@link downloadProgressModal} */
+    this._cardDownloadModalActive = false;
+
+    this.downloadProgressModal.onUserDismiss = () => {
+      if (!this._cardDownloadModalActive) return;
+      this._cardDownloadModalActive = false;
+      this.eventSource?.close();
+      releaseUserDownload();
+      this.downloadListView.setLoading(false);
+      this.downloadListView.clearQueueWaitMessage();
+      this.downloadListView.clearAllProgress();
+    };
 
     this.init();
   }
@@ -258,7 +266,10 @@ export class SearchMode {
     if (urls.length === 0) {
       alert('Aucune vidéo dans la liste');
       releaseUserDownload();
-      this._singleCardDownloadListIndex = null;
+      if (this._cardDownloadModalActive) {
+        this._cardDownloadModalActive = false;
+        this.downloadProgressModal.close(false);
+      }
       return;
     }
 
@@ -270,7 +281,10 @@ export class SearchMode {
       this.connectToJobStream(data.jobId);
     } catch (err) {
       releaseUserDownload();
-      this._singleCardDownloadListIndex = null;
+      if (this._cardDownloadModalActive) {
+        this._cardDownloadModalActive = false;
+        this.downloadProgressModal.close(false);
+      }
       // Messages d'erreur détaillés selon le type d'erreur
       let message = '❌ Erreur : ';
 
@@ -290,8 +304,8 @@ export class SearchMode {
   }
 
   /**
-   * Carte résultat : ajoute la vidéo à la liste puis télécharge uniquement ce MP4
-   * (les autres entrées de la liste ne sont pas incluses au job).
+   * Carte résultat ↓ : télécharge uniquement ce MP4 (sans ajouter à la playlist).
+   * Progression affichée dans un modal.
    * @param {object} item
    */
   async handleCardAddAndDownload(item) {
@@ -303,21 +317,8 @@ export class SearchMode {
       return;
     }
 
-    const alreadyIn = this.downloadList
-      .getAll()
-      .some((i) => i.url === item.url);
-    if (!alreadyIn) {
-      const added = this.downloadListView.addItem(item);
-      if (!added) {
-        releaseUserDownload();
-        return;
-      }
-    }
-
-    const listIndex = this.downloadList
-      .getAll()
-      .findIndex((i) => i.url === item.url);
-    this._singleCardDownloadListIndex = listIndex >= 0 ? listIndex : null;
+    this._cardDownloadModalActive = true;
+    this.downloadProgressModal.show(item.title || 'Vidéo');
 
     await this.handleBatchDownload([item.url]);
   }
@@ -331,26 +332,40 @@ export class SearchMode {
     
     this.eventSource.addEventListener('status', (e) => {
       const data = JSON.parse(e.data);
+      const queueUi = this._cardDownloadModalActive
+        ? {
+            set: (t) => this.downloadProgressModal.setQueueStatus(t),
+            clear: () => this.downloadProgressModal.clearQueueStatus()
+          }
+        : {
+            set: (t) => this.downloadListView.setQueueWaitMessage(t),
+            clear: () => this.downloadListView.clearQueueWaitMessage()
+          };
+
       if (data.status === 'queued') {
         const eta =
           data.estimatedSeconds != null
             ? ` · ~${data.estimatedSeconds}s`
             : '';
-        this.downloadListView.setQueueWaitMessage(
+        queueUi.set(
           `⏳ En file d'attente — position ${data.position}/${data.queueLength}${eta}`
         );
       } else if (data.status === 'awaiting_local_worker') {
-        this.downloadListView.setQueueWaitMessage(
+        queueUi.set(
           'Préparation côté navigateur… Tu peux laisser cette page ouverte.'
         );
       } else {
-        this.downloadListView.clearQueueWaitMessage();
+        queueUi.clear();
       }
     });
 
     // Écouter la progression pour mettre à jour les barres
     this.eventSource.addEventListener('progress', (e) => {
-      this.downloadListView.clearQueueWaitMessage();
+      if (this._cardDownloadModalActive) {
+        this.downloadProgressModal.clearQueueStatus();
+      } else {
+        this.downloadListView.clearQueueWaitMessage();
+      }
       const data = JSON.parse(e.data);
       this._handleProgress(data);
     });
@@ -362,8 +377,11 @@ export class SearchMode {
     
     this.eventSource.addEventListener('error', () => {
       this.downloadListView.clearQueueWaitMessage();
+      if (this._cardDownloadModalActive) {
+        this._cardDownloadModalActive = false;
+        this.downloadProgressModal.close(false);
+      }
       releaseUserDownload();
-      this._singleCardDownloadListIndex = null;
       this.downloadListView.setLoading(false);
       this.downloadListView.clearAllProgress();
       this.eventSource?.close();
@@ -371,14 +389,14 @@ export class SearchMode {
   }
 
   _handleProgress(data) {
-    // Job carte = une seule URL : la barre doit suivre la ligne de cette vidéo
-    // dans la liste, pas l’index 0 imposé par itemIndex === 1.
-    const listIndex =
-      this._singleCardDownloadListIndex != null
-        ? this._singleCardDownloadListIndex
-        : data.itemIndex - 1;
     const progress = Math.round(data.filePct);
 
+    if (this._cardDownloadModalActive) {
+      this.downloadProgressModal.setProgress(progress);
+      return;
+    }
+
+    const listIndex = data.itemIndex - 1;
     this.downloadListView.updateItemProgress(listIndex, progress);
   }
 
@@ -387,11 +405,12 @@ export class SearchMode {
     this.downloadListView.clearQueueWaitMessage();
     releaseUserDownload();
     this.downloadListView.setLoading(false);
-    this._singleCardDownloadListIndex = null;
 
-    if (data.success && data.files) {
-      // Télécharger automatiquement chaque fichier (simple et direct)
-      data.files.forEach((file, index) => {
+    const cardModal = this._cardDownloadModalActive;
+    this._cardDownloadModalActive = false;
+
+    const triggerBrowserDownloads = (files) => {
+      files.forEach((file, index) => {
         setTimeout(() => {
           const link = document.createElement('a');
           link.href = file.url;
@@ -401,7 +420,30 @@ export class SearchMode {
           document.body.removeChild(link);
         }, index * 2000);
       });
-      
+    };
+
+    if (cardModal) {
+      if (data.success && data.files) {
+        this.downloadProgressModal.setProgress(100);
+        this.downloadProgressModal.setQueueStatus(
+          '✓ Fichier prêt — lancement du téléchargement…'
+        );
+        triggerBrowserDownloads(data.files);
+        const delayAfterLast =
+          data.files.length > 0 ? (data.files.length - 1) * 2000 + 1200 : 400;
+        setTimeout(() => {
+          this.downloadProgressModal.close(false);
+        }, delayAfterLast);
+      } else {
+        this.downloadProgressModal.close(false);
+        alert(`❌ Erreur : ${data.error || 'Échec du téléchargement'}`);
+      }
+      return;
+    }
+
+    if (data.success && data.files) {
+      triggerBrowserDownloads(data.files);
+
       const delayAfterLast =
         data.files.length > 0 ? (data.files.length - 1) * 2000 + 800 : 0;
       setTimeout(() => {
@@ -423,6 +465,14 @@ export class SearchMode {
     const sidebar = $('#download-list');
 
     if (sidebar) sidebar.hidden = true;
+
+    if (this._cardDownloadModalActive) {
+      this._cardDownloadModalActive = false;
+      releaseUserDownload();
+      this.downloadListView.setLoading(false);
+      this.downloadListView.clearQueueWaitMessage();
+      this.downloadProgressModal.close(false);
+    }
 
     // Fermer le modal et l'eventSource si ouverts
     this.videoModal.close();
