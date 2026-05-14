@@ -61,7 +61,11 @@ export function renderSharePageHtml({ origin, videoId, title }) {
   const appUrl = `${origin}/?v=${encodeURIComponent(videoId)}`;
   const thumbUrl = `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`;
   const desc = escapeHtmlAttr('Ouvrir dans YT Ripper Web');
+  /** JSON pour injecter l’URL dans un script sans risque de cassure / XSS. */
+  const appUrlJs = JSON.stringify(appUrl);
 
+  // Pas de <meta http-equiv="refresh"> : le crawler Meta peut suivre la cible `/?v=`
+  // et lire les OG du SPA (ogImage.png). La redirection navigateur se fait en JS ci‑dessous.
   return `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -75,13 +79,17 @@ export function renderSharePageHtml({ origin, videoId, title }) {
   <meta property="og:url" content="${escapeHtmlAttr(shareUrl)}" />
   <meta property="og:image" content="${escapeHtmlAttr(thumbUrl)}" />
   <meta property="og:image:secure_url" content="${escapeHtmlAttr(thumbUrl)}" />
+  <meta property="og:image:width" content="480" />
+  <meta property="og:image:height" content="360" />
+  <meta property="og:image:alt" content="${safeTitle}" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${safeTitle}" />
   <meta name="twitter:image" content="${escapeHtmlAttr(thumbUrl)}" />
-  <meta http-equiv="refresh" content="0;url=${escapeHtmlAttr(appUrl)}" />
 </head>
 <body>
   <p><a href="${escapeHtmlAttr(appUrl)}">Ouvrir la vidéo dans YT Ripper</a></p>
+  <noscript><p><a href="${escapeHtmlAttr(appUrl)}">Continuer (JavaScript désactivé)</a></p></noscript>
+  <script>(function(){var u=${appUrlJs};window.location.replace(u);})();</script>
 </body>
 </html>`;
 }
