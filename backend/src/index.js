@@ -147,7 +147,9 @@ await app.register(rateLimit, {
       return true;
     }
     const url = String(req.url || req.raw?.url || '').split('?')[0];
-    return url.startsWith('/api/worker');
+    return (
+      url.startsWith('/api/worker') || url.startsWith('/share-thumb/')
+    );
   },
   errorResponseBuilder: () => ({
     error: '🚫 Trop de requêtes. Réessaye dans 1 minute.',
@@ -161,6 +163,39 @@ await app.register(workerIngestRoutes, {
 });
 
 app.get('/health', async () => ({ ok: true }));
+
+/**
+ * Vignette Open Graph : même domaine que le site (proxy i.ytimg.com).
+ * Meta / Facebook utilisent souvent mal une og:image purement externe.
+ */
+app.get('/share-thumb/:file', async (request, reply) => {
+  const file = String(request.params.file || '');
+  const m = /^([a-zA-Z0-9_-]{11})\.jpg$/i.exec(file);
+  if (!m) {
+    return reply.status(404).type('text/plain; charset=utf-8').send('Not found');
+  }
+  const videoId = m[1];
+  const upstream = `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`;
+  try {
+    const res = await fetch(upstream, {
+      signal: AbortSignal.timeout(12000),
+      headers: { 'User-Agent': 'yt-webService-share-thumb/1.0' }
+    });
+    if (!res.ok) {
+      request.log.warn({ status: res.status, videoId }, 'share-thumb: upstream');
+      return reply.status(502).type('text/plain; charset=utf-8').send('Bad gateway');
+    }
+    const ctype = res.headers.get('content-type') || 'image/jpeg';
+    const buf = Buffer.from(await res.arrayBuffer());
+    return reply
+      .header('Cache-Control', 'public, max-age=86400, immutable')
+      .type(ctype.startsWith('image/') ? ctype : 'image/jpeg')
+      .send(buf);
+  } catch (err) {
+    request.log.warn({ err, videoId }, 'share-thumb: fetch');
+    return reply.status(502).type('text/plain; charset=utf-8').send('Bad gateway');
+  }
+});
 
 /**
  * Partage : HTML avec Open Graph (miniature YouTube) + redirection vers `/?v=`.

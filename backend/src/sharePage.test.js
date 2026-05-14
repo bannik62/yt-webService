@@ -3,7 +3,8 @@ import {
   buildPublicOrigin,
   isLinkPreviewBot,
   isValidYoutubeVideoId,
-  renderSharePageHtml
+  renderSharePageHtml,
+  shareOgThumbUrl
 } from './sharePage.js';
 
 describe('sharePage', () => {
@@ -101,6 +102,12 @@ describe('sharePage', () => {
     expect(buildPublicOrigin(req)).toBe('https://yt.codeurbase.fr');
   });
 
+  it('shareOgThumbUrl même domaine', () => {
+    expect(shareOgThumbUrl('https://yt.codeurbase.fr', 'dQw4w9WgXcQ')).toBe(
+      'https://yt.codeurbase.fr/share-thumb/dQw4w9WgXcQ.jpg'
+    );
+  });
+
   it('isValidYoutubeVideoId', () => {
     expect(isValidYoutubeVideoId('dQw4w9WgXcQ')).toBe(true);
     expect(isValidYoutubeVideoId('short')).toBe(false);
@@ -124,7 +131,7 @@ describe('sharePage', () => {
       autoRedirect: false
     });
     expect(html).toContain('og:image');
-    expect(html).toContain('i.ytimg.com');
+    expect(html).toContain('/share-thumb/');
     expect(html).toContain('og:image:type');
     expect(html).toContain('og:site_name');
     expect(html).not.toContain('location.replace');

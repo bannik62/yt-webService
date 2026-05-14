@@ -143,6 +143,17 @@ export function isLinkPreviewBot(userAgent) {
 }
 
 /**
+ * URL de vignette pour og:image / twitter:image (même domaine que le site ; Meta gère mal i.ytimg.com seul).
+ * @param {string} origin
+ * @param {string} videoId
+ * @returns {string}
+ */
+export function shareOgThumbUrl(origin, videoId) {
+  const base = String(origin || '').replace(/\/$/, '');
+  return `${base}/share-thumb/${encodeURIComponent(videoId)}.jpg`;
+}
+
+/**
  * @param {{ origin: string; videoId: string; title: string; autoRedirect?: boolean }} opts
  * @returns {string}
  */
@@ -151,7 +162,7 @@ export function renderSharePageHtml({ origin, videoId, title, autoRedirect = tru
   const sharePath = `/v/${encodeURIComponent(videoId)}`;
   const shareUrl = `${origin}${sharePath}`;
   const appUrl = `${origin}/?v=${encodeURIComponent(videoId)}`;
-  const thumbUrl = `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`;
+  const thumbUrl = shareOgThumbUrl(origin, videoId);
   const desc = escapeHtmlAttr('Ouvrir dans YT Ripper Web');
   /** JSON pour injecter l’URL dans un script sans risque de cassure / XSS. */
   const appUrlJs = JSON.stringify(appUrl);
@@ -181,6 +192,8 @@ ${fbAppMeta}  <link rel="canonical" href="${escapeHtmlAttr(shareUrl)}" />
   <meta property="og:image" content="${escapeHtmlAttr(thumbUrl)}" />
   <meta property="og:image:secure_url" content="${escapeHtmlAttr(thumbUrl)}" />
   <meta property="og:image:type" content="image/jpeg" />
+  <meta property="og:image:width" content="480" />
+  <meta property="og:image:height" content="360" />
   <meta property="og:image:alt" content="${safeTitle}" />
   <meta property="og:site_name" content="YT Ripper Web" />
   <meta name="twitter:card" content="summary_large_image" />
@@ -189,6 +202,7 @@ ${fbAppMeta}  <link rel="canonical" href="${escapeHtmlAttr(shareUrl)}" />
   <meta name="twitter:image" content="${escapeHtmlAttr(thumbUrl)}" />
 </head>
 <body>
+  <p style="max-width:480px;margin:0 auto"><img src="${escapeHtmlAttr(thumbUrl)}" width="480" height="360" alt="${safeTitle}" loading="eager" decoding="async" /></p>
   <p><a href="${escapeHtmlAttr(appUrl)}">Ouvrir la vidéo dans YT Ripper</a></p>
   <noscript><p><a href="${escapeHtmlAttr(appUrl)}">Continuer (JavaScript désactivé)</a></p></noscript>
   ${redirectScript}

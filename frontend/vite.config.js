@@ -72,6 +72,10 @@ export default defineConfig(({ mode }) => {
         '/v': {
           target: apiTarget,
           changeOrigin: true
+        },
+        '/share-thumb': {
+          target: apiTarget,
+          changeOrigin: true
         }
       }
     }
