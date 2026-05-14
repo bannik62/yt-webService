@@ -24,7 +24,8 @@ import {
 import {
   buildPublicOrigin,
   isValidYoutubeVideoId,
-  renderSharePageHtml
+  renderSharePageHtml,
+  isLinkPreviewBot
 } from './sharePage.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -162,7 +163,8 @@ app.get('/health', async () => ({ ok: true }));
 
 /**
  * Partage : HTML avec Open Graph (miniature YouTube) + redirection vers `/?v=`.
- * Les apps de messagerie lisent cette page sans exécuter le JS du SPA.
+ * Réponse immédiate (pas d’appel yt-dlp) : les scrapers Meta abandonnent souvent avant 5–10 s.
+ * Pas de redirection JS pour les user-agents des bots d’aperçu (sinon ils perdent les balises OG).
  */
 app.get('/v/:videoId', async (request, reply) => {
   const videoId = String(request.params.videoId || '').trim();
@@ -175,27 +177,15 @@ app.get('/v/:videoId', async (request, reply) => {
       );
   }
 
-  let title = 'Vidéo YouTube';
-  try {
-    const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    const result = await Promise.race([
-      probePlaylistCount(watchUrl, {
-        noPlaylist: true,
-        proxyUrl: getCurrentProxy()
-      }),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('timeout')), 12000)
-      )
-    ]);
-    if (result && typeof result.title === 'string' && result.title.trim()) {
-      title = result.title.trim().slice(0, 200);
-    }
-  } catch (err) {
-    request.log.debug({ err }, 'share page: titre par défaut');
-  }
-
+  const title = 'Vidéo YouTube';
   const origin = buildPublicOrigin(request);
-  const html = renderSharePageHtml({ origin, videoId, title });
+  const ua = String(request.headers['user-agent'] || '');
+  const html = renderSharePageHtml({
+    origin,
+    videoId,
+    title,
+    autoRedirect: !isLinkPreviewBot(ua)
+  });
   return reply.type('text/html; charset=utf-8').send(html);
 });
 

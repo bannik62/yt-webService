@@ -51,10 +51,25 @@ export function buildPublicOrigin(request) {
 }
 
 /**
- * @param {{ origin: string; videoId: string; title: string }} opts
+ * User-agents connus pour les aperçus de liens (Meta, X, Slack, etc.).
+ * Ne pas leur envoyer de redirection JS : certains exécutent le script et perdent les OG.
+ *
+ * @param {string | undefined} userAgent
+ * @returns {boolean}
+ */
+export function isLinkPreviewBot(userAgent) {
+  const ua = String(userAgent || '');
+  // Ne pas matcher « Instagram » / « WhatsApp » seuls : ce sont aussi les WebViews in-app (humains).
+  return /facebookexternalhit|facebot|twitterbot|linkedinbot|slackbot|discordbot|telegrambot|pinterestbot|vkshare|embedly|outbrain|flipboard|tumblr|skypeuripreview|Applebot|bingpreview|MicrosoftTeams/i.test(
+    ua
+  );
+}
+
+/**
+ * @param {{ origin: string; videoId: string; title: string; autoRedirect?: boolean }} opts
  * @returns {string}
  */
-export function renderSharePageHtml({ origin, videoId, title }) {
+export function renderSharePageHtml({ origin, videoId, title, autoRedirect = true }) {
   const safeTitle = escapeHtmlAttr(title);
   const sharePath = `/v/${encodeURIComponent(videoId)}`;
   const shareUrl = `${origin}${sharePath}`;
@@ -64,8 +79,11 @@ export function renderSharePageHtml({ origin, videoId, title }) {
   /** JSON pour injecter l’URL dans un script sans risque de cassure / XSS. */
   const appUrlJs = JSON.stringify(appUrl);
 
-  // Pas de <meta http-equiv="refresh"> : le crawler Meta peut suivre la cible `/?v=`
-  // et lire les OG du SPA (ogImage.png). La redirection navigateur se fait en JS ci‑dessous.
+  const redirectScript = autoRedirect
+    ? `<script>(function(){var u=${appUrlJs};window.location.replace(u);})();</script>`
+    : '';
+
+  // Pas de <meta http-equiv="refresh"> : le crawler Meta peut suivre `/?v=` et lire les OG du SPA.
   return `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -84,12 +102,13 @@ export function renderSharePageHtml({ origin, videoId, title }) {
   <meta property="og:image:alt" content="${safeTitle}" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${safeTitle}" />
+  <meta name="twitter:description" content="${desc}" />
   <meta name="twitter:image" content="${escapeHtmlAttr(thumbUrl)}" />
 </head>
 <body>
   <p><a href="${escapeHtmlAttr(appUrl)}">Ouvrir la vidéo dans YT Ripper</a></p>
   <noscript><p><a href="${escapeHtmlAttr(appUrl)}">Continuer (JavaScript désactivé)</a></p></noscript>
-  <script>(function(){var u=${appUrlJs};window.location.replace(u);})();</script>
+  ${redirectScript}
 </body>
 </html>`;
 }
