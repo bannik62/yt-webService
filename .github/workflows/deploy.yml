@@ -53,4 +53,8 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "cd /var/www/html/ytWeb && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build"
+            "cd /var/www/html/ytWeb && \
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml build \
+              --build-arg VITE_FB_APP_ID='${{ secrets.VITE_FB_APP_ID }}' \
+              web && \
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d"
