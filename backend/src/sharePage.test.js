@@ -64,8 +64,7 @@ describe('sharePage', () => {
     const html = renderSharePageHtml({
       origin: 'https://yt.codeurbase.fr',
       videoId: 'dQw4w9WgXcQ',
-      title: 'Test',
-      autoRedirect: false
+      title: 'Test'
     });
     expect(html).toContain('fb:app_id');
     expect(html).toContain('1234567890123456');
@@ -123,27 +122,17 @@ describe('sharePage', () => {
     expect(isLinkPreviewBot('Mozilla/5.0 (iPhone; Instagram 123)')).toBe(false);
   });
 
-  it('renderSharePageHtml sans script si autoRedirect false', () => {
+  it('renderSharePageHtml : pas de redirection JS (anti-cloaking)', () => {
     const html = renderSharePageHtml({
       origin: 'https://yt.codeurbase.fr',
       videoId: 'dQw4w9WgXcQ',
-      title: 'Test',
-      autoRedirect: false
+      title: 'Test'
     });
     expect(html).toContain('og:image');
     expect(html).toContain('/share-thumb/');
     expect(html).toContain('og:image:type');
     expect(html).toContain('og:site_name');
     expect(html).not.toContain('location.replace');
-  });
-
-  it('renderSharePageHtml avec script si autoRedirect true', () => {
-    const html = renderSharePageHtml({
-      origin: 'https://yt.codeurbase.fr',
-      videoId: 'dQw4w9WgXcQ',
-      title: 'Test',
-      autoRedirect: true
-    });
-    expect(html).toContain('location.replace');
+    expect(html).not.toContain('<script');
   });
 });

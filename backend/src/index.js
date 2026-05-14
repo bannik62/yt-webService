@@ -24,8 +24,7 @@ import {
 import {
   buildPublicOrigin,
   isValidYoutubeVideoId,
-  renderSharePageHtml,
-  isLinkPreviewBot
+  renderSharePageHtml
 } from './sharePage.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -198,9 +197,7 @@ app.get('/share-thumb/:file', async (request, reply) => {
 });
 
 /**
- * Partage : HTML avec Open Graph (miniature YouTube) + redirection vers `/?v=`.
- * Réponse immédiate (pas d’appel yt-dlp) : les scrapers Meta abandonnent souvent avant 5–10 s.
- * Pas de redirection JS pour les user-agents des bots d’aperçu (sinon ils perdent les balises OG).
+ * Partage : HTML Open Graph + lien vers l’app (pas de redirection, pas de HTML différent par User-Agent).
  */
 app.get('/v/:videoId', async (request, reply) => {
   const videoId = String(request.params.videoId || '').trim();
@@ -215,12 +212,10 @@ app.get('/v/:videoId', async (request, reply) => {
 
   const title = 'Vidéo YouTube';
   const origin = buildPublicOrigin(request);
-  const ua = String(request.headers['user-agent'] || '');
   const html = renderSharePageHtml({
     origin,
     videoId,
-    title,
-    autoRedirect: !isLinkPreviewBot(ua)
+    title
   });
   return reply.type('text/html; charset=utf-8').send(html);
 });

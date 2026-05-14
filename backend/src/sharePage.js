@@ -1,5 +1,6 @@
 /**
- * Page HTML minimale pour partage (Open Graph + redirection vers l’app).
+ * Page HTML minimale pour partage (Open Graph + lien vers l’app).
+ * Aucune redirection ni contenu différent selon le User-Agent (évite d’être vu comme du cloaking par Meta).
  */
 
 /** Identifiant vidéo classique YouTube (11 caractères). */
@@ -128,8 +129,7 @@ export function buildPublicOrigin(request) {
 }
 
 /**
- * User-agents connus pour les aperçus de liens (Meta, X, Slack, etc.).
- * Ne pas leur envoyer de redirection JS : certains exécutent le script et perdent les OG.
+ * Détection heuristique des crawlers d’aperçu (tests / outillage ; la route /v ne s’en sert plus).
  *
  * @param {string | undefined} userAgent
  * @returns {boolean}
@@ -154,18 +154,16 @@ export function shareOgThumbUrl(origin, videoId) {
 }
 
 /**
- * @param {{ origin: string; videoId: string; title: string; autoRedirect?: boolean }} opts
+ * @param {{ origin: string; videoId: string; title: string }} opts
  * @returns {string}
  */
-export function renderSharePageHtml({ origin, videoId, title, autoRedirect = true }) {
+export function renderSharePageHtml({ origin, videoId, title }) {
   const safeTitle = escapeHtmlAttr(title);
   const sharePath = `/v/${encodeURIComponent(videoId)}`;
   const shareUrl = `${origin}${sharePath}`;
   const appUrl = `${origin}/?v=${encodeURIComponent(videoId)}`;
   const thumbUrl = shareOgThumbUrl(origin, videoId);
   const desc = escapeHtmlAttr('Ouvrir dans YT Ripper Web');
-  /** JSON pour injecter l’URL dans un script sans risque de cassure / XSS. */
-  const appUrlJs = JSON.stringify(appUrl);
 
   const fbId = (process.env.FB_APP_ID || process.env.META_FB_APP_ID || '').trim();
   const fbAppMeta =
@@ -173,11 +171,6 @@ export function renderSharePageHtml({ origin, videoId, title, autoRedirect = tru
       `  <meta property="fb:app_id" content="${escapeHtmlAttr(fbId)}" />\n`
     : '';
 
-  const redirectScript = autoRedirect
-    ? `<script>(function(){var u=${appUrlJs};window.location.replace(u);})();</script>`
-    : '';
-
-  // Pas de <meta http-equiv="refresh"> : le crawler Meta peut suivre `/?v=` et lire les OG du SPA.
   return `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -204,8 +197,6 @@ ${fbAppMeta}  <link rel="canonical" href="${escapeHtmlAttr(shareUrl)}" />
 <body>
   <p style="max-width:480px;margin:0 auto"><img src="${escapeHtmlAttr(thumbUrl)}" width="480" height="360" alt="${safeTitle}" loading="eager" decoding="async" /></p>
   <p><a href="${escapeHtmlAttr(appUrl)}">Ouvrir la vidéo dans YT Ripper</a></p>
-  <noscript><p><a href="${escapeHtmlAttr(appUrl)}">Continuer (JavaScript désactivé)</a></p></noscript>
-  ${redirectScript}
 </body>
 </html>`;
 }
