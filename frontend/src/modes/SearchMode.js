@@ -72,13 +72,26 @@ export class SearchMode {
         typeof data.title === 'string' && data.title.trim()
           ? data.title.trim()
           : 'Vidéo YouTube';
+      const channel =
+        typeof data.channel === 'string' && data.channel.trim()
+          ? data.channel.trim()
+          : 'YouTube';
+      const thumbDefault = `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
+      const thumbnail =
+        typeof data.thumbnailUrl === 'string' && data.thumbnailUrl.startsWith('http')
+          ? data.thumbnailUrl
+          : thumbDefault;
+      const duration =
+        typeof data.durationLabel === 'string' && data.durationLabel.trim()
+          ? data.durationLabel.trim()
+          : null;
       const item = {
         id: videoId,
         title,
         url,
-        channel: 'YouTube',
-        duration: null,
-        thumbnail: `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`
+        channel,
+        duration,
+        thumbnail
       };
       this.videoModal.show(item);
       return true;

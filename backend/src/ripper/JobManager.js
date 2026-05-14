@@ -12,6 +12,7 @@ import { PLAYLIST_MAX_TRACKS } from './playlistLimit.js';
 import { formatDownloadErrorForUser } from './downloadErrorMessage.js';
 import { resolveProxyUrl } from '../proxy/proxyManager.js';
 import { ProxyQuotaError, DelegationTimedOutError } from './proxyQuotaError.js';
+import { claimNextProbeRelayTask } from './probeDelegationManager.js';
 import {
   needsWorkerIngestTranscode,
   transcodeWorkerIngest,
@@ -257,11 +258,19 @@ export class JobManager extends EventEmitter {
   }
 
   /**
-   * Prochain téléchargement à relayer (awaiting_local_worker), FIFO par delegationStartedAt.
+   * Prochain téléchargement à relayer (awaiting_local_worker), FIFO par delegationStartedAt,
+   * ou tâche **probe** déléguée (prioritaire, même poll `GET /delegations/next`).
    * Worker local : GET /api/worker/delegations/next avec Bearer WORKER_INGEST_SECRET.
-   * @returns {{ jobId: string, url: string, output: 'audio'|'video', noPlaylist: boolean } | null}
+   * @returns {(
+   *   { kind: 'probe', probeId: string, url: string, noPlaylist: boolean } |
+   *   { jobId: string, url: string, output: 'audio'|'video', noPlaylist: boolean } |
+   *   null
+   * )}
    */
   getDelegationRelayTask() {
+    const probeTask = claimNextProbeRelayTask();
+    if (probeTask) return probeTask;
+
     /** @type {Array<{ jobId: string; job: object; t: number }>} */
     const list = [];
     for (const [jobId, job] of this.#jobs.entries()) {

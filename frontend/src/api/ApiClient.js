@@ -97,6 +97,53 @@ export class ApiClient {
   }
 
   /**
+   * Attente résultat analyse déléguée au worker (402 proxy + session navigateur).
+   * @param {string} probeId
+   * @returns {Promise<object>}
+   */
+  async _pollProbeDelegation(probeId) {
+    const deadline = Date.now() + 120000;
+    const pollUrl = `${this.baseUrl}/api/probe-delegation/${encodeURIComponent(probeId)}/status`;
+    while (Date.now() < deadline) {
+      const r = await fetch(pollUrl, { signal: AbortSignal.timeout(15000) });
+      const s = await r.json().catch(() => ({}));
+      if (s.state === 'complete' && s.ok === true) {
+        /** @type {Record<string, unknown>} */
+        const out = {
+          ok: true,
+          kind: s.kind,
+          count: s.count,
+          title: s.title,
+          effectiveCount: s.effectiveCount
+        };
+        const extras = [
+          'videoId',
+          'channel',
+          'durationSeconds',
+          'durationLabel',
+          'thumbnailUrl',
+          'webpageUrl',
+          'viewCount',
+          'descriptionPreview',
+          'sourceMediaKind'
+        ];
+        for (const k of extras) {
+          const v = s[k];
+          if (v != null && v !== '') out[k] = v;
+        }
+        return out;
+      }
+      if (s.state === 'failed') {
+        throw new Error(s.error || 'Échec analyse relais local');
+      }
+      await new Promise((res) => setTimeout(res, 700));
+    }
+    throw new Error(
+      'Time-out analyse relais local (worker absent ou trop lent). Vérifie le worker sur ta machine.'
+    );
+  }
+
+  /**
    * Probe une URL (playlist/vidéo)
    * @param {object} params
    * @returns {Promise<object>}
@@ -116,13 +163,18 @@ export class ApiClient {
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(30000)
       });
-      
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 202 && data.pendingWorkerProbe && data.probeId) {
+        return await this._pollProbeDelegation(data.probeId);
+      }
+
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
         throw new Error(data?.error || `Erreur serveur (${res.status})`);
       }
-      
-      return await res.json();
+
+      return data;
     } catch (err) {
       this._handleFetchError(err, 'analyse');
     }

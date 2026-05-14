@@ -5,6 +5,7 @@ import {
   DOWNLOAD_OUTPUT_AUDIO,
   DOWNLOAD_OUTPUT_VIDEO
 } from '../ripper/runDownload.js';
+import { completeProbeDelegationFromWorker } from '../ripper/probeDelegationManager.js';
 import { checkWorkerIngestGate } from '../workerIngestGate.js';
 
 /**
@@ -97,6 +98,28 @@ export default async function workerIngestRoutes(fastify, opts) {
       return reply.send(task);
     }
   );
+
+  /**
+   * Ripper : analyse déléguée (yt-dlp --dump-single-json sur la machine locale).
+   * Body : `{ ok: true, dump: <objet JSON yt-dlp> }` ou `{ ok: false, error: "…" }`.
+   */
+  fastify.post('/probe-delegation/:probeId/complete', async (request, reply) => {
+    if (!requireIngestSecret(request, reply)) return;
+
+    const gate = checkWorkerIngestGate();
+    if (gate.blocked) {
+      return reply.status(503).send({ error: gate.message, code: gate.code });
+    }
+
+    const { probeId } = request.params;
+    const body =
+      request.body && typeof request.body === 'object' ? request.body : {};
+    const result = completeProbeDelegationFromWorker(probeId, body);
+    if (!result.ok) {
+      return reply.status(400).send({ error: result.error });
+    }
+    return reply.send({ ok: true });
+  });
 
   /** Rapport de progression yt-dlp pendant le relais (SSE barre côté client). */
   fastify.post('/jobs/:jobId/progress', async (request, reply) => {

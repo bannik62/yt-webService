@@ -9,7 +9,16 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getCorsOptions } from './corsOptions.js';
 import { SearchEngine } from './search/SearchEngine.js';
-import { probePlaylistCount, getTrending } from './ripper/probe.js';
+import {
+  probePlaylistCount,
+  getTrending,
+  buildProbeApiShape
+} from './ripper/probe.js';
+import {
+  shouldDelegateProbeToWorker,
+  enqueueProbeDelegation,
+  getProbeDelegationStatus
+} from './ripper/probeDelegationManager.js';
 import { JobManager } from './ripper/JobManager.js';
 import { normalizePlaylistMaxDownloads } from './ripper/playlistLimit.js';
 import { initProxyAtStartup, getProxyPool, selectProxyByIndex, refreshProxyPool, getCurrentProxy, getCurrentProxyInfo, resolveProxyUrl } from './proxy/proxyManager.js';
@@ -147,7 +156,9 @@ await app.register(rateLimit, {
     }
     const url = String(req.url || req.raw?.url || '').split('?')[0];
     return (
-      url.startsWith('/api/worker') || url.startsWith('/share-thumb/')
+      url.startsWith('/api/worker') ||
+      url.startsWith('/share-thumb/') ||
+      url.startsWith('/api/probe-delegation/')
     );
   },
   errorResponseBuilder: () => ({
@@ -423,35 +434,56 @@ app.post('/api/probe', async (request, reply) => {
     });
   }
 
+  const workerSessionId = parseWorkerSessionId(
+    request.headers['x-worker-session']
+  );
+
   try {
     const proxyUrl = resolveProxyUrl(p.index);
-    const result = await probePlaylistCount(url.trim(), { 
+    const result = await probePlaylistCount(url.trim(), {
       noPlaylist: Boolean(noPlaylist),
       proxyUrl
     });
-    
-    let effectiveCount = result.count;
-    if (Boolean(noPlaylist)) {
-      effectiveCount = 1;
-    } else {
-      const limit = normalizePlaylistMaxDownloads(false, maxDownloads);
-      effectiveCount = Math.min(result.count, limit);
-    }
-    
-    return {
-      ok: true,
-      kind: result.kind,
-      count: result.count,
-      title: result.title,
-      effectiveCount
-    };
+    return buildProbeApiShape(result, Boolean(noPlaylist), maxDownloads);
   } catch (err) {
+    const proxyUrl = resolveProxyUrl(p.index);
+    if (
+      shouldDelegateProbeToWorker(err, {
+        hadProxy: Boolean(proxyUrl),
+        workerSessionId
+      })
+    ) {
+      const probeId = enqueueProbeDelegation({
+        url: url.trim(),
+        noPlaylist: Boolean(noPlaylist),
+        maxDownloads
+      });
+      return reply.status(202).send({
+        pendingWorkerProbe: true,
+        probeId
+      });
+    }
     app.log.error('Probe error:', err);
-    return reply.status(500).send({ 
-      ok: false, 
-      error: err.message || 'Échec de l\'analyse' 
+    return reply.status(500).send({
+      ok: false,
+      error: err instanceof Error ? err.message : 'Échec de l\'analyse'
     });
   }
+});
+
+const PROBE_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+app.get('/api/probe-delegation/:probeId/status', async (request, reply) => {
+  const probeId = String(request.params.probeId || '').trim();
+  if (!PROBE_ID_RE.test(probeId)) {
+    return reply.status(400).send({ error: 'probeId invalide' });
+  }
+  const s = getProbeDelegationStatus(probeId);
+  if (!s) {
+    return reply.status(404).send({ error: 'Introuvable ou expiré' });
+  }
+  return reply.send(s);
 });
 
 app.post('/api/download', async (request, reply) => {

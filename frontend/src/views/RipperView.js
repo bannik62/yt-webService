@@ -89,12 +89,30 @@ export class RipperView {
         return;
       }
 
-      let message =
+      const singleHead = () => {
+        if (result.sourceMediaKind === 'video') {
+          return '1 piste (sans playlist) — vidéo détectée';
+        }
+        if (result.sourceMediaKind === 'audio') {
+          return '1 piste (sans playlist) — flux audio';
+        }
+        return '1 piste (sans playlist)';
+      };
+      const head =
         this.getMode() === 'single'
-          ? '1 morceau (audio / MP3)'
-          : `≈ ${result.effectiveCount} morceau(x) (${result.kind === 'playlist' ? 'playlist' : 'piste'})`;
-      if (result.title) message += ` — ${result.title}`;
-      this.setHint(message, false);
+          ? singleHead()
+          : `≈ ${result.effectiveCount} piste(s) (${result.kind === 'playlist' ? 'playlist' : 'sélection'})`;
+      const bits = [head];
+      if (result.title) bits.push(String(result.title));
+      const meta = [];
+      if (result.channel) meta.push(String(result.channel));
+      if (result.durationLabel) meta.push(String(result.durationLabel));
+      if (result.viewCount != null && Number.isFinite(Number(result.viewCount))) {
+        meta.push(`${Number(result.viewCount).toLocaleString('fr-FR')} vues`);
+      }
+      if (meta.length) bits.push(meta.join(' · '));
+      if (result.descriptionPreview) bits.push(String(result.descriptionPreview));
+      this.setHint(bits.join(' — '), false);
     } catch (err) {
       this.setHint(err.message || 'Erreur lors de l\'analyse', true);
     } finally {
