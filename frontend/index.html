@@ -71,74 +71,77 @@
 
       <!-- Contenu principal -->
       <main class="main-content">
-        <header class="header">
-          <div class="brand">
-            <span class="pill yt">YT</span>
-            <span class="pill rest">ripper</span>
-          </div>
+        <!-- Desktop : tout le bloc (logo, modes, tendances, recherche) reste collé en haut du panneau principal -->
+        <div class="search-top-sticky-zone">
+          <header class="header">
+            <div class="brand">
+              <span class="pill yt">YT</span>
+              <span class="pill rest">ripper</span>
+            </div>
 
-          <div class="mode-selector">
-            <label class="mode-option mode-option--with-mode-icon mode-option--search" title="Recherche">
-              <input type="radio" name="mode" value="search" checked />
-              <span class="mode-option__icon" aria-hidden="true">🔍</span>
-              <span class="mode-option__text">Recherche</span>
-            </label>
-            <label class="mode-option mode-option--with-mode-icon mode-option--ripper" title="Ripper">
-              <input type="radio" name="mode" value="ripper" />
-              <span class="mode-option__icon mode-option__icon--ripper" aria-hidden="true">
-                <span class="ripper-mp3-badge">MP3</span>
-              </span>
-              <span class="mode-option__text">Ripper</span>
-            </label>
-          </div>
-
-          <button
-            type="button"
-            id="refresh-proxy-btn"
-            class="btn btn-ghost btn-icon"
-            title="Sélectionner un proxy"
-            aria-label="Sélectionner un proxy"
-          >
-            Proxy
-          </button>
-        </header>
-
-        <div class="search-chrome">
-          <div class="search-header">
-            <div class="search-header-trending">
-              <label class="trending-inline-label" for="trending-music-only">
-                <input type="checkbox" id="trending-music-only" />
-                <span>🎵 Musique uniquement</span>
+            <div class="mode-selector">
+              <label class="mode-option mode-option--with-mode-icon mode-option--search" title="Recherche">
+                <input type="radio" name="mode" value="search" checked />
+                <span class="mode-option__icon" aria-hidden="true">🔍</span>
+                <span class="mode-option__text">Recherche</span>
               </label>
-              <button
-                type="button"
-                id="trending-btn"
-                class="btn btn-secondary"
-                title="Découverte aléatoire (recherche YouTube)"
-              >
-                Tendances
-              </button>
+              <label class="mode-option mode-option--with-mode-icon mode-option--ripper" title="Ripper">
+                <input type="radio" name="mode" value="ripper" />
+                <span class="mode-option__icon mode-option__icon--ripper" aria-hidden="true">
+                  <span class="ripper-mp3-badge">MP3</span>
+                </span>
+                <span class="mode-option__text">Ripper</span>
+              </label>
+            </div>
+
+            <button
+              type="button"
+              id="refresh-proxy-btn"
+              class="btn btn-ghost btn-icon"
+              title="Sélectionner un proxy"
+              aria-label="Sélectionner un proxy"
+            >
+              Proxy
+            </button>
+          </header>
+
+          <div class="search-chrome">
+            <div class="search-header">
+              <div class="search-header-trending">
+                <label class="trending-inline-label" for="trending-music-only">
+                  <input type="checkbox" id="trending-music-only" />
+                  <span>🎵 Musique uniquement</span>
+                </label>
+                <button
+                  type="button"
+                  id="trending-btn"
+                  class="btn btn-secondary"
+                  title="Découverte aléatoire (recherche YouTube)"
+                >
+                  Tendances
+                </button>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Phrase contexte + formulaire : même bandeau sticky -->
-        <div class="search-sticky-stack">
-          <p class="hint hint--search-context" id="search-hint" hidden></p>
-          <div class="search-form-sticky">
-            <form class="search-form" id="search-form" action="#" method="get">
-              <input
-                id="search-input"
-                name="q"
-                type="search"
-                autocomplete="off"
-                placeholder="Rechercher une musique…"
-                maxlength="500"
-                required
-                aria-label="Rechercher une musique sur YouTube"
-              />
-              <button type="submit">Rechercher</button>
-            </form>
+          <!-- Phrase contexte + formulaire (mobile : sticky seul ce bloc ; desktop : zone parente) -->
+          <div class="search-sticky-stack">
+            <p class="hint hint--search-context" id="search-hint" hidden></p>
+            <div class="search-form-sticky">
+              <form class="search-form" id="search-form" action="#" method="get">
+                <input
+                  id="search-input"
+                  name="q"
+                  type="search"
+                  autocomplete="off"
+                  placeholder="Rechercher une musique…"
+                  maxlength="500"
+                  required
+                  aria-label="Rechercher une musique sur YouTube"
+                />
+                <button type="submit">Rechercher</button>
+              </form>
+            </div>
           </div>
         </div>
 

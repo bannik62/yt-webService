@@ -83,6 +83,53 @@ function initPlaylistFab() {
   });
 }
 
+/** Seuil (px) : au-delà, le bandeau sticky prend un aspect « verre » (glassmorphism). */
+const STICKY_SCROLL_GLASS_PX = 8;
+
+/**
+ * Bandeau haut (sticky) : fond vitré lorsque l’utilisateur a commencé à défiler.
+ * Desktop : scroll dans `.main-content` ; mobile : scroll fenêtre.
+ */
+function initStickyTopScrollGlass() {
+  const main = document.querySelector('.main-content');
+  const zone = document.querySelector('.search-top-sticky-zone');
+  const stack = document.querySelector('.search-sticky-stack');
+  if (!zone) return;
+
+  const isDesktop = () => {
+    try {
+      return window.matchMedia('(min-width: 769px)').matches;
+    } catch {
+      return window.innerWidth >= 769;
+    }
+  };
+
+  const sync = () => {
+    const desk = isDesktop();
+    let depth = 0;
+    if (desk && main) {
+      depth = main.scrollTop;
+    } else {
+      depth =
+        window.scrollY ||
+        document.documentElement.scrollTop ||
+        (document.body && document.body.scrollTop) ||
+        0;
+    }
+
+    const on = depth > STICKY_SCROLL_GLASS_PX;
+    zone.classList.toggle('search-top-sticky-zone--glass', desk && on);
+    if (stack) {
+      stack.classList.toggle('search-sticky-stack--glass', !desk && on);
+    }
+  };
+
+  main?.addEventListener('scroll', sync, { passive: true });
+  window.addEventListener('scroll', sync, { passive: true });
+  window.addEventListener('resize', sync, { passive: true });
+  sync();
+}
+
 /**
  * @param {HTMLElement | null} el
  * @returns {Promise<void>}
@@ -168,6 +215,8 @@ class App {
     });
 
     initPlaylistFab();
+
+    initStickyTopScrollGlass();
 
     // Afficher le mode initial (sans animation au premier rendu)
     this.switchMode(this.currentMode, { instant: true });

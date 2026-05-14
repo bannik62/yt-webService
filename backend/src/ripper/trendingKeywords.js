@@ -433,7 +433,10 @@ export const TRENDING_KEYWORDS_MUSIC = [
 "rip radio",
 "enregistrement tv",
 "enregistrement radio",
-"timelapse amateur"
+"timelapse amateur",
+"curionautes des sciences",
+"Ludikids"
+
 ];
 
 export function pickTrendingKeyword(musicOnly) {

@@ -453,6 +453,11 @@ body {
   border-color: #e62117;
 }
 
+/* Bloc haut recherche : sur desktop tout le groupe (logo, modes, tendances, formulaire) est sticky */
+.search-top-sticky-zone {
+  margin-bottom: 0;
+}
+
 /* Header */
 .header {
   margin-bottom: 2rem;
@@ -463,7 +468,7 @@ body {
   gap: 1rem;
 }
 
-/* Phrase tendances / contexte + formulaire : bandeau sticky compact */
+/* Phrase tendances / contexte + formulaire : bandeau sticky (mobile : ce bloc seul ; desktop : zone parente) */
 .search-sticky-stack {
   position: sticky;
   top: 0;
@@ -473,6 +478,113 @@ body {
   background: #0f1114;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.38);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  transition:
+    background 0.22s ease,
+    box-shadow 0.22s ease,
+    border-color 0.22s ease,
+    backdrop-filter 0.22s ease;
+}
+
+@media (max-width: 768.98px) {
+  .search-sticky-stack.search-sticky-stack--glass {
+    background: rgba(15, 17, 20, 0.76);
+    backdrop-filter: blur(14px) saturate(1.12);
+    -webkit-backdrop-filter: blur(14px) saturate(1.12);
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.42),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .search-sticky-stack.search-sticky-stack--glass {
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      background: rgba(15, 17, 20, 0.94);
+    }
+  }
+}
+
+@media (min-width: 769px) {
+  /* Une seule colonne défile : sinon sticky ne suit pas (scroll sur le document). */
+  html {
+    height: 100%;
+  }
+
+  body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+  }
+
+  .app-container {
+    height: 100vh;
+    min-height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+  }
+
+  .main-content {
+    min-height: 0;
+    /* Sans padding-top : le bandeau sticky colle au bord haut du panneau (sinon ~2rem de « trou »). */
+    padding: 0 1.5rem 2rem;
+  }
+
+  .search-top-sticky-zone {
+    position: sticky;
+    top: 0;
+    z-index: 70;
+    margin: 0 -1.5rem 1rem;
+    padding: 1rem 1.5rem 0.75rem;
+    background: #0f1114;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.38);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    transition:
+      background 0.22s ease,
+      box-shadow 0.22s ease,
+      border-color 0.22s ease,
+      backdrop-filter 0.22s ease;
+  }
+
+  .search-top-sticky-zone.search-top-sticky-zone--glass {
+    background: rgba(15, 17, 20, 0.76);
+    backdrop-filter: blur(14px) saturate(1.12);
+    -webkit-backdrop-filter: blur(14px) saturate(1.12);
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.42),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .search-top-sticky-zone,
+    .search-top-sticky-zone.search-top-sticky-zone--glass {
+      transition: none;
+    }
+
+    .search-top-sticky-zone.search-top-sticky-zone--glass {
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      background: rgba(15, 17, 20, 0.94);
+    }
+  }
+
+  .search-top-sticky-zone .header {
+    margin-bottom: 0.75rem;
+  }
+
+  .search-top-sticky-zone .search-chrome .search-header {
+    margin-bottom: 0.5rem;
+  }
+
+  .search-sticky-stack {
+    position: static;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+    border-bottom: none;
+  }
 }
 
 .search-form-sticky {
