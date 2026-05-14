@@ -4,6 +4,10 @@ import youtubedl from 'youtube-dl-exec';
 import { getCurrentProxy } from '../proxy/proxyManager.js';
 import { getCookiesPath, hasCookies } from '../utils/cookiesHelper.js';
 import { pickTrendingKeyword } from './trendingKeywords.js';
+import {
+  youtubeLangExtractorArg,
+  getYtAcceptLanguageHeader
+} from '../utils/ytMetadataLang.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -54,9 +58,11 @@ export async function probePlaylistCount(url, { noPlaylist, proxyUrl: proxyOverr
     flatPlaylist: true,
     skipDownload: true,
     noWarnings: true,
+    extractorArgs: youtubeLangExtractorArg(),
     // Mêmes headers que pour le téléchargement (Chrome 2026)
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36',
-    referer: 'https://www.youtube.com/'
+    referer: 'https://www.youtube.com/',
+    addHeader: [`Accept-Language: ${getYtAcceptLanguageHeader()}`]
   };
   
   // Utiliser les cookies si disponibles
@@ -125,8 +131,10 @@ export async function getTrending(maxResults = 20, musicOnly = false, opts = {})
     flatPlaylist: true,
     skipDownload: true,
     noWarnings: true,
+    extractorArgs: youtubeLangExtractorArg(),
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36',
-    referer: 'https://www.youtube.com/'
+    referer: 'https://www.youtube.com/',
+    addHeader: [`Accept-Language: ${getYtAcceptLanguageHeader()}`]
   };
 
   const cookiesPath = getCookiesPath();

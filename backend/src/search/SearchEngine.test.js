@@ -111,7 +111,13 @@ describe('SearchEngine.search + yt-dlp mock', () => {
 
     expect(mockSpawnImpl).toHaveBeenCalledWith(
       '/fake/yt-dlp',
-      expect.arrayContaining(['ytsearch10:rick roll', '-j', '--flat-playlist']),
+      expect.arrayContaining([
+        'ytsearch10:rick roll',
+        '-j',
+        '--flat-playlist',
+        '--extractor-args',
+        expect.stringMatching(/^youtube:lang=/)
+      ]),
       expect.objectContaining({ stdio: ['ignore', 'pipe', 'pipe'] })
     );
   });

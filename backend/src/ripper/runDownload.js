@@ -12,6 +12,11 @@ import {
   ProxyQuotaError,
   isProxyQuotaMessage
 } from './proxyQuotaError.js';
+import {
+  youtubeLangExtractorArg,
+  getYtAcceptLanguageHeader,
+  getYtMetadataLang
+} from '../utils/ytMetadataLang.js';
 
 export const DOWNLOAD_OUTPUT_AUDIO = 'audio';
 export const DOWNLOAD_OUTPUT_VIDEO = 'video';
@@ -59,9 +64,13 @@ export async function runDownload(opts) {
 
   const proxyUrl = proxyOverride ?? getCurrentProxy();
 
+  const metaLang = getYtMetadataLang();
   onLog('🔧 Configuration yt-dlp:');
   onLog(`   User-Agent: Chrome 149 (Windows, 2026)`);
   onLog(`   Referer: YouTube`);
+  onLog(
+    `   Métadonnées / langue: ${metaLang} (YT_METADATA_LANG, extractor youtube:lang)`
+  );
   onLog(`   Headers personnalisés: 2 headers ajoutés (Accept, Accept-Language)`);
   if (hasCookies()) {
     onLog(`   🍪 Cookies: activés (cookies.txt)`);
@@ -142,12 +151,13 @@ export async function runDownload(opts) {
     newline: true,
     progress: true,
     noWarnings: true,
+    extractorArgs: youtubeLangExtractorArg(),
     // Simuler un vrai navigateur Windows/Chrome 2026 pour éviter la détection bot
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36',
     referer: 'https://www.youtube.com/',
     // Headers supplémentaires pour ressembler à un vrai navigateur
     addHeader: [
-      'Accept-Language: en-US,en;q=0.9',
+      `Accept-Language: ${getYtAcceptLanguageHeader()}`,
       'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
       // Sec-Fetch-* supprimés: auto-générés par navigateurs, inutiles pour yt-dlp
     ]

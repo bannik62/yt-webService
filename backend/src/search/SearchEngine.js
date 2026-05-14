@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { youtubeLangExtractorArg } from '../utils/ytMetadataLang.js';
 
 const DEFAULT_MAX = 10;
 const QUERY_MAX_LEN = 500;
@@ -107,7 +108,9 @@ export class SearchEngine {
       '--playlist-end',
       String(this.#maxResults),
       '--no-warnings',
-      '--quiet'
+      '--quiet',
+      '--extractor-args',
+      youtubeLangExtractorArg()
     ];
 
     const { stdout, stderr, code } = await this.#spawnYtDlp(args);
