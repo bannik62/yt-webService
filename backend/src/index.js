@@ -108,6 +108,7 @@ const logStream = isDelegationsPollLogFilterEnabled()
   : process.stdout;
 
 const app = Fastify({
+  trustProxy: true,
   logger: {
     level: logLevel,
     stream: logStream

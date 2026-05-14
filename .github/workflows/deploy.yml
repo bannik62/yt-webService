@@ -33,6 +33,7 @@ jobs:
       # Recrée tout le .env à chaque déploiement — tout ce qui n’est pas listé ici est perdu.
       # Secrets GitHub recommandés : WEBSHARE_API_KEY, WORKER_INGEST_SECRET, ADMIN_STATS_SECRET,
       # WORKER_LOCAL_URL (optionnel ; défaut runner ci‑dessous si vide).
+      # VITE_FB_APP_ID (optionnel) : ID app Meta (chiffres) — build front + meta fb:app_id sur /v/ (FB_APP_ID).
       - name: Create .env file with secrets
         run: |
           WLU="${{ secrets.WORKER_LOCAL_URL }}"
@@ -42,6 +43,8 @@ jobs:
             printf '%s\n' "WORKER_INGEST_SECRET=${{ secrets.WORKER_INGEST_SECRET }}"
             printf '%s\n' "ADMIN_STATS_SECRET=${{ secrets.ADMIN_STATS_SECRET }}"
             printf '%s\n' "WORKER_LOCAL_URL=${WLU}"
+            printf '%s\n' "VITE_FB_APP_ID=${{ secrets.VITE_FB_APP_ID }}"
+            printf '%s\n' "FB_APP_ID=${{ secrets.VITE_FB_APP_ID }}"
           } | ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} \
               ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
               "umask 077; cat > /var/www/html/ytWeb/.env && chmod 600 /var/www/html/ytWeb/.env"

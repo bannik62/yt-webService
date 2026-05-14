@@ -6,7 +6,8 @@
 # DOWNLOAD_STATS_PATH : optionnel, chemin absolu du JSON de stats dans le conteneur api.
 # LOG_LEVEL : pino (ex. info, warn) — warn réduit le bruit des logs HTTP.
 # LOG_FILTER_DELEGATIONS_POLL : vide ou 1 = masquer les logs du poll GET /api/worker/delegations/next ; 0 = tout afficher.
-# Build image web : VITE_FB_APP_ID (chiffres uniquement, app Meta) pour la balise fb:app_id / Sharing Debugger.
+# Build image web : VITE_FB_APP_ID (chiffres uniquement, app Meta) pour index.html.
+# API : SITE_URL (og:url https), FB_APP_ID (meta fb:app_id sur GET /v/:id) — optionnel mais recommandé pour Meta.
 # Worker via tunnel SSH (-R) : le port est sur l’hôte Linux, pas dans le conteneur api.
 # Utiliser host.docker.internal (extra_hosts) plutôt que 127.0.0.1 depuis le conteneur.
 # WORKER_LOCAL_URL par défaut dans deploy : http://host.docker.internal:7410
@@ -21,7 +22,11 @@ services:
       - 'host.docker.internal:host-gateway'
     environment:
       NODE_ENV: production
+      SITE_URL: ${SITE_URL:-https://yt.codeurbase.fr}
       CORS_ORIGIN: ${CORS_ORIGIN:-https://yt.codeurbase.fr}
+      # Liens OG en https même si la liaison jusqu’à ce conteneur est en clair (hors localhost). Désactiver : FORCE_HTTPS_PUBLIC_ORIGIN=0
+      FORCE_HTTPS_PUBLIC_ORIGIN: ${FORCE_HTTPS_PUBLIC_ORIGIN:-1}
+      FB_APP_ID: ${FB_APP_ID:-}
       SEARCH_MAX_RESULTS: ${SEARCH_MAX_RESULTS:-10}
       PROXY_URL: ${PROXY_URL:-}
       WEBSHARE_API_KEY: ${WEBSHARE_API_KEY:-}

@@ -9,6 +9,8 @@ services:
     environment:
       PORT: '4000'
       HOST: '0.0.0.0'
+      SITE_URL: ${SITE_URL:-}
+      FB_APP_ID: ${FB_APP_ID:-}
       SEARCH_MAX_RESULTS: '10'
       LOG_LEVEL: ${LOG_LEVEL:-info}
       ADMIN_STATS_SECRET: ${ADMIN_STATS_SECRET:-}
