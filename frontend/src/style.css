@@ -550,17 +550,60 @@ body {
 }
 
 @media (max-width: 768.98px) {
-  .search-page-top > .header {
-    margin-bottom: 0.75rem;
+  /*
+   * Mobile : scroll dans .main-content (comme desktop).
+   * position:sticky ne marche pas avec overflow-x:hidden ni scroll fenêtre + flex 100vh.
+   */
+  html {
+    height: 100%;
   }
 
-  /* Header hors sticky : défile ; tendances + formulaire restent collés */
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .app-container {
+    flex-direction: column;
+    height: 100%;
+    max-height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .main-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    order: 1;
+    /* pas de padding-top : le bandeau sticky colle au bord haut du panneau */
+    padding: 0 1.5rem 2rem;
+    overflow-x: visible;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /*
+   * Wrappers « transparents » : header + bandeau = enfants directs de .main-content.
+   * Sinon sticky est limité à .search-page-top (court) et disparaît avec les résultats.
+   */
+  .search-page-top,
+  .search-top-sticky-zone {
+    display: contents;
+  }
+
+  .search-page-top > .header {
+    margin-bottom: 0.75rem;
+    padding-top: max(1.25rem, env(safe-area-inset-top, 0px));
+  }
+
+  /* Zone 2 : tendances + hint + formulaire — sticky pendant le scroll des cartes */
   .search-mobile-sticky-band {
     position: sticky;
     top: 0;
     z-index: 70;
     margin: 0 -1.5rem 1rem;
-    padding: 0.35rem 1.5rem 0.55rem;
+    padding: max(0.35rem, env(safe-area-inset-top, 0px)) 1.5rem 0.55rem;
     background: #0f1114;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.38);
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
@@ -611,16 +654,14 @@ body {
   }
 
   .search-mobile-sticky-band .search-form input {
-    position: fixed;
-    left: 133px;
-    flex: 1 1 12rem;
+    flex: 1 1 8rem;
+    min-width: 0;
     padding: 0.65rem 0.85rem;
     border-radius: 0.5rem;
     border: 1px solid #3c4043;
     background: #1a1d21;
     color: inherit;
     font-size: 1rem;
-    z-index: 71;
   }
 
   .search-mobile-sticky-band .search-form input:focus {
@@ -629,8 +670,7 @@ body {
   }
 
   .search-mobile-sticky-band .search-form button {
-    position: sticky;
-    right: 5%;
+    flex-shrink: 0;
     padding: 0.65rem 1rem;
     border-radius: 0.5rem;
     border: none;
@@ -639,12 +679,14 @@ body {
     font-weight: 600;
     cursor: pointer;
     transition: filter 0.2s;
-    z-index: 72;
-    flex-shrink: 0;
   }
 
   .search-mobile-sticky-band .search-form button:hover {
     filter: brightness(1.08);
+  }
+
+  .search-sticky-stack .hint--search-context {
+    margin-bottom: 0.5rem;
   }
 }
 
@@ -1133,6 +1175,27 @@ body.mode-ripper .search-sticky-stack {
 .search-sticky-stack .hint--search-context {
   margin-top: 0;
   margin-bottom: 0.5rem;
+}
+
+@keyframes hint-context-flash {
+  0% {
+    background-color: rgba(255, 255, 255, 0.95);
+    color: #202124;
+  }
+  100% {
+    background-color: #1a1d21;
+    color: #9aa0a6;
+  }
+}
+
+.hint.hint--search-context.hint--context-flash {
+  animation: hint-context-flash 0.32s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hint.hint--search-context.hint--context-flash {
+    animation: none;
+  }
 }
 
 /* Buttons */
@@ -1674,24 +1737,13 @@ body.playlist-sheet-open {
 }
 
 /* Responsive */
-@media (max-width: 768px) {
+@media (max-width: 768.98px) {
   body.mode-search .playlist-fab {
     display: flex;
   }
 
   body.mode-search.playlist-sheet-open .playlist-sheet-backdrop {
     display: block;
-  }
-
-  .app-container {
-    flex-direction: column;
-  }
-
-  /* Scroll fenêtre : sticky du bandeau recherche (viewport) */
-  .main-content {
-    order: 1;
-    width: 100%;
-    overflow-y: visible;
   }
 
   .sidebar {

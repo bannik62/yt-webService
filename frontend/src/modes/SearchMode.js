@@ -211,17 +211,12 @@ export class SearchMode {
   }
 
   /**
-   * Desktop : le scroll est dans `.main-content` (body overflow hidden), pas sur `window`.
+   * Zone scrollable des résultats : `.main-content` (mobile et desktop).
+   * Ne pas utiliser `window` : hors desktop `scrollY` reste 0 → faux « bas de page »
+   * et `_maybeAutoLoadMoreTrending` enchaîne les chargements sans scroll.
    * @returns {HTMLElement | null}
    */
   _trendingScrollRootEl() {
-    let desktop = false;
-    try {
-      desktop = window.matchMedia('(min-width: 769px)').matches;
-    } catch {
-      desktop = window.innerWidth >= 769;
-    }
-    if (!desktop) return null;
     const main = document.querySelector('.main-content');
     return main instanceof HTMLElement ? main : null;
   }

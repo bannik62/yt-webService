@@ -149,7 +149,7 @@ const STICKY_SCROLL_GLASS_PX = 8;
 
 /**
  * Bandeau haut (sticky) : fond vitré lorsque l’utilisateur a commencé à défiler.
- * Desktop : scroll dans `.main-content` ; mobile : scroll fenêtre.
+ * Scroll dans `.main-content` (desktop et mobile).
  */
 function initStickyTopScrollGlass() {
   const main = document.querySelector('.main-content');
@@ -167,24 +167,13 @@ function initStickyTopScrollGlass() {
 
   const sync = () => {
     const desk = isDesktop();
-    let depth = 0;
-    if (desk && main) {
-      depth = main.scrollTop;
-    } else {
-      depth =
-        window.scrollY ||
-        document.documentElement.scrollTop ||
-        (document.body && document.body.scrollTop) ||
-        0;
-    }
-
+    const depth = main ? main.scrollTop : 0;
     const on = depth > STICKY_SCROLL_GLASS_PX;
     pageTop.classList.toggle('search-page-top--glass', desk && on);
     mobileBand?.classList.toggle('search-mobile-sticky-band--glass', !desk && on);
   };
 
   main?.addEventListener('scroll', sync, { passive: true });
-  window.addEventListener('scroll', sync, { passive: true });
   window.addEventListener('resize', sync, { passive: true });
   sync();
 }

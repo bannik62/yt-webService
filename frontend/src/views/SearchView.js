@@ -14,6 +14,9 @@ export class SearchView {
     /** @type {((item: object) => void) | null} */
     this.onShareLink = null;
 
+    /** @type {string} */
+    this._lastHintText = '';
+
     this.init();
   }
 
@@ -166,18 +169,41 @@ export class SearchView {
     }
   }
 
+  /** Petit flash blanc quand le message contexte change (recherche / tendances). */
+  _flashSearchHintIfNeeded(changed) {
+    if (!changed || !this.hint?.classList.contains('hint--search-context')) return;
+    const el = this.hint;
+    el.classList.remove('hint--context-flash');
+    requestAnimationFrame(() => {
+      void el.offsetWidth;
+      el.classList.add('hint--context-flash');
+      el.addEventListener(
+        'animationend',
+        () => el.classList.remove('hint--context-flash'),
+        { once: true }
+      );
+    });
+  }
+
   setHint(text, isError = false) {
     if (!this.hint) return;
-    
-    if (!text) {
+
+    const next = typeof text === 'string' ? text : '';
+
+    if (!next) {
       this.hint.hidden = true;
       this.hint.textContent = '';
+      this._lastHintText = '';
       return;
     }
-    
+
+    const changed = next !== this._lastHintText;
+    this._lastHintText = next;
+
     this.hint.hidden = false;
-    this.hint.textContent = text;
+    this.hint.textContent = next;
     this.hint.classList.toggle('error', Boolean(isError));
+    this._flashSearchHintIfNeeded(changed);
   }
 
   show() {
