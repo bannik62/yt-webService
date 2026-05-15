@@ -33,7 +33,7 @@ body {
   position: sticky;
   top: 0;
   height: 100vh;
-  overflow-y: auto;
+  overflow: hidden; /* scroll uniquement dans .sidebar-body (sinon scrollbar native, styles ignorés) */
 }
 
 .sidebar-header {
@@ -61,11 +61,43 @@ body {
 
 .sidebar-body {
   flex: 1;
+  min-height: 0; /* nécessaire en flex pour que overflow + scrollbar custom s’appliquent ici */
   overflow-y: auto;
   padding: 1.65rem 0.5rem 0.5rem;
   box-shadow:
     inset 0 3px 8px rgba(0, 0, 0, 0.35),
     inset 0 -3px 8px rgba(0, 0, 0, 0.28);
+  /* Playlist scrollbar — ajuster ici (Chrome/Edge/Safari) */
+  --playlist-scrollbar-gutter: 10px; /* largeur rail blanc */
+  --playlist-scrollbar-thumb-inset: 3px; /* marge blanche → ascenseur plus fin */
+  --playlist-scrollbar-thumb-min: 36px; /* hauteur mini du pouce (pas sa taille max) */
+  --playlist-scrollbar-thumb-color: #e62117;
+  --playlist-scrollbar-track-color: #ffffff;
+  /* Firefox : thin ≈ 8px ; pas de réglage px fin du pouce */
+  scrollbar-width: thin;
+  scrollbar-color: var(--playlist-scrollbar-thumb-color) var(--playlist-scrollbar-track-color);
+}
+
+/* WebKit : glissière blanche, ascenseur rouge (épaisseur via border) */
+.sidebar-body::-webkit-scrollbar {
+  width: var(--playlist-scrollbar-gutter);
+}
+
+.sidebar-body::-webkit-scrollbar-track {
+  background: var(--playlist-scrollbar-track-color);
+  border-radius: calc(var(--playlist-scrollbar-gutter) / 2);
+}
+
+.sidebar-body::-webkit-scrollbar-thumb {
+  background-color: var(--playlist-scrollbar-thumb-color);
+  background-clip: padding-box;
+  border-radius: 999px;
+  border: var(--playlist-scrollbar-thumb-inset) solid var(--playlist-scrollbar-track-color);
+  min-height: var(--playlist-scrollbar-thumb-min);
+}
+
+.sidebar-body::-webkit-scrollbar-thumb:hover {
+  background-color: #c5221f;
 }
 
 .queue-wait-hint {
@@ -227,7 +259,46 @@ body {
   border-top: 1px solid rgba(255, 255, 255, 0.28);
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.55rem;
+}
+
+.sidebar-footer .playlist-footer-btn {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  border: none;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: filter 0.15s ease, background 0.15s ease;
+}
+
+.sidebar-footer .playlist-footer-btn--clear {
+  background: #ffffff;
+  color: #e62117;
+}
+
+.sidebar-footer .playlist-footer-btn--clear:hover:not(:disabled) {
+  background: #f3f3f3;
+}
+
+.sidebar-footer .playlist-footer-btn--play {
+  background: #e62117;
+  color: #ffffff;
+}
+
+.sidebar-footer .playlist-footer-btn--play:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.sidebar-footer .playlist-footer-btn--play:active:not(:disabled) {
+  filter: brightness(0.95);
+}
+
+.sidebar-footer .playlist-footer-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* Notifications */
@@ -1708,7 +1779,7 @@ body.playlist-sheet-open {
     position: fixed;
     z-index: 95;
     top: 47%;
-    left: calc(320px - 6px);
+    left: calc(320px - 1px);
     width: 10px;
     height: 100px;
     padding: 5px;
@@ -1740,7 +1811,7 @@ body.playlist-sheet-open {
 
   body.mode-search .playlist-rail-toggle__chev::before {
     content: '‹';
-    font-size: 0.85rem;
+    font-size: 1.85rem;
     font-weight: 700;
     line-height: 1;
   }
