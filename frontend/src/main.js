@@ -83,6 +83,67 @@ function initPlaylistFab() {
   });
 }
 
+const PLAYLIST_RAIL_STORAGE_KEY = 'yt-playlist-rail-collapsed';
+
+function isDesktopSearchMode() {
+  try {
+    return (
+      window.matchMedia('(min-width: 769px)').matches &&
+      document.body.classList.contains('mode-search')
+    );
+  } catch {
+    return (
+      window.innerWidth >= 769 &&
+      document.body.classList.contains('mode-search')
+    );
+  }
+}
+
+/**
+ * Affiche / synchronise le bouton repli playlist (desktop + mode Recherche).
+ */
+export function syncPlaylistRailToggle() {
+  const btn = $('#playlist-rail-toggle');
+  if (!btn) return;
+
+  if (!isDesktopSearchMode()) {
+    btn.hidden = true;
+    return;
+  }
+
+  btn.hidden = false;
+  const collapsed = document.body.classList.contains('playlist-rail-collapsed');
+  btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  btn.setAttribute(
+    'aria-label',
+    collapsed ? 'Afficher ma liste' : 'Masquer ma liste'
+  );
+}
+
+function initPlaylistRailToggle() {
+  const btn = $('#playlist-rail-toggle');
+  if (!btn) return;
+
+  if (localStorage.getItem(PLAYLIST_RAIL_STORAGE_KEY) === '1') {
+    document.body.classList.add('playlist-rail-collapsed');
+  }
+
+  btn.addEventListener('click', () => {
+    if (!isDesktopSearchMode()) return;
+    document.body.classList.toggle('playlist-rail-collapsed');
+    localStorage.setItem(
+      PLAYLIST_RAIL_STORAGE_KEY,
+      document.body.classList.contains('playlist-rail-collapsed')
+        ? '1'
+        : '0'
+    );
+    syncPlaylistRailToggle();
+  });
+
+  window.addEventListener('resize', syncPlaylistRailToggle);
+  syncPlaylistRailToggle();
+}
+
 /** Seuil (px) : au-delà, le bandeau sticky prend un aspect « verre » (glassmorphism). */
 const STICKY_SCROLL_GLASS_PX = 8;
 
@@ -92,9 +153,9 @@ const STICKY_SCROLL_GLASS_PX = 8;
  */
 function initStickyTopScrollGlass() {
   const main = document.querySelector('.main-content');
-  const zone = document.querySelector('.search-top-sticky-zone');
-  const stack = document.querySelector('.search-sticky-stack');
-  if (!zone) return;
+  const pageTop = document.querySelector('.search-page-top');
+  const mobileBand = document.querySelector('.search-mobile-sticky-band');
+  if (!pageTop) return;
 
   const isDesktop = () => {
     try {
@@ -118,10 +179,8 @@ function initStickyTopScrollGlass() {
     }
 
     const on = depth > STICKY_SCROLL_GLASS_PX;
-    zone.classList.toggle('search-top-sticky-zone--glass', desk && on);
-    if (stack) {
-      stack.classList.toggle('search-sticky-stack--glass', !desk && on);
-    }
+    pageTop.classList.toggle('search-page-top--glass', desk && on);
+    mobileBand?.classList.toggle('search-mobile-sticky-band--glass', !desk && on);
   };
 
   main?.addEventListener('scroll', sync, { passive: true });
@@ -233,6 +292,7 @@ class App {
     });
 
     initPlaylistFab();
+    initPlaylistRailToggle();
 
     initStickyTopScrollGlass();
 
@@ -292,6 +352,7 @@ class App {
         }
         this.searchMode.show();
         syncBodyModeClasses('search');
+        syncPlaylistRailToggle();
       } else {
         this.searchMode.hide();
         if (searchEl) {
@@ -304,6 +365,7 @@ class App {
         }
         this.ripperMode.show();
         syncBodyModeClasses('ripper');
+        syncPlaylistRailToggle();
       }
       this.currentMode = mode;
       return;
@@ -337,6 +399,7 @@ class App {
       await playViewEnterTransition(searchEl);
       this.searchMode.show();
       syncBodyModeClasses('search');
+      syncPlaylistRailToggle();
     } else {
       await waitViewExitTransition(searchEl);
       if (searchEl) {
@@ -347,6 +410,7 @@ class App {
       await playViewEnterTransition(ripperEl);
       this.ripperMode.show();
       syncBodyModeClasses('ripper');
+      syncPlaylistRailToggle();
     }
 
     this.currentMode = mode;

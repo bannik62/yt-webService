@@ -45,7 +45,8 @@
   </head>
   <body>
     <div class="app-container">
-      <!-- Sidebar: Liste de téléchargement -->
+      <!-- Sidebar + bouton repli (desktop, mode Recherche uniquement) -->
+      <div class="playlist-rail">
       <aside class="sidebar" id="download-list">
         <div class="sidebar-header">
           <h2 class="sidebar-title">
@@ -68,11 +69,23 @@
           </button>
         </div>
       </aside>
+      <button
+        type="button"
+        id="playlist-rail-toggle"
+        class="playlist-rail-toggle"
+        hidden
+        aria-expanded="true"
+        aria-controls="download-list"
+        aria-label="Masquer ma liste"
+      >
+        <span class="playlist-rail-toggle__chev" aria-hidden="true"></span>
+      </button>
+      </div>
 
       <!-- Contenu principal -->
       <main class="main-content">
-        <!-- Desktop : tout le bloc (logo, modes, tendances, recherche) reste collé en haut du panneau principal -->
-        <div class="search-top-sticky-zone">
+        <!-- Mobile : header défile. Desktop : .search-page-top entier sticky. -->
+        <div class="search-page-top">
           <header class="header">
             <div class="brand">
               <span class="pill yt">YT</span>
@@ -105,6 +118,9 @@
             </button>
           </header>
 
+          <div class="search-top-sticky-zone">
+          <!-- Mobile : bandeau sticky (tendances + formulaire). Desktop : display: contents. -->
+          <div class="search-mobile-sticky-band">
           <div class="search-chrome">
             <div class="search-header">
               <div class="search-header-trending">
@@ -142,6 +158,8 @@
                 <button type="submit">Rechercher</button>
               </form>
             </div>
+          </div>
+          </div>
           </div>
         </div>
 
