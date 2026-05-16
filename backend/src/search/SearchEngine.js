@@ -217,6 +217,7 @@ export class SearchEngine {
       entry,
       '-j',
       '--no-download',
+      '--flat-playlist',
       '--playlist-end',
       String(this.#maxResults),
       '--no-warnings',

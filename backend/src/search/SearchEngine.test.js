@@ -118,6 +118,7 @@ describe('SearchEngine.search + yt-dlp mock', () => {
       expect.arrayContaining([
         'ytsearch10:rick roll',
         '-j',
+        '--flat-playlist',
         '--extractor-args',
         expect.stringMatching(/^youtube:lang=/)
       ]),
