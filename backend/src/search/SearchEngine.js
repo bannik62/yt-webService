@@ -6,7 +6,8 @@ import {
   channelNamesMatch,
 } from './channelVideos.js';
 
-const DEFAULT_MAX = 10;
+const DEFAULT_MAX = 30;
+const MAX_RESULTS_CAP = 30;
 const QUERY_MAX_LEN = 500;
 
 const ALLOWED_YT_HOSTS = new Set([
@@ -32,7 +33,7 @@ export class SearchEngine {
   constructor(opts = {}) {
     this.#maxResults = Math.min(
       Math.max(1, opts.maxResults ?? DEFAULT_MAX),
-      25
+      MAX_RESULTS_CAP
     );
     const fromOpts =
       typeof opts.ytDlpPath === 'string' ? opts.ytDlpPath.trim() : '';

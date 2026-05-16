@@ -43,7 +43,7 @@ const PORT = Number(process.env.PORT) || 4000;
 const HOST = process.env.HOST || '0.0.0.0';
 
 const searchEngine = new SearchEngine({
-  maxResults: Number(process.env.SEARCH_MAX_RESULTS) || 10,
+  maxResults: Number(process.env.SEARCH_MAX_RESULTS) || 30,
   ytDlpPath: process.env.YT_DLP_PATH
 });
 
