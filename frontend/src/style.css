@@ -41,6 +41,31 @@ body {
   border-bottom: 1px solid rgba(255, 255, 255, 0.28);
 }
 
+.sidebar-header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.sidebar-history-link {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #8ab4f8;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.sidebar-history-link:hover {
+  color: #aecbfb;
+}
+
 .sidebar-title {
   margin: 0;
   font-size: 1.1rem;
@@ -1291,6 +1316,88 @@ body.mode-ripper .search-sticky-stack {
   flex-direction: column;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   border: 1px solid #2a2d33;
+}
+
+.history-modal-content {
+  max-width: 28rem;
+}
+
+.history-modal-body {
+  overflow-y: auto;
+  padding: 0.5rem 0;
+  max-height: min(60vh, 420px);
+}
+
+.history-modal-footer {
+  justify-content: center;
+}
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0.75rem;
+}
+
+.history-list-empty {
+  padding: 1.5rem 0.75rem;
+  color: #9aa0a6;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.history-list-item {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  padding: 0.65rem 0.5rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.history-list-item:hover,
+.history-list-item:focus {
+  background: #25282c;
+  outline: none;
+}
+
+.history-list-thumb {
+  width: 72px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 0.35rem;
+  flex-shrink: 0;
+  background: #0f1114;
+}
+
+.history-list-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-list-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.history-list-meta {
+  font-size: 0.78rem;
+  color: #9aa0a6;
+  margin-top: 0.2rem;
+}
+
+.history-list-played {
+  font-size: 0.75rem;
+  color: #e62117;
+  margin-top: 0.35rem;
+  font-weight: 600;
 }
 
 .modal-header {

@@ -24,6 +24,24 @@ export function formatDuration(seconds) {
  * @param {string} str
  * @returns {string}
  */
+/**
+ * Date / heure de dernière lecture (historique).
+ * @param {string} iso
+ * @returns {string}
+ */
+export function formatPlayedAt(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString('fr-FR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export function escapeHtml(str) {
   return String(str)
     .replace(/&/g, '&amp;')

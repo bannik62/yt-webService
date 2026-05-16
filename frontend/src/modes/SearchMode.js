@@ -4,6 +4,8 @@ import { DownloadListView } from '../views/DownloadListView.js';
 import { VideoModal } from '../views/VideoModal.js';
 import { DownloadProgressModal } from '../views/DownloadProgressModal.js';
 import { DownloadList } from '../models/DownloadList.js';
+import { PlaybackHistory } from '../models/PlaybackHistory.js';
+import { PlaybackHistoryModal } from '../views/PlaybackHistoryModal.js';
 import {
   tryAcquireUserDownload,
   releaseUserDownload
@@ -20,7 +22,16 @@ export class SearchMode {
     this.searchView = new SearchView(this.api);
     this.downloadListView = new DownloadListView(this.downloadList);
     this.videoModal = new VideoModal();
+    this.playbackHistory = new PlaybackHistory();
+    this.playbackHistoryModal = new PlaybackHistoryModal(this.playbackHistory);
     this.downloadProgressModal = new DownloadProgressModal();
+
+    const showVideo = this.videoModal.show.bind(this.videoModal);
+    this.videoModal.show = (item, playlist, index) => {
+      if (item) this.playbackHistory.record(item);
+      showVideo(item, playlist, index);
+    };
+    this.playbackHistoryModal.onPlayItem = (item) => this.videoModal.show(item);
 
     this.currentJobId = null;
     this.eventSource = null;
@@ -160,6 +171,10 @@ export class SearchMode {
         this.videoModal.show(items[0], items, 0);
       }
     };
+
+    $('#playback-history-open')?.addEventListener('click', () => {
+      this.playbackHistoryModal.open();
+    });
   }
 
   async loadTrending(musicOnly = false) {
