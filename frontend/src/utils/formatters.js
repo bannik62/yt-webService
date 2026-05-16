@@ -29,6 +29,24 @@ export function formatDuration(seconds) {
  * @param {string} iso
  * @returns {string}
  */
+/**
+ * Date de mise en ligne (YYYY-MM-DD ou ISO).
+ * @param {string | null | undefined} ymd
+ * @returns {string}
+ */
+export function formatUploadDate(ymd) {
+  if (!ymd) return '';
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(ymd)
+    ? new Date(`${ymd}T12:00:00`)
+    : new Date(ymd);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
 export function formatPlayedAt(iso) {
   if (!iso) return '—';
   const d = new Date(iso);

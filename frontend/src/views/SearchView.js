@@ -1,5 +1,5 @@
 import { $, createElement } from '../utils/dom.js';
-import { formatDuration, escapeHtml } from '../utils/formatters.js';
+import { formatDuration, formatUploadDate, escapeHtml } from '../utils/formatters.js';
 
 /**
  * Gère l'interface de recherche
@@ -32,15 +32,33 @@ export class SearchView {
   async handleSearch() {
     const query = this.input?.value.trim() ?? '';
     if (!query) return;
+    await this.runSearch(query);
+  }
 
+  /**
+   * Vide les résultats / tendances et recherche par nom de chaîne.
+   * @param {string} channelName
+   */
+  async searchByChannel(channelName) {
+    const name = String(channelName ?? '').trim();
+    if (!name || name === '—') return;
+    if (this.input) this.input.value = name;
+    await this.runSearch(name, `Chaîne : ${name}`);
+  }
+
+  /**
+   * @param {string} query
+   * @param {string} [hintWhileLoading]
+   */
+  async runSearch(query, hintWhileLoading = 'Recherche…') {
     this.onBeforeSearch?.();
     this.results.innerHTML = '';
-    this.setHint('Recherche…', false);
+    this.setHint(hintWhileLoading, false);
 
     try {
       const data = await this.api.search(query);
       this.setHint('', false);
-      
+
       const items = data.items ?? [];
       if (items.length === 0) {
         this.setHint('Aucun résultat.', false);
@@ -73,14 +91,40 @@ export class SearchView {
     items.forEach((item) => {
       const li = createElement('li', { className: 'result' });
 
+      const rawChannel =
+        item.channel && String(item.channel).trim() ? String(item.channel).trim() : '';
+      const channelName = rawChannel && rawChannel !== '—' ? rawChannel : '';
+
       if (item.thumbnail) {
-        const img = createElement('img', {
-          src: item.thumbnail,
-          alt: escapeHtml(item.title),
-          className: 'result-thumb',
-          loading: 'lazy'
-        });
-        li.appendChild(img);
+        const thumbWrap = createElement('div', { className: 'result-thumb-wrap' });
+        thumbWrap.appendChild(
+          createElement('img', {
+            src: item.thumbnail,
+            alt: escapeHtml(item.title),
+            className: 'result-thumb',
+            loading: 'lazy',
+          })
+        );
+
+        if (channelName) {
+          const channelBtn = createElement(
+            'button',
+            {
+              type: 'button',
+              className: 'result-channel-badge',
+              title: `Voir les vidéos de ${channelName}`,
+              'aria-label': `Rechercher les vidéos de ${channelName}`,
+            },
+            escapeHtml(channelName)
+          );
+          channelBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            void this.searchByChannel(channelName);
+          });
+          thumbWrap.appendChild(channelBtn);
+        }
+
+        li.appendChild(thumbWrap);
       }
 
       const content = createElement('div', { className: 'result-content' });
@@ -91,11 +135,10 @@ export class SearchView {
         escapeHtml(item.title)
       );
 
-      const meta = createElement(
-        'div',
-        { className: 'result-meta' },
-        `${escapeHtml(item.channel ?? '—')} · ${formatDuration(item.duration)}`
-      );
+      const metaParts = [formatDuration(item.duration)];
+      const uploadedLabel = formatUploadDate(item.uploadedAt);
+      if (uploadedLabel) metaParts.push(uploadedLabel);
+      const meta = createElement('div', { className: 'result-meta' }, metaParts.join(' · '));
 
       content.appendChild(title);
       content.appendChild(meta);

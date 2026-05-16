@@ -2,6 +2,7 @@ import youtubedl from 'youtube-dl-exec';
 import { getCurrentProxy } from '../proxy/proxyManager.js';
 import { getCookiesPath, hasCookies } from '../utils/cookiesHelper.js';
 import { buildTrendingQuery } from './trendingQueryBuilder.js';
+import { normalizeUploadDate } from '../utils/uploadDate.js';
 import {
   youtubeLangExtractorArg,
   getYtAcceptLanguageHeader
@@ -401,7 +402,8 @@ export async function getTrending(maxResults = 20, musicOnly = false, opts = {})
         url: `https://www.youtube.com/watch?v=${entry.id}`,
         thumbnail: thumbnail,
         duration: entry.duration || 0,
-        channel: entry.uploader || entry.channel || '—'
+        channel: entry.uploader || entry.channel || '—',
+        uploadedAt: normalizeUploadDate(entry),
       };
     });
 

@@ -4,6 +4,7 @@
  * @property {string} title
  * @property {string | null} channel
  * @property {number | null} duration
+ * @property {string | null} uploadedAt — YYYY-MM-DD
  * @property {string} url
  * @property {string} thumbnail
  */
@@ -14,6 +15,7 @@
  * @property {string} title
  * @property {string | null} channel
  * @property {number | null} duration
+ * @property {string | null} uploadedAt
  * @property {string} url
  * @property {string} thumbnail
  */

@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { youtubeLangExtractorArg } from '../utils/ytMetadataLang.js';
+import { normalizeUploadDate } from '../utils/uploadDate.js';
 
 const DEFAULT_MAX = 10;
 const QUERY_MAX_LEN = 500;
@@ -104,7 +105,6 @@ export class SearchEngine {
       entry,
       '-j',
       '--no-download',
-      '--flat-playlist',
       '--playlist-end',
       String(this.#maxResults),
       '--no-warnings',
@@ -194,11 +194,18 @@ export class SearchEngine {
         continue;
       }
       if (!row || typeof row.id !== 'string' || !row.title) continue;
+      const channel =
+        row.channel != null
+          ? String(row.channel)
+          : row.uploader != null
+            ? String(row.uploader)
+            : null;
       out.push({
         id: row.id,
         title: String(row.title),
-        channel: row.channel ? String(row.channel) : null,
+        channel,
         duration: typeof row.duration === 'number' ? row.duration : null,
+        uploadedAt: normalizeUploadDate(row),
         url: `https://www.youtube.com/watch?v=${encodeURIComponent(row.id)}`,
         thumbnail: row.thumbnail || `https://i.ytimg.com/vi/${row.id}/mqdefault.jpg`
       });
