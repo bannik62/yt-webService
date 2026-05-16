@@ -1,7 +1,7 @@
 import youtubedl from 'youtube-dl-exec';
 import { getCurrentProxy } from '../proxy/proxyManager.js';
 import { getCookiesPath, hasCookies } from '../utils/cookiesHelper.js';
-import { pickTrendingKeyword } from './trendingKeywords.js';
+import { buildTrendingQuery } from './trendingQueryBuilder.js';
 import {
   youtubeLangExtractorArg,
   getYtAcceptLanguageHeader
@@ -316,7 +316,7 @@ export async function probePlaylistCount(url, { noPlaylist, proxyUrl: proxyOverr
 export async function getTrending(maxResults = 20, musicOnly = false, opts = {}) {
   const requestedProxyUrl = opts.proxyUrl ?? getCurrentProxy();
 
-  const searchTerm = pickTrendingKeyword(musicOnly);
+  const { query: searchTerm } = buildTrendingQuery(musicOnly);
   const searchQuery = `ytsearch${maxResults}:${searchTerm}`;
 
   console.log('[trending] Musique uniquement:', musicOnly);
