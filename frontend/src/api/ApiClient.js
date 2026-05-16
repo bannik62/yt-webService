@@ -49,6 +49,30 @@ export class ApiClient {
    * @param {string} query
    * @returns {Promise<{query: string, items: Array}>}
    */
+  /**
+   * Vidéos de l'onglet « Vidéos » d'une chaîne YouTube (pas recherche globale).
+   * @param {{ channelId?: string, channelUrl?: string, channelName?: string }} opts
+   */
+  async searchChannelVideos(opts) {
+    try {
+      const params = new URLSearchParams();
+      if (opts.channelId) params.set('channelId', opts.channelId);
+      if (opts.channelUrl) params.set('channelUrl', opts.channelUrl);
+      if (opts.channelName) params.set('channelName', opts.channelName);
+      const url = `${this.baseUrl}/api/channel/videos?${params}`;
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(60000),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || `Erreur serveur (${res.status})`);
+      }
+      return await res.json();
+    } catch (err) {
+      this._handleFetchError(err, 'chaîne');
+    }
+  }
+
   async search(query) {
     try {
       const url = `${this.baseUrl}/api/search?${new URLSearchParams({ q: query })}`;

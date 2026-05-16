@@ -1,6 +1,10 @@
 import { spawn } from 'node:child_process';
 import { youtubeLangExtractorArg } from '../utils/ytMetadataLang.js';
 import { normalizeUploadDate } from '../utils/uploadDate.js';
+import {
+  resolveChannelVideosUrl,
+  channelNamesMatch,
+} from './channelVideos.js';
 
 const DEFAULT_MAX = 10;
 const QUERY_MAX_LEN = 500;
@@ -61,6 +65,114 @@ export class SearchEngine {
   }
 
   /**
+   * Vidéos de l'onglet « Vidéos » d'une chaîne (pas une recherche texte globale).
+   * @param {{ channelId?: string, channelUrl?: string, channelName?: string }} opts
+   * @returns {Promise<{ query: string, channelId: string | null, channelName: string | null, items: import('./types.js').PublicItem[] }>}
+   */
+  async listChannelVideos(opts = {}) {
+    const channelId =
+      typeof opts.channelId === 'string' ? opts.channelId.trim() : '';
+    const channelName =
+      typeof opts.channelName === 'string' ? opts.channelName.trim() : '';
+    const channelUrl =
+      typeof opts.channelUrl === 'string' ? opts.channelUrl.trim() : '';
+
+    let resolvedId = channelId;
+    let resolvedUrl = channelUrl;
+    let tabUrl = resolveChannelVideosUrl({
+      channelId: resolvedId || null,
+      channelUrl: resolvedUrl || null,
+    });
+
+    if (!tabUrl && channelName) {
+      const resolved = await this.#resolveChannelIdFromName(channelName);
+      resolvedId = resolved.channelId || resolvedId;
+      resolvedUrl = resolved.channelUrl || resolvedUrl;
+      tabUrl = resolveChannelVideosUrl({
+        channelId: resolvedId || null,
+        channelUrl: resolvedUrl || null,
+      });
+    }
+
+    if (!tabUrl) {
+      throw Object.assign(
+        new Error(
+          'Impossible de cibler cette chaîne. Réessaie depuis une autre vidéo du même créateur.'
+        ),
+        { statusCode: 400 }
+      );
+    }
+
+    const rawJsonLines = await this.#runYtDlpArgs([
+      tabUrl,
+      '-j',
+      '--no-download',
+      '--flat-playlist',
+      '--playlist-end',
+      String(this.#maxResults),
+      '--no-warnings',
+      '--quiet',
+      '--extractor-args',
+      youtubeLangExtractorArg(),
+    ]);
+
+    const items = this.#parseAndNormalize(rawJsonLines, {
+      filterChannelId: resolvedId || null,
+      filterChannelName: channelName || null,
+    });
+
+    return {
+      query: channelName || resolvedId || tabUrl,
+      channelId: resolvedId || null,
+      channelName: channelName || null,
+      items,
+    };
+  }
+
+  /**
+   * Dernière chance : une recherche ytsearch1 pour récupérer channel_id.
+   * @param {string} channelName
+   */
+  async #resolveChannelIdFromName(channelName) {
+    const name = String(channelName).trim();
+    if (!name) return { channelId: null, channelUrl: null };
+
+    const lines = await this.#runYtDlpArgs([
+      `ytsearch1:${name}`,
+      '-j',
+      '--no-download',
+      '--flat-playlist',
+      '--playlist-end',
+      '1',
+      '--no-warnings',
+      '--quiet',
+      '--extractor-args',
+      youtubeLangExtractorArg(),
+    ]);
+
+    if (lines.length === 0) {
+      return { channelId: null, channelUrl: null };
+    }
+
+    let row;
+    try {
+      row = JSON.parse(lines[0]);
+    } catch {
+      return { channelId: null, channelUrl: null };
+    }
+
+    const item = this.#rowToItem(row);
+    if (!item?.channelId && !channelNamesMatch(item?.channel, name)) {
+      return { channelId: null, channelUrl: null };
+    }
+
+    return {
+      channelId: item.channelId,
+      channelUrl: item.channelUrl,
+    };
+  }
+
+  /**
    * Texte libre → recherche `ytsearchN:…` ; URL YouTube autorisée → URL brute pour yt-dlp.
    * @param {string} q
    * @returns {{ type: 'search'; value: string } | { type: 'url'; value: string }}
@@ -101,7 +213,7 @@ export class SearchEngine {
         ? `ytsearch${this.#maxResults}:${target.value}`
         : target.value;
 
-    const args = [
+    const rawJsonLines = await this.#runYtDlpArgs([
       entry,
       '-j',
       '--no-download',
@@ -110,9 +222,16 @@ export class SearchEngine {
       '--no-warnings',
       '--quiet',
       '--extractor-args',
-      youtubeLangExtractorArg()
-    ];
+      youtubeLangExtractorArg(),
+    ]);
+    return rawJsonLines.length > 0 ? this.#parseAndNormalize(rawJsonLines) : [];
+  }
 
+  /**
+   * @param {string[]} args
+   * @returns {Promise<string[]>}
+   */
+  async #runYtDlpArgs(args) {
     const { stdout, stderr, code } = await this.#spawnYtDlp(args);
     if (code !== 0 && !stdout.trim()) {
       const err = new Error(
@@ -121,15 +240,10 @@ export class SearchEngine {
       err.statusCode = 502;
       throw err;
     }
-
-    const rawJsonLines = stdout
+    return stdout
       .split('\n')
       .map((line) => line.trim())
       .filter(Boolean);
-
-    return rawJsonLines.length > 0
-      ? this.#parseAndNormalize(rawJsonLines)
-      : [];
   }
 
   /**
@@ -181,9 +295,11 @@ export class SearchEngine {
 
   /**
    * @param {string[]} rawJsonLines
+   * @param {{ filterChannelId?: string | null, filterChannelName?: string | null }} [filter]
    * @returns {import('./types.js').NormalizedItem[]}
    */
-  #parseAndNormalize(rawJsonLines) {
+  #parseAndNormalize(rawJsonLines, filter = {}) {
+    const { filterChannelId, filterChannelName } = filter;
     /** @type {import('./types.js').NormalizedItem[]} */
     const out = [];
     for (const line of rawJsonLines) {
@@ -193,24 +309,63 @@ export class SearchEngine {
       } catch {
         continue;
       }
-      if (!row || typeof row.id !== 'string' || !row.title) continue;
-      const channel =
-        row.channel != null
-          ? String(row.channel)
-          : row.uploader != null
-            ? String(row.uploader)
-            : null;
-      out.push({
-        id: row.id,
-        title: String(row.title),
-        channel,
-        duration: typeof row.duration === 'number' ? row.duration : null,
-        uploadedAt: normalizeUploadDate(row),
-        url: `https://www.youtube.com/watch?v=${encodeURIComponent(row.id)}`,
-        thumbnail: row.thumbnail || `https://i.ytimg.com/vi/${row.id}/mqdefault.jpg`
-      });
+      const item = this.#rowToItem(row);
+      if (!item) continue;
+
+      if (filterChannelId) {
+        if (item.channelId && item.channelId !== filterChannelId) continue;
+      } else if (
+        filterChannelName &&
+        !channelNamesMatch(item.channel, filterChannelName)
+      ) {
+        continue;
+      }
+
+      out.push(item);
       if (out.length >= this.#maxResults) break;
     }
     return out;
+  }
+
+  /**
+   * @param {Record<string, unknown>} row
+   * @returns {import('./types.js').NormalizedItem | null}
+   */
+  #rowToItem(row) {
+    if (!row || typeof row.id !== 'string' || !row.title) return null;
+
+    const channelIdRaw =
+      row.channel_id ?? row.uploader_id ?? row.channelid ?? null;
+    const channelId =
+      channelIdRaw != null && String(channelIdRaw).trim()
+        ? String(channelIdRaw).trim()
+        : null;
+
+    const channelUrlRaw = row.channel_url ?? row.uploader_url ?? null;
+    const channelUrl =
+      channelUrlRaw != null && String(channelUrlRaw).trim()
+        ? String(channelUrlRaw).trim()
+        : null;
+
+    const channel =
+      row.channel != null
+        ? String(row.channel)
+        : row.uploader != null
+          ? String(row.uploader)
+          : null;
+
+    return {
+      id: row.id,
+      title: String(row.title),
+      channel,
+      channelId,
+      channelUrl,
+      duration: typeof row.duration === 'number' ? row.duration : null,
+      uploadedAt: normalizeUploadDate(row),
+      url: `https://www.youtube.com/watch?v=${encodeURIComponent(row.id)}`,
+      thumbnail:
+        (typeof row.thumbnail === 'string' && row.thumbnail) ||
+        `https://i.ytimg.com/vi/${row.id}/mqdefault.jpg`,
+    };
   }
 }

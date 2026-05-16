@@ -399,6 +399,43 @@ app.get('/api/search', rateLimitSearchTrending, async (request, reply) => {
   }
 });
 
+app.get('/api/channel/videos', rateLimitSearchTrending, async (request, reply) => {
+  const channelId =
+    typeof request.query.channelId === 'string'
+      ? request.query.channelId.trim()
+      : '';
+  const channelName =
+    typeof request.query.channelName === 'string'
+      ? request.query.channelName.trim()
+      : '';
+  const channelUrl =
+    typeof request.query.channelUrl === 'string'
+      ? request.query.channelUrl.trim()
+      : '';
+
+  if (!channelId && !channelUrl && !channelName) {
+    return reply.status(400).send({
+      error: 'Paramètre channelId, channelUrl ou channelName requis',
+    });
+  }
+
+  try {
+    return await searchEngine.listChannelVideos({
+      channelId,
+      channelUrl,
+      channelName,
+    });
+  } catch (err) {
+    const status =
+      err && typeof err === 'object' && 'statusCode' in err
+        ? Number(err.statusCode) || 500
+        : 500;
+    const message =
+      err instanceof Error ? err.message : 'Erreur chaîne';
+    reply.status(status).send({ error: message });
+  }
+});
+
 // Découverte : mot-clé aléatoire (recherche YouTube, pas le feed officiel Tendances)
 app.get('/api/trending', rateLimitSearchTrending, async (request, reply) => {
   const maxResults = Number(request.query.limit) || 20;

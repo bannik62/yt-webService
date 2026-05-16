@@ -396,6 +396,17 @@ export async function getTrending(maxResults = 20, musicOnly = false, opts = {})
         thumbnail = `https://i.ytimg.com/vi/${entry.id}/mqdefault.jpg`;
       }
 
+      const channelIdRaw = entry.channel_id ?? entry.uploader_id ?? null;
+      const channelId =
+        channelIdRaw != null && String(channelIdRaw).trim()
+          ? String(channelIdRaw).trim()
+          : null;
+      const channelUrlRaw = entry.channel_url ?? entry.uploader_url ?? null;
+      const channelUrl =
+        channelUrlRaw != null && String(channelUrlRaw).trim()
+          ? String(channelUrlRaw).trim()
+          : null;
+
       return {
         id: entry.id,
         title: entry.title || 'Sans titre',
@@ -403,6 +414,8 @@ export async function getTrending(maxResults = 20, musicOnly = false, opts = {})
         thumbnail: thumbnail,
         duration: entry.duration || 0,
         channel: entry.uploader || entry.channel || '—',
+        channelId,
+        channelUrl,
         uploadedAt: normalizeUploadDate(entry),
       };
     });

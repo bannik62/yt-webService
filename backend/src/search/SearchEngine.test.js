@@ -105,6 +105,8 @@ describe('SearchEngine.search + yt-dlp mock', () => {
       id: 'dQw4w9WgXcQ',
       title: '  Test titre  ',
       channel: 'Chaîne',
+      channelId: null,
+      channelUrl: null,
       duration: 212,
       uploadedAt: '2024-03-15',
       url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',

@@ -36,14 +36,47 @@ export class SearchView {
   }
 
   /**
-   * Vide les résultats / tendances et recherche par nom de chaîne.
-   * @param {string} channelName
+   * Vide les résultats / tendances et charge l'onglet vidéos de la chaîne.
+   * @param {object} item — carte (channelId / channelUrl si dispo)
    */
-  async searchByChannel(channelName) {
-    const name = String(channelName ?? '').trim();
-    if (!name || name === '—') return;
-    if (this.input) this.input.value = name;
-    await this.runSearch(name, `Chaîne : ${name}`);
+  async searchByChannel(item) {
+    const channelName =
+      item?.channel && String(item.channel).trim() && item.channel !== '—'
+        ? String(item.channel).trim()
+        : '';
+    if (!channelName && !item?.channelId && !item?.channelUrl) return;
+
+    if (this.input) this.input.value = channelName || item.channelId || '';
+
+    this.onBeforeSearch?.();
+    this.results.innerHTML = '';
+    const label = channelName || 'cette chaîne';
+    this.setHint(`Chaîne : ${label} — chargement des vidéos…`, false);
+
+    try {
+      const data = await this.api.searchChannelVideos({
+        channelId: item?.channelId || undefined,
+        channelUrl: item?.channelUrl || undefined,
+        channelName: channelName || undefined,
+      });
+      const count = data.items?.length ?? 0;
+      if (count === 0) {
+        this.setHint(`Aucune vidéo trouvée pour ${label}.`, false);
+        return;
+      }
+      this.setHint(
+        `Chaîne : ${label} — ${count} vidéo${count > 1 ? 's' : ''} (uniquement cette chaîne)`,
+        false
+      );
+      this.renderResults(data.items);
+    } catch (err) {
+      const name = err && typeof err === 'object' && 'name' in err ? err.name : '';
+      if (name === 'TimeoutError' || name === 'AbortError') {
+        this.setHint('Délai dépassé — vérifie que le backend tourne.', true);
+      } else {
+        this.setHint(err.message || 'Impossible de charger la chaîne.', true);
+      }
+    }
   }
 
   /**
@@ -119,7 +152,7 @@ export class SearchView {
           );
           channelBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            void this.searchByChannel(channelName);
+            void this.searchByChannel(item);
           });
           thumbWrap.appendChild(channelBtn);
         }
