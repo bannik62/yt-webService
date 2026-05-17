@@ -22,7 +22,7 @@ describe('interpretYtdlpProbeDump + buildProbeApiShape', () => {
     expect(p.videoId).toBe('dQw4w9WgXcQ');
     expect(p.viewCount).toBe(1_400_000_000);
     expect(p.descriptionPreview).toBeTruthy();
-    expect(String(p.descriptionPreview).length).toBeLessThanOrEqual(240);
+    expect(String(p.descriptionPreview).length).toBeGreaterThan(240);
 
     const withCodec = interpretYtdlpProbeDump({
       id: 'dQw4w9WgXcQ',

@@ -200,15 +200,21 @@ export class VideoModal {
     const text = String(summaryText).trim();
     if (!text) return;
 
-    const wrap = createElement('div', { className: 'modal-video-meta-summary-wrap' });
+    const summaryWrap = createElement('div', {
+      className: 'modal-video-meta-summary-wrap',
+    });
+    const summaryInner = createElement('div', {
+      className: 'modal-video-meta-summary-inner',
+    });
     const p = createElement('p', { className: 'modal-video-meta-summary' });
     p.textContent = text;
-    wrap.appendChild(p);
+    summaryInner.appendChild(p);
+    summaryWrap.appendChild(summaryInner);
 
     const needsToggle = text.length > 180 || text.includes('\n');
     if (!needsToggle) {
-      wrap.classList.add('is-expanded');
-      metaEl.appendChild(wrap);
+      summaryWrap.classList.add('is-expanded');
+      metaEl.appendChild(summaryWrap);
       return;
     }
 
@@ -219,26 +225,16 @@ export class VideoModal {
     });
     btn.textContent = 'Voir plus';
 
-    const applyExpanded = (expanded) => {
-      wrap.classList.toggle('is-expanded', expanded);
-      if (expanded) {
-        p.style.maxHeight = 'min(42vh, 20rem)';
-        p.style.overflowY = 'auto';
-      } else {
-        p.style.maxHeight = '6rem';
-        p.style.overflowY = 'hidden';
-      }
-      btn.textContent = expanded ? 'Voir moins' : 'Voir plus';
-      btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-    };
-
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      applyExpanded(!wrap.classList.contains('is-expanded'));
+      const expanded = !summaryWrap.classList.contains('is-expanded');
+      summaryWrap.classList.toggle('is-expanded', expanded);
+      btn.textContent = expanded ? 'Voir moins' : 'Voir plus';
+      btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
     });
-    wrap.appendChild(btn);
-    metaEl.appendChild(wrap);
+    summaryWrap.appendChild(btn);
+    metaEl.appendChild(summaryWrap);
   }
 
   /**

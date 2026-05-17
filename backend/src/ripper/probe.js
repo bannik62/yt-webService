@@ -3,6 +3,7 @@ import { getCurrentProxy } from '../proxy/proxyManager.js';
 import { getCookiesPath, hasCookies } from '../utils/cookiesHelper.js';
 import { buildTrendingQuery } from './trendingQueryBuilder.js';
 import { normalizeUploadDate } from '../utils/uploadDate.js';
+import { sanitizeDescriptionForDisplay } from '../utils/descriptionSanitize.js';
 import {
   youtubeLangExtractorArg,
   getYtAcceptLanguageHeader
@@ -148,7 +149,9 @@ function metaFromYtdlpDict(d) {
     webpageUrl,
     viewCount,
     uploadedAt: normalizeUploadDate(d),
-    descriptionPreview: clipDescriptionPreview(d.description),
+    descriptionPreview:
+      sanitizeDescriptionForDisplay(d.description, { aggressive: false }) ??
+      clipDescriptionPreview(d.description),
     sourceMediaKind: inferSourceMediaKind(d)
   };
 }

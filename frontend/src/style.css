@@ -1572,6 +1572,20 @@ body.mode-ripper .search-sticky-stack {
   pointer-events: auto;
 }
 
+.modal-video-meta-summary-inner {
+  overflow: hidden;
+  max-height: 6rem;
+  transition: max-height 0.25s ease;
+}
+
+.modal-video-meta-summary-wrap.is-expanded .modal-video-meta-summary-inner {
+  max-height: min(42vh, 20rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 0.15rem;
+}
+
 .modal-video-meta-summary-wrap .modal-video-meta-summary {
   margin: 0;
   color: #8b919c;
@@ -1580,16 +1594,6 @@ body.mode-ripper .search-sticky-stack {
   white-space: pre-wrap;
   word-break: break-word;
   display: block;
-  overflow: hidden;
-  max-height: 6rem;
-  transition: max-height 0.2s ease;
-}
-
-.modal-video-meta-summary-wrap.is-expanded .modal-video-meta-summary {
-  max-height: min(42vh, 20rem);
-  overflow-x: hidden;
-  overflow-y: auto;
-  padding-right: 0.15rem;
 }
 
 .modal-video-meta-more {
