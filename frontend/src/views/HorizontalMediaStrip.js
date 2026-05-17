@@ -109,12 +109,13 @@ export class HorizontalMediaStrip {
       thumbWrapEl.appendChild(grad);
       card.appendChild(thumbWrapEl);
 
-      card.addEventListener('click', () => {
+      card.addEventListener('click', (e) => {
+        e.stopPropagation();
         if (this._suppressClick) {
           this._suppressClick = false;
           return;
         }
-        this.onPlay({
+        this.onPlay?.({
           id: videoId,
           videoId,
           url:
@@ -162,6 +163,9 @@ export class HorizontalMediaStrip {
 
     this.viewportEl.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
+      // Ne pas capturer le pointeur sur une carte : laisser le clic ouvrir la vidéo
+      if (e.target.closest('.media-strip-card')) return;
+
       pointerId = e.pointerId;
       startX = e.clientX;
       startScroll = this.viewportEl.scrollLeft;

@@ -6,7 +6,6 @@ import { DownloadProgressModal } from '../views/DownloadProgressModal.js';
 import { DownloadList } from '../models/DownloadList.js';
 import { PlaybackHistory } from '../models/PlaybackHistory.js';
 import { Favorites } from '../models/Favorites.js';
-import { PlaybackHistoryModal } from '../views/PlaybackHistoryModal.js';
 import { HorizontalMediaStrip } from '../views/HorizontalMediaStrip.js';
 import {
   tryAcquireUserDownload,
@@ -26,11 +25,20 @@ export class SearchMode {
     this.videoModal = new VideoModal(this.api);
     this.playbackHistory = new PlaybackHistory();
     this.favorites = new Favorites();
-    this.playbackHistoryModal = new PlaybackHistoryModal(this.playbackHistory);
     this.downloadProgressModal = new DownloadProgressModal();
     this.searchView.favorites = this.favorites;
 
-    const playStripItem = (item) => this.videoModal.show(item);
+    const playStripItem = (item) => {
+      if (!item) return;
+      const videoId = item.id || item.videoId;
+      this.videoModal.show({
+        ...item,
+        id: videoId,
+        url:
+          item.url ||
+          (videoId ? `https://www.youtube.com/watch?v=${videoId}` : ''),
+      });
+    };
     this.favoritesStrip = new HorizontalMediaStrip({
       sectionEl: $('#favorites-strip-section'),
       trackEl: $('#favorites-strip'),
@@ -59,8 +67,6 @@ export class SearchMode {
       if (item) this.playbackHistory.record(item);
       showVideo(item, playlist, index);
     };
-    this.playbackHistoryModal.onPlayItem = (item) => this.videoModal.show(item);
-
     this.currentJobId = null;
     this.eventSource = null;
 
@@ -192,7 +198,8 @@ export class SearchMode {
     this.videoModal.onAdd = (item) => {
       this.downloadListView.addItem(item);
     };
-    
+    this.videoModal.favorites = this.favorites;
+
     // Clic "Lire la playlist"
     this.downloadListView.onPlay = (items) => {
       if (items.length > 0) {
@@ -222,6 +229,7 @@ export class SearchMode {
       this.historyStrip.render(this.playbackHistory.getAll());
     };
 
+    this.videoModal.onFavoriteChange = refreshMediaStrips;
     this.favorites.onChange(refreshMediaStrips);
     this.playbackHistory.onChange(refreshMediaStrips);
     this.searchView.onFavoriteChange = refreshMediaStrips;
@@ -235,15 +243,6 @@ export class SearchMode {
       this.searchView.setHint('', false);
     };
     refreshMediaStrips();
-
-    $('#playback-history-open')?.addEventListener('click', () => {
-      const section = $('#history-strip-section');
-      if (section && !section.hidden) {
-        section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        return;
-      }
-      this.playbackHistoryModal.open();
-    });
   }
 
   async loadTrending(musicOnly = false) {
