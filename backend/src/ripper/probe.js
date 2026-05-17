@@ -147,6 +147,7 @@ function metaFromYtdlpDict(d) {
     thumbnailUrl: pickThumbnailUrl(d),
     webpageUrl,
     viewCount,
+    uploadedAt: normalizeUploadDate(d),
     descriptionPreview: clipDescriptionPreview(d.description),
     sourceMediaKind: inferSourceMediaKind(d)
   };
@@ -192,6 +193,7 @@ const PROBE_OPTIONAL_API_KEYS = [
   'thumbnailUrl',
   'webpageUrl',
   'viewCount',
+  'uploadedAt',
   'descriptionPreview',
   'sourceMediaKind'
 ];

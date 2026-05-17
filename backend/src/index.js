@@ -36,6 +36,7 @@ import {
   renderSharePageHtml
 } from './sharePage.js';
 import { fetchVideoMeta } from './video/videoMeta.js';
+import { ProxyQuotaError } from './ripper/proxyQuotaError.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COOKIES_PATH = path.join(__dirname, '..', 'cookies.txt');
@@ -462,9 +463,54 @@ app.get('/api/video/meta', rateLimitVideoMeta, async (request, reply) => {
     return reply.status(400).send({ error: 'Paramètre videoId requis' });
   }
 
+  const p = normalizeProxyIndex(request.query.proxyIndex);
+  if (!p.ok) {
+    return reply.status(400).send({ error: p.error });
+  }
+
+  const proxyUrl = resolveProxyUrl(p.index);
+  const workerSessionId = parseWorkerSessionId(
+    request.headers['x-worker-session']
+  );
+
   try {
-    return await fetchVideoMeta(videoId);
+    return await fetchVideoMeta(videoId, { proxyUrl });
   } catch (err) {
+    if (err instanceof ProxyQuotaError) {
+      if (
+        shouldDelegateProbeToWorker(err, {
+          hadProxy: Boolean(proxyUrl),
+          workerSessionId
+        })
+      ) {
+        const url = `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
+        const probeId = enqueueProbeDelegation({
+          url,
+          noPlaylist: true,
+          maxDownloads: undefined
+        });
+        return reply.status(202).send({
+          pendingWorkerMeta: true,
+          probeId
+        });
+      }
+      try {
+        return await fetchVideoMeta(videoId, { proxyUrl: null });
+      } catch (retryErr) {
+        const status =
+          retryErr &&
+          typeof retryErr === 'object' &&
+          'statusCode' in retryErr
+            ? Number(retryErr.statusCode) || 500
+            : 500;
+        const message =
+          retryErr instanceof Error
+            ? retryErr.message
+            : 'Erreur métadonnées';
+        return reply.status(status).send({ error: message });
+      }
+    }
+
     const status =
       err && typeof err === 'object' && 'statusCode' in err
         ? Number(err.statusCode) || 500

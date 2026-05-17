@@ -212,12 +212,24 @@ export class VideoModal {
       'aria-expanded': 'false',
     });
     btn.textContent = 'Voir plus';
+
+    const applyExpanded = (expanded) => {
+      wrap.classList.toggle('is-expanded', expanded);
+      if (expanded) {
+        p.style.maxHeight = 'min(42vh, 20rem)';
+        p.style.overflowY = 'auto';
+      } else {
+        p.style.maxHeight = '6rem';
+        p.style.overflowY = 'hidden';
+      }
+      btn.textContent = expanded ? 'Voir moins' : 'Voir plus';
+      btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    };
+
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      const expanded = wrap.classList.toggle('is-expanded');
-      btn.textContent = expanded ? 'Voir moins' : 'Voir plus';
-      btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      applyExpanded(!wrap.classList.contains('is-expanded'));
     });
     wrap.appendChild(btn);
     metaEl.appendChild(wrap);

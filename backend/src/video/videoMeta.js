@@ -1,4 +1,6 @@
 import youtubedl from 'youtube-dl-exec';
+import { getCurrentProxy } from '../proxy/proxyManager.js';
+import { ProxyQuotaError, isProxyQuotaMessage } from '../ripper/proxyQuotaError.js';
 import { getCookiesPath } from '../utils/cookiesHelper.js';
 import { normalizeUploadDate } from '../utils/uploadDate.js';
 import {
@@ -13,6 +15,11 @@ const YTDLP_TIMEOUT_MS = 20_000;
 
 /** @type {Map<string, { at: number, value: VideoMetaPayload }>} */
 const metaCache = new Map();
+
+/** Vide le cache (tests uniquement). */
+export function clearVideoMetaCacheForTests() {
+  metaCache.clear();
+}
 
 /**
  * @typedef {object} VideoMetaPayload
@@ -116,21 +123,11 @@ function withTimeout(promise, ms = YTDLP_TIMEOUT_MS) {
 }
 
 /**
- * Métadonnées d’une vidéo (lecteur modal) — IP serveur, pas de proxy WebShare.
- * @param {string} videoId
- * @returns {Promise<VideoMetaPayload>}
+ * @param {string | null | undefined} proxyUrl
+ * @returns {Record<string, unknown>}
  */
-export async function fetchVideoMeta(videoId) {
-  const id = typeof videoId === 'string' ? videoId.trim() : '';
-  if (!isValidYoutubeVideoId(id)) {
-    throw Object.assign(new Error('videoId invalide'), { statusCode: 400 });
-  }
-
-  const cached = metaCache.get(id);
-  if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
-    return cached.value;
-  }
-
+function buildYtdlpFlags(proxyUrl) {
+  /** @type {Record<string, unknown>} */
   const flags = {
     dumpSingleJson: true,
     skipDownload: true,
@@ -143,19 +140,120 @@ export async function fetchVideoMeta(videoId) {
     referer: 'https://www.youtube.com/',
     addHeader: [`Accept-Language: ${getYtAcceptLanguageHeader()}`],
   };
-
   const cookiesPath = getCookiesPath();
   if (cookiesPath) {
     flags.cookies = cookiesPath;
   }
+  if (proxyUrl) {
+    flags.proxy = proxyUrl;
+  }
+  return flags;
+}
+
+/**
+ * Convertit une réponse probe (relais worker) en payload modal.
+ * @param {Record<string, unknown>} probe
+ * @param {string} videoId
+ * @returns {VideoMetaPayload}
+ */
+export function videoMetaFromProbeApi(probe, videoId) {
+  const id =
+    typeof probe.videoId === 'string' && probe.videoId.trim()
+      ? probe.videoId.trim()
+      : videoId;
+  const uploadedAt =
+    typeof probe.uploadedAt === 'string' && probe.uploadedAt.trim()
+      ? probe.uploadedAt.trim()
+      : null;
+  const durationRaw = probe.durationSeconds;
+  const duration =
+    typeof durationRaw === 'number' &&
+    Number.isFinite(durationRaw) &&
+    durationRaw >= 0
+      ? Math.floor(durationRaw)
+      : null;
+  const viewRaw = probe.viewCount;
+  const viewCount =
+    typeof viewRaw === 'number' && Number.isFinite(viewRaw) && viewRaw >= 0
+      ? Math.floor(viewRaw)
+      : null;
+  const channelRaw = probe.channel;
+  const channel =
+    channelRaw != null && String(channelRaw).trim()
+      ? String(channelRaw).trim()
+      : null;
+  const descriptionPreview =
+    typeof probe.descriptionPreview === 'string' &&
+    probe.descriptionPreview.trim()
+      ? probe.descriptionPreview.trim()
+      : null;
+
+  const hasAny =
+    uploadedAt != null ||
+    duration != null ||
+    viewCount != null ||
+    channel != null ||
+    descriptionPreview != null;
+
+  return {
+    id,
+    uploadedAt,
+    duration,
+    viewCount,
+    channel,
+    descriptionPreview,
+    available: hasAny,
+  };
+}
+
+/**
+ * Métadonnées d’une vidéo (lecteur modal) — proxy WebShare puis relais worker si 402.
+ * @param {string} videoId
+ * @param {{ proxyUrl?: string | null }} [opts] — `proxyUrl: null` force sans proxy
+ * @returns {Promise<VideoMetaPayload>}
+ */
+export async function fetchVideoMeta(videoId, opts = {}) {
+  const id = typeof videoId === 'string' ? videoId.trim() : '';
+  if (!isValidYoutubeVideoId(id)) {
+    throw Object.assign(new Error('videoId invalide'), { statusCode: 400 });
+  }
+
+  const cached = metaCache.get(id);
+  if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
+    return cached.value;
+  }
+
+  const proxyUrl =
+    'proxyUrl' in opts ? opts.proxyUrl : getCurrentProxy();
+
+  /**
+   * @param {string | null | undefined} proxy
+   * @returns {Promise<unknown>}
+   */
+  const runYtdlp = (proxy) =>
+    withTimeout(youtubedl(watchUrl(id), buildYtdlpFlags(proxy)));
 
   let data;
   try {
-    data = await withTimeout(youtubedl(watchUrl(id), flags));
-  } catch {
-    const fallback = emptyMeta(id, false);
-    metaCache.set(id, { at: Date.now(), value: fallback });
-    return fallback;
+    data = await runYtdlp(proxyUrl);
+  } catch (firstErr) {
+    const msg = `${firstErr instanceof Error ? firstErr.message : firstErr}\n${firstErr && typeof firstErr === 'object' && 'cause' in firstErr && firstErr.cause instanceof Error ? firstErr.cause.message : ''}`;
+    if (proxyUrl && isProxyQuotaMessage(msg)) {
+      throw new ProxyQuotaError(msg.trim().slice(0, 2048));
+    }
+    if (proxyUrl) {
+      try {
+        data = await runYtdlp(undefined);
+      } catch {
+        const fallback = emptyMeta(id, false);
+        metaCache.set(id, { at: Date.now(), value: fallback });
+        return fallback;
+      }
+    } else {
+      const fallback = emptyMeta(id, false);
+      metaCache.set(id, { at: Date.now(), value: fallback });
+      return fallback;
+    }
   }
 
   const meta = metaFromDump(data, id);

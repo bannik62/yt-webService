@@ -1573,16 +1573,14 @@ body.mode-ripper .search-sticky-stack {
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
+  display: block;
   overflow: hidden;
+  max-height: 6rem;
+  transition: max-height 0.2s ease;
 }
 
 .modal-video-meta-summary-wrap.is-expanded .modal-video-meta-summary {
-  display: block;
-  -webkit-line-clamp: unset;
-  max-height: min(42vh, 18rem);
+  max-height: min(42vh, 20rem);
   overflow-x: hidden;
   overflow-y: auto;
   padding-right: 0.15rem;

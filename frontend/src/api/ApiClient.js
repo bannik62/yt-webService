@@ -67,6 +67,59 @@ export class ApiClient {
    *   error?: string
    * }>}
    */
+  /**
+   * @param {Record<string, unknown>} probe
+   * @param {string} videoId
+   * @returns {object}
+   */
+  _probeResultToVideoMeta(probe, videoId) {
+    const uploadedAt =
+      typeof probe.uploadedAt === 'string' && probe.uploadedAt.trim()
+        ? probe.uploadedAt.trim()
+        : null;
+    const duration =
+      typeof probe.durationSeconds === 'number' &&
+      Number.isFinite(probe.durationSeconds) &&
+      probe.durationSeconds >= 0
+        ? Math.floor(probe.durationSeconds)
+        : null;
+    const viewCount =
+      typeof probe.viewCount === 'number' &&
+      Number.isFinite(probe.viewCount) &&
+      probe.viewCount >= 0
+        ? Math.floor(probe.viewCount)
+        : null;
+    const channel =
+      typeof probe.channel === 'string' && probe.channel.trim()
+        ? probe.channel.trim()
+        : null;
+    const descriptionPreview =
+      typeof probe.descriptionPreview === 'string' &&
+      probe.descriptionPreview.trim()
+        ? probe.descriptionPreview.trim()
+        : null;
+
+    const hasAny =
+      uploadedAt ||
+      duration != null ||
+      viewCount != null ||
+      channel ||
+      descriptionPreview;
+
+    return {
+      id:
+        typeof probe.videoId === 'string' && probe.videoId.trim()
+          ? probe.videoId.trim()
+          : videoId,
+      uploadedAt,
+      duration,
+      viewCount,
+      channel,
+      descriptionPreview,
+      available: Boolean(hasAny),
+    };
+  }
+
   async fetchVideoMeta(videoId) {
     const id = typeof videoId === 'string' ? videoId.trim() : '';
     if (!id || !/^[a-zA-Z0-9_-]{11}$/.test(id)) {
@@ -74,13 +127,26 @@ export class ApiClient {
     }
 
     try {
-      const url = `${this.baseUrl}/api/video/meta?${new URLSearchParams({ videoId: id })}`;
+      const params = new URLSearchParams({ videoId: id });
+      const px = getStoredProxyIndex();
+      if (px !== undefined) params.set('proxyIndex', String(px));
+
+      const url = `${this.baseUrl}/api/video/meta?${params}`;
       const res = await fetch(url, {
-        signal: AbortSignal.timeout(25000),
+        headers: {
+          ...this._workerSessionHeaders(),
+        },
+        signal: AbortSignal.timeout(130000),
       });
 
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 202 && data.pendingWorkerMeta && data.probeId) {
+        const probe = await this._pollProbeDelegation(data.probeId);
+        return this._probeResultToVideoMeta(probe, id);
+      }
+
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
         return {
           id,
           available: false,
@@ -88,11 +154,15 @@ export class ApiClient {
         };
       }
 
-      return await res.json();
+      return data;
     } catch (err) {
       const name = err && typeof err === 'object' && 'name' in err ? err.name : '';
       if (name === 'TimeoutError' || name === 'AbortError') {
         return { id, available: false, error: 'Délai dépassé' };
+      }
+      const msg = err instanceof Error ? err.message : '';
+      if (msg) {
+        return { id, available: false, error: msg };
       }
       return { id, available: false, error: 'Infos indisponibles' };
     }
@@ -193,6 +263,7 @@ export class ApiClient {
           'thumbnailUrl',
           'webpageUrl',
           'viewCount',
+          'uploadedAt',
           'descriptionPreview',
           'sourceMediaKind'
         ];
