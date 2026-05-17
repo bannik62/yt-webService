@@ -76,6 +76,14 @@ describe('buildTrendingQuery', () => {
     expect(hit).toBe(true);
   });
 
+  it('requête sans [object Object] (modificateur pondéré = string)', () => {
+    for (let i = 0; i < 100; i++) {
+      const { query } = buildTrendingQuery(false);
+      expect(query).not.toContain('[object Object]');
+      expect(typeof query).toBe('string');
+    }
+  });
+
   it('peut produire un pattern discovery (subject + rare ou discovery)', () => {
     let patternHit = false;
     for (let i = 0; i < 80; i++) {

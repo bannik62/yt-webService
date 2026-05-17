@@ -567,14 +567,14 @@ function pickWeightedModifier(modifiersPool, musicOnly) {
       { value: 'rare', weight: 8 },
       { value: 'oublié', weight: 7 },
       { value: pick(modifiersPool), weight: 5 },
-    ]);
+    ]).value;
   }
   return weightedPick([
     { value: 'rare', weight: 10 },
     { value: 'oublié', weight: 9 },
     { value: 'underground', weight: 8 },
     { value: pick(modifiersPool), weight: 5 },
-  ]);
+  ]).value;
 }
 
 /**
