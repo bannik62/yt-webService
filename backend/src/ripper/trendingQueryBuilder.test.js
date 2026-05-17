@@ -5,11 +5,14 @@ import {
   CREATOR_QUERY_CHANCE,
 } from './trendingQueryBuilder.js';
 
+const VALID_SOURCES = new Set(['composed', 'creator', 'pattern', 'fallback']);
+
 describe('buildTrendingQuery', () => {
-  it('compose trois mots en une phrase', () => {
-    const { query, subject, verb, modifier } = buildTrendingQuery(false);
-    expect(query).toBe(`${subject} ${verb} ${modifier}`);
-    expect(query.split(' ').length).toBeGreaterThanOrEqual(3);
+  it('retourne une requête non vide (≥ 2 mots)', () => {
+    const { query } = buildTrendingQuery(false);
+    expect(query.length).toBeGreaterThan(0);
+    expect(query.split(/\s+/).length).toBeGreaterThanOrEqual(2);
+    expect(query.length).toBeLessThanOrEqual(80);
   });
 
   it('génère des phrases différentes sur plusieurs tirages', () => {
@@ -19,6 +22,14 @@ describe('buildTrendingQuery', () => {
       seen.add(buildTrendingQuery(true).query);
     }
     expect(seen.size).toBeGreaterThan(40);
+  });
+
+  it('source valide', () => {
+    for (let i = 0; i < 50; i++) {
+      const r = buildTrendingQuery(false);
+      expect(VALID_SOURCES.has(r.source)).toBe(true);
+      expect(r.subject).toBeTruthy();
+    }
   });
 
   it('expose la liste des créateurs FR', () => {
@@ -63,5 +74,17 @@ describe('buildTrendingQuery', () => {
       }
     }
     expect(hit).toBe(true);
+  });
+
+  it('peut produire un pattern discovery (subject + rare ou discovery)', () => {
+    let patternHit = false;
+    for (let i = 0; i < 80; i++) {
+      const r = buildTrendingQuery(false);
+      if (r.source === 'pattern' && r.pattern) {
+        patternHit = true;
+        break;
+      }
+    }
+    expect(patternHit).toBe(true);
   });
 });

@@ -1,4 +1,4 @@
-/** Sujet / domaine */
+/** Sujet / domaine (général + discovery) */
 const SUBJECTS_GENERAL = [
   'documentaire',
   'reportage',
@@ -85,6 +85,24 @@ const SUBJECTS_GENERAL = [
   'permaculture',
   'apiculture',
   'mycologie',
+  'jazz',
+  'techno',
+  'live',
+  'concert',
+  'radio amateur',
+  'vhs',
+  'cassette',
+  'caméscope',
+  'mini dv',
+  'archive tv',
+  'festival local',
+  'association',
+  'lycée',
+  'vlog',
+  'exploration',
+  'film étudiant',
+  'drone',
+  'enquête',
 ];
 
 const VERBS_GENERAL = [
@@ -127,6 +145,13 @@ const VERBS_GENERAL = [
   'résumé',
   'synthèse',
   'débat',
+  'archive',
+  'captation',
+  'numérisation',
+  'rediffusion',
+  'version rare',
+  'improvisation',
+  'freestyle',
 ];
 
 const MODIFIERS_GENERAL = [
@@ -157,7 +182,6 @@ const MODIFIERS_GENERAL = [
   'nouveau',
   'court format',
   'long format',
-  'sans commentaire',
   'ambiance',
   'relax',
   'éducatif',
@@ -170,6 +194,52 @@ const MODIFIERS_GENERAL = [
   'sérieux',
   'profond',
   'léger',
+  'analogique',
+  'introuvable',
+  'faible audience',
+  'petite chaîne',
+  'nouveau créateur',
+  'passionné',
+  'old school',
+  'caméra embarquée',
+];
+
+/** Termes « archive / long tail » (général) */
+const RARE_TERMS = [
+  'archive perdue',
+  'reupload',
+  'rip tv',
+  'captation oubliée',
+  'émission oubliée',
+  'concert perdu',
+  'vidéo supprimée',
+  'numérisé',
+  'cassette retrouvée',
+  'vhs rare',
+  'version introuvable',
+  'première vidéo',
+];
+
+/** Meta YouTube / découverte — poids faible dans les patterns */
+const DISCOVERY_TERMS = [
+  'petit youtubeur',
+  'chaîne inconnue',
+  'micro créateur',
+  'vidéo cachée',
+  'pépite',
+  'rabbit hole',
+  'hidden gem',
+  'trouvé par hasard',
+  'recommandation étrange',
+];
+
+const RARE_TERMS_MUSIC = [
+  'bootleg',
+  'session perdue',
+  'concert oublié',
+  'maquette',
+  'démo rare',
+  'version studio inédite',
 ];
 
 const SUBJECTS_MUSIC = [
@@ -291,7 +361,103 @@ const MODIFIERS_MUSIC = [
   'pluie',
 ];
 
-/** Créateurs FR (ancienne liste tendances) — tirage rare */
+/**
+ * @typedef {object} PatternCtx
+ * @property {string} subject
+ * @property {string} verb
+ * @property {string} modifier
+ * @property {string} rare
+ * @property {string} discovery
+ */
+
+/**
+ * @typedef {object} QueryPattern
+ * @property {number} weight
+ * @property {string} id
+ * @property {(ctx: PatternCtx) => string} build
+ * @property {(ctx: PatternCtx) => { subject: string, verb: string, modifier: string }} fields
+ */
+
+/** @type {QueryPattern[]} */
+const QUERY_PATTERNS_GENERAL = [
+  {
+    weight: 10,
+    id: 'svo',
+    build: (c) => `${c.subject} ${c.verb} ${c.modifier}`,
+    fields: (c) => ({ subject: c.subject, verb: c.verb, modifier: c.modifier }),
+  },
+  {
+    weight: 7,
+    id: 'sm',
+    build: (c) => `${c.subject} ${c.modifier}`,
+    fields: (c) => ({ subject: c.subject, verb: '', modifier: c.modifier }),
+  },
+  {
+    weight: 6,
+    id: 'vs',
+    build: (c) => `${c.verb} ${c.subject}`,
+    fields: (c) => ({ subject: c.subject, verb: c.verb, modifier: '' }),
+  },
+  {
+    weight: 6,
+    id: 'sr',
+    build: (c) => `${c.subject} ${c.rare}`,
+    fields: (c) => ({ subject: c.subject, verb: c.rare, modifier: '' }),
+  },
+  {
+    weight: 5,
+    id: 'sd',
+    build: (c) => `${c.subject} ${c.discovery}`,
+    fields: (c) => ({ subject: c.subject, verb: c.discovery, modifier: '' }),
+  },
+  {
+    weight: 4,
+    id: 'smr',
+    build: (c) => `${c.subject} ${c.modifier} ${c.rare}`,
+    fields: (c) => ({ subject: c.subject, verb: c.rare, modifier: c.modifier }),
+  },
+  {
+    weight: 3,
+    id: 'sdm',
+    build: (c) => `${c.subject} ${c.discovery} ${c.modifier}`,
+    fields: (c) => ({
+      subject: c.subject,
+      verb: c.discovery,
+      modifier: c.modifier,
+    }),
+  },
+];
+
+/** Musique : pas de termes type « rabbit hole » */
+/** @type {QueryPattern[]} */
+const QUERY_PATTERNS_MUSIC = [
+  {
+    weight: 12,
+    id: 'svo',
+    build: (c) => `${c.subject} ${c.verb} ${c.modifier}`,
+    fields: (c) => ({ subject: c.subject, verb: c.verb, modifier: c.modifier }),
+  },
+  {
+    weight: 8,
+    id: 'sm',
+    build: (c) => `${c.subject} ${c.modifier}`,
+    fields: (c) => ({ subject: c.subject, verb: '', modifier: c.modifier }),
+  },
+  {
+    weight: 6,
+    id: 'vs',
+    build: (c) => `${c.verb} ${c.subject}`,
+    fields: (c) => ({ subject: c.subject, verb: c.verb, modifier: '' }),
+  },
+  {
+    weight: 5,
+    id: 'sr',
+    build: (c) => `${c.subject} ${c.rare}`,
+    fields: (c) => ({ subject: c.subject, verb: c.rare, modifier: '' }),
+  },
+];
+
+/** Créateurs FR — tirage rare */
 export const YOUTUBERS_FR = [
   'squeezie',
   'mcfly et carlito',
@@ -357,8 +523,9 @@ export const YOUTUBERS_FR = [
 /** Probabilité d’utiliser un nom de chaîne au lieu d’une phrase composée */
 export const CREATOR_QUERY_CHANCE = 0.1;
 
-const RECENT_MAX = 80;
-const MAX_BUILD_ATTEMPTS = 12;
+const RECENT_MAX = 100;
+const MAX_BUILD_ATTEMPTS = 20;
+const QUERY_MAX_LEN = 80;
 
 /** @type {string[]} */
 const recentQueries = [];
@@ -367,14 +534,74 @@ function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+/**
+ * @template T
+ * @param {Array<{ weight: number } & T>} items
+ * @returns {T}
+ */
+function weightedPick(items) {
+  const pool = items.flatMap((item) => Array(item.weight).fill(item));
+  return pick(pool);
+}
+
+function normalizeQuery(q) {
+  return q.replace(/\s+/g, ' ').trim().slice(0, QUERY_MAX_LEN);
+}
+
 function rememberQuery(query) {
   recentQueries.push(query);
   while (recentQueries.length > RECENT_MAX) recentQueries.shift();
 }
 
+function isRecent(query) {
+  return recentQueries.includes(query);
+}
+
+/**
+ * @param {string[]} modifiersPool
+ * @param {boolean} musicOnly
+ */
+function pickWeightedModifier(modifiersPool, musicOnly) {
+  if (musicOnly) {
+    return weightedPick([
+      { value: 'rare', weight: 8 },
+      { value: 'oublié', weight: 7 },
+      { value: pick(modifiersPool), weight: 5 },
+    ]);
+  }
+  return weightedPick([
+    { value: 'rare', weight: 10 },
+    { value: 'oublié', weight: 9 },
+    { value: 'underground', weight: 8 },
+    { value: pick(modifiersPool), weight: 5 },
+  ]);
+}
+
+/**
+ * @param {string[]} pool
+ * @param {string} subject
+ */
+function pickVerb(pool, subject) {
+  for (let i = 0; i < 4; i++) {
+    const verb = pick(pool);
+    if (verb !== subject) return verb;
+  }
+  return pick(pool);
+}
+
+/**
+ * @param {QueryPattern} pattern
+ * @param {PatternCtx} ctx
+ */
+function buildFromPattern(pattern, ctx) {
+  const query = normalizeQuery(pattern.build(ctx));
+  const { subject, verb, modifier } = pattern.fields(ctx);
+  const source = pattern.id === 'svo' ? 'composed' : 'pattern';
+  return { query, subject, verb, modifier, source, pattern: pattern.id };
+}
+
 /**
  * @param {string} name
- * @returns {{ query: string, subject: string, verb: string, modifier: string, source: 'creator' }}
  */
 function buildCreatorQuery(name) {
   return {
@@ -389,7 +616,7 @@ function buildCreatorQuery(name) {
 function tryPickCreatorQuery() {
   for (let attempt = 0; attempt < MAX_BUILD_ATTEMPTS; attempt++) {
     const name = pick(YOUTUBERS_FR);
-    if (!recentQueries.includes(name)) {
+    if (!isRecent(name)) {
       rememberQuery(name);
       return buildCreatorQuery(name);
     }
@@ -401,34 +628,61 @@ function tryPickCreatorQuery() {
 
 /**
  * @param {boolean} musicOnly
- * @returns {{ query: string, subject: string, verb: string, modifier: string, source?: 'composed' | 'creator' }}
+ */
+function buildPatternQuery(musicOnly) {
+  const subjects = musicOnly ? SUBJECTS_MUSIC : SUBJECTS_GENERAL;
+  const verbs = musicOnly ? VERBS_MUSIC : VERBS_GENERAL;
+  const modifiersPool = musicOnly ? MODIFIERS_MUSIC : MODIFIERS_GENERAL;
+  const patterns = musicOnly ? QUERY_PATTERNS_MUSIC : QUERY_PATTERNS_GENERAL;
+  const rarePool = musicOnly ? RARE_TERMS_MUSIC : RARE_TERMS;
+
+  for (let attempt = 0; attempt < MAX_BUILD_ATTEMPTS; attempt++) {
+    const subject = pick(subjects);
+    const verb = pickVerb(verbs, subject);
+    const modifier = pickWeightedModifier(modifiersPool, musicOnly);
+    const rare = pick(rarePool);
+    const discovery = musicOnly ? '' : pick(DISCOVERY_TERMS);
+
+    /** @type {PatternCtx} */
+    const ctx = { subject, verb, modifier, rare, discovery };
+    const pattern = weightedPick(patterns);
+    const built = buildFromPattern(pattern, ctx);
+
+    if (built.query && !isRecent(built.query)) {
+      rememberQuery(built.query);
+      return built;
+    }
+  }
+
+  const subject = pick(subjects);
+  const modifier = pickWeightedModifier(modifiersPool, musicOnly);
+  const query = normalizeQuery(`${subject} ${modifier} rare`);
+  rememberQuery(query);
+  return {
+    query,
+    subject,
+    verb: 'rare',
+    modifier,
+    source: 'fallback',
+  };
+}
+
+/**
+ * @param {boolean} musicOnly
+ * @returns {{
+ *   query: string,
+ *   subject: string,
+ *   verb: string,
+ *   modifier: string,
+ *   source: 'composed' | 'creator' | 'pattern' | 'fallback',
+ *   pattern?: string
+ * }}
  */
 export function buildTrendingQuery(musicOnly = false) {
   if (Math.random() < CREATOR_QUERY_CHANCE) {
     return tryPickCreatorQuery();
   }
-
-  const subjects = musicOnly ? SUBJECTS_MUSIC : SUBJECTS_GENERAL;
-  const verbs = musicOnly ? VERBS_MUSIC : VERBS_GENERAL;
-  const modifiers = musicOnly ? MODIFIERS_MUSIC : MODIFIERS_GENERAL;
-
-  for (let attempt = 0; attempt < MAX_BUILD_ATTEMPTS; attempt++) {
-    const subject = pick(subjects);
-    const verb = pick(verbs);
-    const modifier = pick(modifiers);
-    const query = `${subject} ${verb} ${modifier}`.replace(/\s+/g, ' ').trim();
-
-    if (!recentQueries.includes(query)) {
-      rememberQuery(query);
-      return { query, subject, verb, modifier, source: 'composed' };
-    }
-  }
-
-  const subject = pick(subjects);
-  const verb = pick(verbs);
-  const modifier = pick(modifiers);
-  const query = `${subject} ${verb} ${modifier}`;
-  return { query, subject, verb, modifier, source: 'composed' };
+  return buildPatternQuery(musicOnly);
 }
 
 /** @deprecated utiliser buildTrendingQuery */
