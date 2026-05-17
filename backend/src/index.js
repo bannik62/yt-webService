@@ -42,8 +42,12 @@ const COOKIES_PATH = path.join(__dirname, '..', 'cookies.txt');
 const PORT = Number(process.env.PORT) || 4000;
 const HOST = process.env.HOST || '0.0.0.0';
 
+const searchMaxRaw = Number(process.env.SEARCH_MAX_RESULTS);
+const searchMaxResults =
+  Number.isFinite(searchMaxRaw) && searchMaxRaw > 0 ? searchMaxRaw : 30;
+
 const searchEngine = new SearchEngine({
-  maxResults: Number(process.env.SEARCH_MAX_RESULTS) || 30,
+  maxResults: searchMaxResults,
   ytDlpPath: process.env.YT_DLP_PATH
 });
 

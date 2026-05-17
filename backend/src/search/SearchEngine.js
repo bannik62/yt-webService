@@ -7,7 +7,8 @@ import {
 } from './channelVideos.js';
 
 const DEFAULT_MAX = 30;
-const MAX_RESULTS_CAP = 30;
+/** Plafond configurable via SEARCH_MAX_RESULTS (docker / .env). */
+const MAX_RESULTS_CAP = 50;
 const QUERY_MAX_LEN = 500;
 
 const ALLOWED_YT_HOSTS = new Set([
@@ -39,6 +40,7 @@ export class SearchEngine {
       typeof opts.ytDlpPath === 'string' ? opts.ytDlpPath.trim() : '';
     const fromEnv = (process.env.YT_DLP_PATH || '').trim();
     this.#ytDlpBin = fromOpts || fromEnv || 'yt-dlp';
+    console.log(`[SearchEngine] maxResults=${this.#maxResults}`);
   }
 
   /**
@@ -209,9 +211,15 @@ export class SearchEngine {
    */
   async #runYtDlpSearch(q) {
     const target = this.#resolveTarget(q);
+    const want = this.#maxResults;
+    // ytsearchN : demander un peu plus que `want` (YouTube renvoie parfois ~25 par page).
+    const ytsearchN =
+      target.type === 'search'
+        ? Math.min(Math.max(want + 10, 40), 100)
+        : want;
     const entry =
       target.type === 'search'
-        ? `ytsearch${this.#maxResults}:${target.value}`
+        ? `ytsearch${ytsearchN}:${target.value}`
         : target.value;
 
     const rawJsonLines = await this.#runYtDlpArgs([
@@ -220,7 +228,7 @@ export class SearchEngine {
       '--no-download',
       '--flat-playlist',
       '--playlist-end',
-      String(this.#maxResults),
+      String(want),
       '--no-warnings',
       '--quiet',
       '--extractor-args',
