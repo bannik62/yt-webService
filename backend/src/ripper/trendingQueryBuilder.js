@@ -155,6 +155,7 @@ const VERBS_GENERAL = [
 ];
 
 const MODIFIERS_GENERAL = [
+  
   'français',
   'france',
   'francophone',
@@ -202,6 +203,15 @@ const MODIFIERS_GENERAL = [
   'passionné',
   'old school',
   'caméra embarquée',
+  'archive',
+  'que j\'ai vu',
+  'que j\'ai entendu',
+  'que j\'ai ressenti',
+  'que j\'ai pensé',
+  'que j\'ai vécu',
+  'que j\'ai appris',
+  'que j\'ai partagé',
+  'que j\'ai créé',
 ];
 
 /** Termes « archive / long tail » (général) */
@@ -218,6 +228,7 @@ const RARE_TERMS = [
   'vhs rare',
   'version introuvable',
   'première vidéo',
+  'archive INA'
 ];
 
 /** Meta YouTube / découverte — poids faible dans les patterns */
@@ -231,6 +242,9 @@ const DISCOVERY_TERMS = [
   'hidden gem',
   'trouvé par hasard',
   'recommandation étrange',
+  'recommandation inattendue',
+  'recommandation surprenante',
+  'recommandation bizarre',
 ];
 
 const RARE_TERMS_MUSIC = [
@@ -240,6 +254,15 @@ const RARE_TERMS_MUSIC = [
   'maquette',
   'démo rare',
   'version studio inédite',
+  'mix tape',
+  'mixtape',
+  'mixtape rare',
+  'mixtape inédite',
+  'mixtape studio',
+  'mixtape live',
+  'mixtape acoustique',
+  'mixtape électrique',
+  'mixtape jazz',
 ];
 
 const SUBJECTS_MUSIC = [
