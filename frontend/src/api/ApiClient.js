@@ -73,42 +73,6 @@ export class ApiClient {
     }
   }
 
-  /**
-   * Métadonnées complémentaires (date, vues) — route parallèle à la recherche.
-   * @param {string[]} ids — max 15
-   * @returns {Promise<{ items: Array<{ id: string, uploadedAt: string | null, duration: number | null, viewCount: number | null }> }>}
-   */
-  async fetchVideoMetaBatch(ids) {
-    try {
-      const validIds = (ids || []).filter(
-        (id) => id && /^[a-zA-Z0-9_-]{11}$/.test(id)
-      );
-      if (validIds.length === 0) {
-        return { items: [] };
-      }
-
-      const body = { ids: validIds };
-      const px = getStoredProxyIndex();
-      if (px !== undefined) body.proxyIndex = px;
-
-      const res = await fetch(`${this.baseUrl}/api/video/meta/batch`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(120000),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error || `Erreur serveur (${res.status})`);
-      }
-
-      return await res.json();
-    } catch (err) {
-      this._handleFetchError(err, 'métadonnées');
-    }
-  }
-
   async search(query) {
     try {
       const url = `${this.baseUrl}/api/search?${new URLSearchParams({ q: query })}`;

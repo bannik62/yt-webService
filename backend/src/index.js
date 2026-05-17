@@ -35,11 +35,6 @@ import {
   isValidYoutubeVideoId,
   renderSharePageHtml
 } from './sharePage.js';
-import {
-  fetchVideoMeta,
-  fetchVideoMetaBatch,
-  BATCH_MAX_IDS,
-} from './video/videoMeta.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COOKIES_PATH = path.join(__dirname, '..', 'cookies.txt');
@@ -147,16 +142,6 @@ const rateLimitSearchTrending = {
   config: {
     rateLimit: {
       max: 5,
-      timeWindow: '1 minute'
-    }
-  }
-};
-
-/** Métadonnées vidéo (yt-dlp léger, 1 URL) — hors recherche principale */
-const rateLimitVideoMeta = {
-  config: {
-    rateLimit: {
-      max: 12,
       timeWindow: '1 minute'
     }
   }
@@ -417,128 +402,6 @@ app.get('/api/search', rateLimitSearchTrending, async (request, reply) => {
     reply.status(status).send({ error: message });
   }
 });
-
-app.get('/api/video/meta', rateLimitVideoMeta, async (request, reply) => {
-  const videoId =
-    typeof request.query.videoId === 'string'
-      ? request.query.videoId.trim()
-      : '';
-  if (!isValidYoutubeVideoId(videoId)) {
-    return reply.status(400).send({ error: 'Paramètre videoId invalide' });
-  }
-
-  const p = normalizeProxyIndex(request.query.proxyIndex);
-  if (!p.ok) {
-    return reply.status(400).send({ error: p.error });
-  }
-
-  try {
-    const proxyUrl = resolveProxyUrl(p.index);
-    return await fetchVideoMeta(videoId, { proxyUrl });
-  } catch (err) {
-    const status =
-      err && typeof err === 'object' && 'statusCode' in err
-        ? Number(err.statusCode) || 500
-        : 500;
-    const message =
-      err instanceof Error ? err.message : 'Erreur métadonnées';
-    reply.status(status).send({ error: message });
-  }
-});
-
-/**
- * @param {string[]} ids
- * @param {unknown} proxyIndexRaw
- */
-async function handleVideoMetaBatch(ids, proxyIndexRaw) {
-  const p = normalizeProxyIndex(proxyIndexRaw);
-  if (!p.ok) {
-    return { status: 400, body: { error: p.error } };
-  }
-
-  if (ids.length === 0) {
-    return {
-      status: 400,
-      body: {
-        error:
-          'Paramètre ids requis (GET ?ids=id1,id2 ou POST { "ids": ["id1"] })',
-      },
-    };
-  }
-
-  if (ids.length > BATCH_MAX_IDS) {
-    return {
-      status: 400,
-      body: { error: `Maximum ${BATCH_MAX_IDS} ids par requête` },
-    };
-  }
-
-  try {
-    const proxyUrl = resolveProxyUrl(p.index);
-    const payload = await fetchVideoMetaBatch(ids, { proxyUrl });
-    return { status: 200, body: payload };
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : 'Erreur métadonnées';
-    return { status: 500, body: { error: message } };
-  }
-}
-
-/**
- * @param {unknown} raw
- * @returns {string[]}
- */
-function parseVideoMetaIds(raw) {
-  if (raw == null || raw === '') return [];
-  if (Array.isArray(raw)) {
-    return raw.map((v) => String(v).trim()).filter(Boolean);
-  }
-  if (typeof raw === 'string') {
-    return raw
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-  }
-  return [];
-}
-
-/**
- * Lit ids depuis la query (y compris si request.query est vide derrière un proxy).
- * @param {import('fastify').FastifyRequest} request
- */
-function extractBatchVideoIdsFromQuery(request) {
-  let ids = parseVideoMetaIds(request.query.ids ?? request.query.id);
-  if (ids.length > 0) return ids;
-
-  const rawUrl =
-    typeof request.raw.url === 'string' ? request.raw.url : request.url;
-  const q = rawUrl.indexOf('?');
-  if (q === -1) return [];
-  const sp = new URLSearchParams(rawUrl.slice(q + 1));
-  return parseVideoMetaIds(sp.get('ids') ?? sp.get('id'));
-}
-
-/** Batch métadonnées — POST { ids } (app) ou GET ?ids=… (tests navigateur) */
-async function videoMetaBatchRoute(request, reply) {
-  let ids = [];
-  if (request.method === 'GET') {
-    ids = extractBatchVideoIdsFromQuery(request);
-  } else {
-    const body = request.body || {};
-    ids = parseVideoMetaIds(body.ids ?? body.id);
-  }
-
-  const proxyRaw =
-    request.method === 'GET'
-      ? request.query.proxyIndex
-      : request.body?.proxyIndex;
-
-  const result = await handleVideoMetaBatch(ids, proxyRaw);
-  return reply.status(result.status).send(result.body);
-}
-
-app.post('/api/video/meta/batch', rateLimitVideoMeta, videoMetaBatchRoute);
-app.get('/api/video/meta/batch', rateLimitVideoMeta, videoMetaBatchRoute);
 
 app.get('/api/channel/videos', rateLimitSearchTrending, async (request, reply) => {
   const channelId =

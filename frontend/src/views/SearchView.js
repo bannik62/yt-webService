@@ -17,9 +17,6 @@ export class SearchView {
     /** @type {string} */
     this._lastHintText = '';
 
-    /** @type {ReturnType<typeof setTimeout> | null} */
-    this._enrichMetaTimer = null;
-
     this.init();
   }
 
@@ -116,7 +113,6 @@ export class SearchView {
     if (!this.results) return;
     this.results.innerHTML = '';
     this.appendResults(items);
-    this.scheduleEnrichMeta();
   }
 
   /**
@@ -129,7 +125,6 @@ export class SearchView {
       const li = createElement('li', {
         className: 'result',
         'data-video-id': item.id || '',
-        'data-needs-meta': item.uploadedAt ? '0' : '1',
       });
 
       const rawChannel =
@@ -236,75 +231,6 @@ export class SearchView {
 
       this.results.appendChild(li);
     });
-
-    this.scheduleEnrichMeta();
-  }
-
-  /** Enrichit les cartes sans date via /api/video/meta/batch (recherche inchangée). */
-  scheduleEnrichMeta() {
-    if (!this.results || !this.api?.fetchVideoMetaBatch) return;
-    if (this._enrichMetaTimer) clearTimeout(this._enrichMetaTimer);
-    this._enrichMetaTimer = setTimeout(() => {
-      this._enrichMetaTimer = null;
-      void this._runEnrichMeta();
-    }, 200);
-  }
-
-  async _runEnrichMeta() {
-    if (!this.results) return;
-
-    const cards = [
-      ...this.results.querySelectorAll('li.result[data-needs-meta="1"]'),
-    ];
-    const ids = cards
-      .map((el) => el.getAttribute('data-video-id'))
-      .filter((id) => id && /^[a-zA-Z0-9_-]{11}$/.test(id));
-
-    if (ids.length === 0) return;
-
-    const batchSize = 15;
-    for (let i = 0; i < ids.length; i += batchSize) {
-      const chunk = ids.slice(i, i + batchSize);
-      try {
-        const data = await this.api.fetchVideoMetaBatch(chunk);
-        const items = data?.items ?? [];
-        for (const meta of items) {
-          this._applyMetaToCard(meta);
-        }
-      } catch {
-        for (const id of chunk) {
-          const el = this.results.querySelector(
-            `li.result[data-video-id="${CSS.escape(id)}"]`
-          );
-          if (el) el.setAttribute('data-needs-meta', '0');
-        }
-      }
-    }
-  }
-
-  /**
-   * @param {{ id: string, uploadedAt?: string | null, duration?: number | null }} meta
-   */
-  _applyMetaToCard(meta) {
-    if (!this.results || !meta?.id) return;
-    const li = this.results.querySelector(
-      `li.result[data-video-id="${CSS.escape(meta.id)}"]`
-    );
-    if (!li) return;
-
-    li.setAttribute('data-needs-meta', '0');
-
-    const metaEl = li.querySelector('.result-meta');
-    if (!metaEl) return;
-
-    const durationText =
-      meta.duration != null
-        ? formatDuration(meta.duration)
-        : metaEl.textContent?.split(' · ')[0] || '—';
-    const parts = [durationText];
-    const uploadedLabel = formatUploadDate(meta.uploadedAt);
-    if (uploadedLabel) parts.push(uploadedLabel);
-    metaEl.textContent = parts.join(' · ');
   }
 
   /**
