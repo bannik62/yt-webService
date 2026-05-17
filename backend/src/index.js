@@ -35,6 +35,7 @@ import {
   isValidYoutubeVideoId,
   renderSharePageHtml
 } from './sharePage.js';
+import { fetchVideoMeta } from './video/videoMeta.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COOKIES_PATH = path.join(__dirname, '..', 'cookies.txt');
@@ -142,6 +143,16 @@ const rateLimitSearchTrending = {
   config: {
     rateLimit: {
       max: 5,
+      timeWindow: '1 minute'
+    }
+  }
+};
+
+/** Métadonnées lecteur modal (1 vidéo, yt-dlp léger). */
+const rateLimitVideoMeta = {
+  config: {
+    rateLimit: {
+      max: 30,
       timeWindow: '1 minute'
     }
   }
@@ -437,6 +448,30 @@ app.get('/api/channel/videos', rateLimitSearchTrending, async (request, reply) =
     const message =
       err instanceof Error ? err.message : 'Erreur chaîne';
     reply.status(status).send({ error: message });
+  }
+});
+
+/** Infos complémentaires pour la vidéo en cours de lecture (modal). */
+app.get('/api/video/meta', rateLimitVideoMeta, async (request, reply) => {
+  const videoId =
+    typeof request.query.videoId === 'string'
+      ? request.query.videoId.trim()
+      : '';
+
+  if (!videoId) {
+    return reply.status(400).send({ error: 'Paramètre videoId requis' });
+  }
+
+  try {
+    return await fetchVideoMeta(videoId);
+  } catch (err) {
+    const status =
+      err && typeof err === 'object' && 'statusCode' in err
+        ? Number(err.statusCode) || 500
+        : 500;
+    const message =
+      err instanceof Error ? err.message : 'Erreur métadonnées';
+    return reply.status(status).send({ error: message });
   }
 });
 

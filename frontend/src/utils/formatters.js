@@ -34,6 +34,23 @@ export function formatDuration(seconds) {
  * @param {string | null | undefined} ymd
  * @returns {string}
  */
+/**
+ * @param {number | null | undefined} n
+ * @returns {string}
+ */
+export function formatViewCount(n) {
+  if (n == null || !Number.isFinite(n) || n < 0) return '';
+  if (n >= 1_000_000) {
+    const m = n / 1_000_000;
+    return `${m >= 10 ? Math.round(m) : m.toFixed(1).replace('.0', '')} M vues`;
+  }
+  if (n >= 1_000) {
+    const k = n / 1_000;
+    return `${k >= 100 ? Math.round(k) : k.toFixed(1).replace('.0', '')} k vues`;
+  }
+  return `${Math.floor(n)} vues`;
+}
+
 export function formatUploadDate(ymd) {
   if (!ymd) return '';
   const d = /^\d{4}-\d{2}-\d{2}$/.test(ymd)

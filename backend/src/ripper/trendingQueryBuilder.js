@@ -103,6 +103,32 @@ const SUBJECTS_GENERAL = [
   'film étudiant',
   'drone',
   'enquête',
+  'football', 
+  'basketball',
+  'tennis',
+  'handball',
+  'volleyball',
+  'rugby',
+  'athlétisme',
+  'natation',
+  'cyclisme',
+  'voile',
+  'surfe',
+  'ski',
+  'snowboard',
+  'kitesurf',
+  'parapente',
+  'escalade',
+  'alpinisme',
+  'bouldering',
+  'randonnée',
+  'pêche',
+  'chasse',
+  'nautisme',
+  'voile',
+  'surfe',
+  'ski',
+  'snowboard',
 ];
 
 const VERBS_GENERAL = [
@@ -152,6 +178,7 @@ const VERBS_GENERAL = [
   'version rare',
   'improvisation',
   'freestyle',
+  'reportage',
 ];
 
 const MODIFIERS_GENERAL = [
@@ -159,7 +186,7 @@ const MODIFIERS_GENERAL = [
   'français',
   'france',
   'francophone',
-  'belge',
+  'belge',  
   'québécois',
   'europe',
   'paris',
@@ -168,6 +195,7 @@ const MODIFIERS_GENERAL = [
   'urbain',
   'amateur',
   'indépendant',
+  'scénae',
   'local',
   'régional',
   'underground',
@@ -212,6 +240,7 @@ const MODIFIERS_GENERAL = [
   'que j\'ai appris',
   'que j\'ai partagé',
   'que j\'ai créé',
+  'POV'
 ];
 
 /** Termes « archive / long tail » (général) */
@@ -541,6 +570,14 @@ export const YOUTUBERS_FR = [
   "le journal de l'espace",
   'curionautes des sciences',
   'Ludikids',
+  'superconnerie',
+  'najbi fit',
+  'b2f',
+  'wacked xyz',
+  'cyrob',
+  'tev ici japon',
+  'Le Retro Viseur',
+  'Conte Fécond'
 ];
 
 /** Probabilité d’utiliser un nom de chaîne au lieu d’une phrase composée */

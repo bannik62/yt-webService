@@ -21,7 +21,7 @@ export class SearchMode {
     this.downloadList = new DownloadList();
     this.searchView = new SearchView(this.api);
     this.downloadListView = new DownloadListView(this.downloadList);
-    this.videoModal = new VideoModal();
+    this.videoModal = new VideoModal(this.api);
     this.playbackHistory = new PlaybackHistory();
     this.playbackHistoryModal = new PlaybackHistoryModal(this.playbackHistory);
     this.downloadProgressModal = new DownloadProgressModal();

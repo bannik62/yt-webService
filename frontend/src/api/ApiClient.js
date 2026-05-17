@@ -53,6 +53,51 @@ export class ApiClient {
    * Vidéos de l'onglet « Vidéos » d'une chaîne YouTube (pas recherche globale).
    * @param {{ channelId?: string, channelUrl?: string, channelName?: string }} opts
    */
+  /**
+   * Métadonnées d’une vidéo (modal lecteur). Ne lance pas d’exception : erreurs → payload partiel.
+   * @param {string} videoId
+   * @returns {Promise<{
+   *   id?: string,
+   *   uploadedAt?: string | null,
+   *   duration?: number | null,
+   *   viewCount?: number | null,
+   *   channel?: string | null,
+   *   descriptionPreview?: string | null,
+   *   available?: boolean,
+   *   error?: string
+   * }>}
+   */
+  async fetchVideoMeta(videoId) {
+    const id = typeof videoId === 'string' ? videoId.trim() : '';
+    if (!id || !/^[a-zA-Z0-9_-]{11}$/.test(id)) {
+      return { id, available: false, error: 'Identifiant vidéo invalide' };
+    }
+
+    try {
+      const url = `${this.baseUrl}/api/video/meta?${new URLSearchParams({ videoId: id })}`;
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(25000),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        return {
+          id,
+          available: false,
+          error: data?.error || `Erreur serveur (${res.status})`,
+        };
+      }
+
+      return await res.json();
+    } catch (err) {
+      const name = err && typeof err === 'object' && 'name' in err ? err.name : '';
+      if (name === 'TimeoutError' || name === 'AbortError') {
+        return { id, available: false, error: 'Délai dépassé' };
+      }
+      return { id, available: false, error: 'Infos indisponibles' };
+    }
+  }
+
   async searchChannelVideos(opts) {
     try {
       const params = new URLSearchParams();

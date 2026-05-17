@@ -1,5 +1,10 @@
 import { createElement } from '../utils/dom.js';
-import { escapeHtml } from '../utils/formatters.js';
+import {
+  escapeHtml,
+  formatDuration,
+  formatUploadDate,
+  formatViewCount,
+} from '../utils/formatters.js';
 
 /** Charge l’API IFrame (une fois) pour recevoir les événements fin de lecture */
 function loadYoutubeIframeAPI() {
@@ -21,28 +26,77 @@ function loadYoutubeIframeAPI() {
 }
 
 /**
- * Extrait l'ID vidéo YouTube depuis une URL
- * @param {string} url
+ * @param {string | undefined} url
+ * @param {object | null | undefined} item
  * @returns {string|null}
  */
-function extractYoutubeId(url) {
+function resolveVideoId(url, item) {
+  if (item?.id && /^[a-zA-Z0-9_-]{11}$/.test(String(item.id))) {
+    return String(item.id);
+  }
+  if (!url || typeof url !== 'string') return null;
   const patterns = [
     /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
-    /youtube\.com\/embed\/([^&\n?#]+)/
+    /youtube\.com\/embed\/([^&\n?#]+)/,
   ];
-  
   for (const pattern of patterns) {
     const match = url.match(pattern);
-    if (match) return match[1];
+    if (match?.[1] && /^[a-zA-Z0-9_-]{11}$/.test(match[1])) return match[1];
   }
   return null;
+}
+
+/**
+ * @param {object | null | undefined} item
+ * @param {object | null | undefined} meta
+ * @returns {{ lines: string[], summary: string | null, isEmpty: boolean }}
+ */
+function buildMetaDisplay(item, meta) {
+  const duration =
+    meta?.duration != null
+      ? formatDuration(meta.duration)
+      : item?.duration != null && item.duration > 0
+        ? formatDuration(item.duration)
+        : '';
+
+  const uploaded =
+    formatUploadDate(meta?.uploadedAt ?? item?.uploadedAt) || '';
+
+  const views = formatViewCount(meta?.viewCount);
+
+  const channelRaw = meta?.channel ?? item?.channel;
+  const channel =
+    channelRaw && String(channelRaw).trim() && String(channelRaw).trim() !== '—'
+      ? String(channelRaw).trim()
+      : '';
+
+  const parts = [];
+  if (uploaded) parts.push(uploaded);
+  if (duration && duration !== '—') parts.push(duration);
+  if (views) parts.push(views);
+  if (channel) parts.push(channel);
+
+  const summary =
+    meta?.descriptionPreview && String(meta.descriptionPreview).trim()
+      ? String(meta.descriptionPreview).trim()
+      : null;
+
+  return {
+    lines: parts,
+    summary,
+    isEmpty: parts.length === 0 && !summary,
+  };
 }
 
 /**
  * Modal pour afficher vidéo YouTube et ajouter à la liste
  */
 export class VideoModal {
-  constructor() {
+  /**
+   * @param {import('../api/ApiClient.js').ApiClient | null} [api]
+   */
+  constructor(api = null) {
+    this.api = api;
     this.modal = null;
     this.currentItem = null;
     this.playlist = null;
@@ -51,13 +105,14 @@ export class VideoModal {
     this.onNext = null;
     this.onPrevious = null;
     this._ytPlayer = null;
+    /** @type {number} */
+    this._metaLoadGen = 0;
   }
 
   /**
-   * Affiche le modal avec une vidéo
    * @param {object} item
-   * @param {Array} playlist - Liste complète (optionnel)
-   * @param {number} index - Index dans la playlist (optionnel)
+   * @param {Array | null} [playlist]
+   * @param {number} [index]
    */
   show(item, playlist = null, index = 0) {
     this.currentItem = item;
@@ -66,10 +121,8 @@ export class VideoModal {
     this.render();
   }
 
-  /**
-   * Ferme le modal
-   */
   close() {
+    this._metaLoadGen += 1;
     this._destroyYtPlayer();
     if (this.modal) {
       this.modal.classList.add('fade-out');
@@ -95,61 +148,186 @@ export class VideoModal {
   }
 
   /**
-   * Crée et affiche le modal
+   * @param {HTMLElement} metaEl
+   * @param {'loading' | 'content' | 'error' | 'empty'} state
+   * @param {{ lines?: string[], summary?: string | null, message?: string }} [opts]
    */
+  _setMetaPanel(metaEl, state, opts = {}) {
+    metaEl.innerHTML = '';
+    metaEl.classList.remove('is-loading', 'is-error', 'is-empty');
+
+    if (state === 'loading') {
+      metaEl.classList.add('is-loading');
+      metaEl.textContent = 'Chargement des infos…';
+      return;
+    }
+
+    if (state === 'error') {
+      metaEl.classList.add('is-error');
+      metaEl.textContent = opts.message || 'Infos indisponibles';
+      return;
+    }
+
+    if (state === 'empty') {
+      metaEl.classList.add('is-empty');
+      metaEl.textContent = 'Aucune info complémentaire';
+      return;
+    }
+
+    const lines = opts.lines ?? [];
+    if (lines.length > 0) {
+      const lineEl = createElement('div', { className: 'modal-video-meta-line' });
+      lineEl.textContent = lines.join(' · ');
+      metaEl.appendChild(lineEl);
+    }
+
+    if (opts.summary) {
+      this._appendExpandableSummary(metaEl, opts.summary);
+    }
+  }
+
+  /**
+   * @param {HTMLElement} metaEl
+   * @param {string} summaryText
+   */
+  _appendExpandableSummary(metaEl, summaryText) {
+    const text = String(summaryText).trim();
+    if (!text) return;
+
+    const wrap = createElement('div', { className: 'modal-video-meta-summary-wrap' });
+    const p = createElement('p', { className: 'modal-video-meta-summary' });
+    p.textContent = text;
+    wrap.appendChild(p);
+
+    const needsToggle = text.length > 180 || text.includes('\n');
+    if (!needsToggle) {
+      wrap.classList.add('is-expanded');
+      metaEl.appendChild(wrap);
+      return;
+    }
+
+    const btn = createElement('button', {
+      type: 'button',
+      className: 'modal-video-meta-more',
+      'aria-expanded': 'false',
+    });
+    btn.textContent = 'Voir plus';
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const expanded = wrap.classList.toggle('is-expanded');
+      btn.textContent = expanded ? 'Voir moins' : 'Voir plus';
+      btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    });
+    wrap.appendChild(btn);
+    metaEl.appendChild(wrap);
+  }
+
+  /**
+   * @param {HTMLElement} metaEl
+   * @param {string} videoId
+   * @param {object} item
+   * @param {number} loadGen
+   */
+  async _loadVideoMeta(metaEl, videoId, item, loadGen) {
+    const initial = buildMetaDisplay(item, null);
+    if (!initial.isEmpty) {
+      this._setMetaPanel(metaEl, 'content', {
+        lines: initial.lines,
+        summary: null,
+      });
+    } else {
+      this._setMetaPanel(metaEl, 'loading');
+    }
+
+    if (!this.api?.fetchVideoMeta) {
+      if (initial.isEmpty) {
+        this._setMetaPanel(metaEl, 'empty');
+      }
+      return;
+    }
+
+    if (initial.isEmpty) {
+      this._setMetaPanel(metaEl, 'loading');
+    }
+
+    const meta = await this.api.fetchVideoMeta(videoId);
+    if (loadGen !== this._metaLoadGen || !this.modal?.contains(metaEl)) {
+      return;
+    }
+
+    if (meta?.error && meta.available === false && !meta.uploadedAt && !meta.viewCount) {
+      if (initial.isEmpty) {
+        this._setMetaPanel(metaEl, 'error', { message: meta.error });
+      }
+      return;
+    }
+
+    const display = buildMetaDisplay(item, meta);
+    if (display.isEmpty) {
+      this._setMetaPanel(metaEl, 'empty');
+      return;
+    }
+
+    this._setMetaPanel(metaEl, 'content', {
+      lines: display.lines,
+      summary: display.summary,
+    });
+  }
+
   render() {
     this._destroyYtPlayer();
-    // Fermer modal existant
+    this._metaLoadGen += 1;
+    const loadGen = this._metaLoadGen;
+
     if (this.modal) {
       this.modal.remove();
     }
 
-    const videoId = extractYoutubeId(this.currentItem.url);
+    const item = this.currentItem;
+    const videoId = resolveVideoId(item?.url, item);
     if (!videoId) {
       alert('URL YouTube invalide');
       return;
     }
 
-    // Overlay
     const overlay = createElement('div', {
       className: 'modal-overlay',
-      onClick: () => this.close()
+      onClick: () => this.close(),
     });
 
-    // Modal content
     const modalContent = createElement('div', {
       className: 'modal-content',
-      onClick: (e) => e.stopPropagation()
+      onClick: (e) => e.stopPropagation(),
     });
 
-    // Header
     const header = createElement('div', { className: 'modal-header' });
-    
-    const title = createElement('h2', {
-      className: 'modal-title'
-    }, escapeHtml(this.currentItem.title));
-    
-    const closeBtn = createElement('button', {
-      className: 'modal-close',
-      type: 'button',
-      onClick: () => this.close()
-    }, '×');
-    
-    header.appendChild(title);
-    header.appendChild(closeBtn);
+    header.appendChild(
+      createElement('h2', { className: 'modal-title' }, escapeHtml(item.title || 'Vidéo'))
+    );
+    header.appendChild(
+      createElement(
+        'button',
+        {
+          className: 'modal-close',
+          type: 'button',
+          onClick: () => this.close(),
+        },
+        '×'
+      )
+    );
 
-    // Body : iframe simple (hors playlist) ou hôte API (playlist → enchaînement auto)
     const body = createElement('div', { className: 'modal-body' });
-
-    const iframeContainer = createElement('div', { className: 'video-container' });
-    const hasPlaylistNav =
-      this.playlist && this.playlist.length > 1;
+    const iframeContainer = createElement('div', {
+      className: 'video-container',
+    });
+    const hasPlaylistNav = this.playlist && this.playlist.length > 1;
 
     if (hasPlaylistNav) {
       const hostId = `modal-yt-player-${Date.now()}`;
       const host = createElement('div', {
         id: hostId,
-        className: 'video-container-host'
+        className: 'video-container-host',
       });
       iframeContainer.appendChild(host);
       body.appendChild(iframeContainer);
@@ -164,7 +342,7 @@ export class VideoModal {
           playerVars: {
             autoplay: 1,
             rel: 0,
-            modestbranding: 1
+            modestbranding: 1,
           },
           events: {
             onStateChange: (e) => {
@@ -175,8 +353,8 @@ export class VideoModal {
               ) {
                 this.showNext();
               }
-            }
-          }
+            },
+          },
         });
       });
     } else {
@@ -184,74 +362,90 @@ export class VideoModal {
         src: `https://www.youtube.com/embed/${videoId}?autoplay=1`,
         frameborder: '0',
         allow: 'autoplay; encrypted-media; fullscreen',
-        allowfullscreen: true
+        allowfullscreen: true,
       });
       iframeContainer.appendChild(iframe);
       body.appendChild(iframeContainer);
     }
 
-    // Footer avec bouton(s)
     const footer = createElement('div', { className: 'modal-footer' });
+    const footerMain = createElement('div', {
+      className: 'modal-footer-main',
+    });
 
-    /** Lecture « Ma liste » avec navigation : pas de bouton ajouter (déjà dans la liste). */
     if (hasPlaylistNav) {
       const nav = createElement('div', { className: 'modal-nav' });
-
-      const prevBtn = createElement('button', {
-        className: 'btn btn-secondary',
-        type: 'button',
-        disabled: this.currentIndex === 0,
-        onClick: () => this.showPrevious()
-      }, '← Précédent');
-
-      const counter = createElement(
-        'span',
-        { className: 'modal-counter' },
-        `${this.currentIndex + 1} / ${this.playlist.length}`
+      nav.appendChild(
+        createElement(
+          'button',
+          {
+            className: 'btn btn-secondary',
+            type: 'button',
+            disabled: this.currentIndex === 0,
+            onClick: () => this.showPrevious(),
+          },
+          '← Précédent'
+        )
       );
-
-      const nextBtn = createElement('button', {
-        className: 'btn btn-secondary',
-        type: 'button',
-        disabled: this.currentIndex === this.playlist.length - 1,
-        onClick: () => this.showNext()
-      }, 'Suivant →');
-
-      nav.appendChild(prevBtn);
-      nav.appendChild(counter);
-      nav.appendChild(nextBtn);
-      footer.appendChild(nav);
+      nav.appendChild(
+        createElement(
+          'span',
+          { className: 'modal-counter' },
+          `${this.currentIndex + 1} / ${this.playlist.length}`
+        )
+      );
+      nav.appendChild(
+        createElement(
+          'button',
+          {
+            className: 'btn btn-secondary',
+            type: 'button',
+            disabled: this.currentIndex === this.playlist.length - 1,
+            onClick: () => this.showNext(),
+          },
+          'Suivant →'
+        )
+      );
+      footerMain.appendChild(nav);
+    } else {
+      footerMain.appendChild(
+        createElement(
+          'button',
+          {
+            className: 'btn btn-primary btn-large',
+            type: 'button',
+            onClick: () => {
+              if (this.onAdd) {
+                this.onAdd(this.currentItem);
+              }
+              this.close();
+            },
+          },
+          '➕ Ajouter à ma liste'
+        )
+      );
     }
 
-    if (!hasPlaylistNav) {
-      const addBtn = createElement('button', {
-        className: 'btn btn-primary btn-large',
-        type: 'button',
-        onClick: () => {
-          if (this.onAdd) {
-            this.onAdd(this.currentItem);
-          }
-          this.close();
-        }
-      }, '➕ Ajouter à ma liste');
+    const metaEl = createElement('div', {
+      className: 'modal-video-meta',
+      'aria-live': 'polite',
+    });
 
-      footer.appendChild(addBtn);
-    }
+    footer.appendChild(footerMain);
+    footer.appendChild(metaEl);
 
-    // Assemblage
     modalContent.appendChild(header);
     modalContent.appendChild(body);
     modalContent.appendChild(footer);
     overlay.appendChild(modalContent);
 
-    // Ajout au DOM
     document.body.appendChild(overlay);
     this.modal = overlay;
 
-    // Animation d'entrée
+    void this._loadVideoMeta(metaEl, videoId, item, loadGen);
+
     setTimeout(() => overlay.classList.add('show'), 10);
 
-    // ESC pour fermer
     const handleEsc = (e) => {
       if (e.key === 'Escape') {
         this.close();
@@ -261,9 +455,6 @@ export class VideoModal {
     document.addEventListener('keydown', handleEsc);
   }
 
-  /**
-   * Passe à la vidéo suivante dans la playlist
-   */
   showNext() {
     if (!this.playlist || this.currentIndex >= this.playlist.length - 1) return;
     this.currentIndex++;
@@ -272,9 +463,6 @@ export class VideoModal {
     if (this.onNext) this.onNext(this.currentIndex);
   }
 
-  /**
-   * Passe à la vidéo précédente dans la playlist
-   */
   showPrevious() {
     if (!this.playlist || this.currentIndex <= 0) return;
     this.currentIndex--;
