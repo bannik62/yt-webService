@@ -59,3 +59,8 @@ export function checkWorkerIngestGate() {
 export function isWorkerIngestGateOpen() {
   return !checkWorkerIngestGate().blocked;
 }
+
+/** Worker joignable récemment (health / heartbeat). */
+export function isWorkerHealthRecent() {
+  return isWorkerIngestGateOpen();
+}

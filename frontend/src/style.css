@@ -1552,6 +1552,12 @@ body.mode-ripper .search-sticky-stack {
   color: #c9a227;
 }
 
+.modal-video-meta-line--warn {
+  margin-top: 0.35rem;
+  color: #c9a227;
+  font-size: 0.75rem;
+}
+
 .modal-video-meta.is-empty {
   color: #6b7280;
   font-style: italic;

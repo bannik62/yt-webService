@@ -107,6 +107,8 @@ export class VideoModal {
     this._ytPlayer = null;
     /** @type {number} */
     this._metaLoadGen = 0;
+    /** @type {AbortController | null} */
+    this._metaAbort = null;
   }
 
   /**
@@ -123,6 +125,10 @@ export class VideoModal {
 
   close() {
     this._metaLoadGen += 1;
+    if (this._metaAbort) {
+      this._metaAbort.abort();
+      this._metaAbort = null;
+    }
     this._destroyYtPlayer();
     if (this.modal) {
       this.modal.classList.add('fade-out');
@@ -263,14 +269,26 @@ export class VideoModal {
       this._setMetaPanel(metaEl, 'loading');
     }
 
-    const meta = await this.api.fetchVideoMeta(videoId);
+    const meta = await this.api.fetchVideoMeta(videoId, {
+      signal: this._metaAbort?.signal,
+    });
     if (loadGen !== this._metaLoadGen || !this.modal?.contains(metaEl)) {
       return;
     }
 
-    if (meta?.error && meta.available === false && !meta.uploadedAt && !meta.viewCount) {
+    if (meta?.error && meta.available === false) {
+      const msg =
+        typeof meta.error === 'string' && meta.error.trim()
+          ? meta.error.trim()
+          : 'Infos indisponibles';
       if (initial.isEmpty) {
-        this._setMetaPanel(metaEl, 'error', { message: meta.error });
+        this._setMetaPanel(metaEl, 'error', { message: msg });
+      } else {
+        const warn = createElement('div', {
+          className: 'modal-video-meta-line modal-video-meta-line--warn',
+        });
+        warn.textContent = msg;
+        metaEl.appendChild(warn);
       }
       return;
     }
@@ -289,6 +307,10 @@ export class VideoModal {
 
   render() {
     this._destroyYtPlayer();
+    if (this._metaAbort) {
+      this._metaAbort.abort();
+    }
+    this._metaAbort = new AbortController();
     this._metaLoadGen += 1;
     const loadGen = this._metaLoadGen;
 

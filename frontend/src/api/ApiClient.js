@@ -120,11 +120,17 @@ export class ApiClient {
     };
   }
 
-  async fetchVideoMeta(videoId) {
+  async fetchVideoMeta(videoId, opts = {}) {
     const id = typeof videoId === 'string' ? videoId.trim() : '';
     if (!id || !/^[a-zA-Z0-9_-]{11}$/.test(id)) {
       return { id, available: false, error: 'Identifiant vidéo invalide' };
     }
+
+    const externalSignal = opts.signal;
+    const timeoutMs =
+      typeof opts.timeoutMs === 'number' && opts.timeoutMs > 0
+        ? opts.timeoutMs
+        : 55_000;
 
     try {
       const params = new URLSearchParams({ videoId: id });
@@ -136,13 +142,19 @@ export class ApiClient {
         headers: {
           ...this._workerSessionHeaders(),
         },
-        signal: AbortSignal.timeout(130000),
+        signal: AbortSignal.any([
+          AbortSignal.timeout(timeoutMs),
+          ...(externalSignal ? [externalSignal] : []),
+        ]),
       });
 
       const data = await res.json().catch(() => ({}));
 
       if (res.status === 202 && data.pendingWorkerMeta && data.probeId) {
-        const probe = await this._pollProbeDelegation(data.probeId);
+        const probe = await this._pollProbeDelegation(data.probeId, {
+          signal: externalSignal,
+          deadlineMs: 50_000,
+        });
         return this._probeResultToVideoMeta(probe, id);
       }
 
@@ -240,11 +252,24 @@ export class ApiClient {
    * @param {string} probeId
    * @returns {Promise<object>}
    */
-  async _pollProbeDelegation(probeId) {
-    const deadline = Date.now() + 120000;
+  async _pollProbeDelegation(probeId, opts = {}) {
+    const deadlineMs =
+      typeof opts.deadlineMs === 'number' && opts.deadlineMs > 0
+        ? opts.deadlineMs
+        : 120_000;
+    const deadline = Date.now() + deadlineMs;
+    const externalSignal = opts.signal;
     const pollUrl = `${this.baseUrl}/api/probe-delegation/${encodeURIComponent(probeId)}/status`;
     while (Date.now() < deadline) {
-      const r = await fetch(pollUrl, { signal: AbortSignal.timeout(15000) });
+      if (externalSignal?.aborted) {
+        throw new DOMException('Annulé', 'AbortError');
+      }
+      const r = await fetch(pollUrl, {
+        signal: AbortSignal.any([
+          AbortSignal.timeout(15_000),
+          ...(externalSignal ? [externalSignal] : []),
+        ]),
+      });
       const s = await r.json().catch(() => ({}));
       if (s.state === 'complete' && s.ok === true) {
         /** @type {Record<string, unknown>} */
@@ -276,10 +301,10 @@ export class ApiClient {
       if (s.state === 'failed') {
         throw new Error(s.error || 'Échec analyse relais local');
       }
-      await new Promise((res) => setTimeout(res, 700));
+      await new Promise((res) => setTimeout(res, 800));
     }
     throw new Error(
-      'Time-out analyse relais local (worker absent ou trop lent). Vérifie le worker sur ta machine.'
+      'Time-out relais local (worker absent ou trop lent). Vérifie serveurLocal.'
     );
   }
 

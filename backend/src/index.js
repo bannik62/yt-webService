@@ -37,6 +37,7 @@ import {
 } from './sharePage.js';
 import { fetchVideoMeta } from './video/videoMeta.js';
 import { ProxyQuotaError } from './ripper/proxyQuotaError.js';
+import { isWorkerHealthRecent } from './workerIngestGate.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COOKIES_PATH = path.join(__dirname, '..', 'cookies.txt');
@@ -472,6 +473,19 @@ app.get('/api/video/meta', rateLimitVideoMeta, async (request, reply) => {
   const workerSessionId = parseWorkerSessionId(
     request.headers['x-worker-session']
   );
+
+  if (workerSessionId && isWorkerHealthRecent()) {
+    const url = `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
+    const probeId = enqueueProbeDelegation({
+      url,
+      noPlaylist: true,
+      maxDownloads: undefined
+    });
+    return reply.status(202).send({
+      pendingWorkerMeta: true,
+      probeId
+    });
+  }
 
   try {
     return await fetchVideoMeta(videoId, { proxyUrl });
