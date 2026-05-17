@@ -9,10 +9,20 @@ export class SearchView {
     this.api = apiClient;
     this.form = $('#search-form');
     this.input = $('#search-input');
+    this.submitBtn = $('#search-submit-btn');
+    this.clearBtn = $('#search-clear-btn');
     this.hint = $('#search-hint');
     this.results = $('#search-results');
     /** @type {((item: object) => void) | null} */
     this.onShareLink = null;
+    /** @type {import('../models/Favorites.js').Favorites | null} */
+    this.favorites = null;
+    /** @type {(() => void) | null} */
+    this.onFavoriteChange = null;
+    /** @type {((hasResults: boolean) => void) | null} */
+    this.onResultsChange = null;
+    /** @type {(() => void) | null} */
+    this.onClearView = null;
 
     /** @type {string} */
     this._lastHintText = '';
@@ -26,6 +36,10 @@ export class SearchView {
     this.form.addEventListener('submit', (e) => {
       e.preventDefault();
       this.handleSearch();
+    });
+
+    this.clearBtn?.addEventListener('click', () => {
+      this.onClearView?.();
     });
   }
 
@@ -49,7 +63,7 @@ export class SearchView {
     if (this.input) this.input.value = channelName || item.channelId || '';
 
     this.onBeforeSearch?.();
-    this.results.innerHTML = '';
+    this.clearResults();
     const label = channelName || 'cette chaîne';
     this.setHint(`Chaîne : ${label} — chargement des vidéos…`, false);
 
@@ -85,7 +99,7 @@ export class SearchView {
    */
   async runSearch(query, hintWhileLoading = 'Recherche…') {
     this.onBeforeSearch?.();
-    this.results.innerHTML = '';
+    this.clearResults();
     this.setHint(hintWhileLoading, false);
 
     try {
@@ -107,6 +121,12 @@ export class SearchView {
         this.setHint(err.message || 'Réseau ou serveur indisponible.', true);
       }
     }
+  }
+
+  clearResults() {
+    if (!this.results) return;
+    this.results.innerHTML = '';
+    this._syncResultsVisibility();
   }
 
   renderResults(items) {
@@ -141,6 +161,31 @@ export class SearchView {
             loading: 'lazy',
           })
         );
+
+        const videoId = item.id || '';
+        const isFav = videoId && this.favorites?.isFavorite(videoId);
+        const favBtn = createElement('button', {
+          type: 'button',
+          className: `favorite-star-btn${isFav ? ' is-active' : ''}`,
+          title: isFav ? 'Retirer des favoris' : 'Ajouter aux favoris',
+          'aria-label': isFav ? 'Retirer des favoris' : 'Ajouter aux favoris',
+          'aria-pressed': isFav ? 'true' : 'false',
+        });
+        favBtn.textContent = '★';
+        favBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (!this.favorites) return;
+          const added = this.favorites.toggle(item);
+          favBtn.classList.toggle('is-active', added);
+          favBtn.setAttribute('aria-pressed', added ? 'true' : 'false');
+          favBtn.title = added ? 'Retirer des favoris' : 'Ajouter aux favoris';
+          favBtn.setAttribute(
+            'aria-label',
+            added ? 'Retirer des favoris' : 'Ajouter aux favoris'
+          );
+          this.onFavoriteChange?.();
+        });
+        thumbWrap.appendChild(favBtn);
 
         if (channelName) {
           const channelBtn = createElement(
@@ -231,6 +276,16 @@ export class SearchView {
 
       this.results.appendChild(li);
     });
+
+    this._syncResultsVisibility();
+  }
+
+  _syncResultsVisibility() {
+    if (!this.results) return;
+    const hasResults = this.results.querySelector('li.result') !== null;
+    this.form?.classList.toggle('search-form--has-results', hasResults);
+    if (this.clearBtn) this.clearBtn.hidden = !hasResults;
+    this.onResultsChange?.(hasResults);
   }
 
   /**

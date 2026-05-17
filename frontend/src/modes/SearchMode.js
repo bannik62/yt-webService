@@ -5,7 +5,9 @@ import { VideoModal } from '../views/VideoModal.js';
 import { DownloadProgressModal } from '../views/DownloadProgressModal.js';
 import { DownloadList } from '../models/DownloadList.js';
 import { PlaybackHistory } from '../models/PlaybackHistory.js';
+import { Favorites } from '../models/Favorites.js';
 import { PlaybackHistoryModal } from '../views/PlaybackHistoryModal.js';
+import { HorizontalMediaStrip } from '../views/HorizontalMediaStrip.js';
 import {
   tryAcquireUserDownload,
   releaseUserDownload
@@ -23,8 +25,34 @@ export class SearchMode {
     this.downloadListView = new DownloadListView(this.downloadList);
     this.videoModal = new VideoModal(this.api);
     this.playbackHistory = new PlaybackHistory();
+    this.favorites = new Favorites();
     this.playbackHistoryModal = new PlaybackHistoryModal(this.playbackHistory);
     this.downloadProgressModal = new DownloadProgressModal();
+    this.searchView.favorites = this.favorites;
+
+    const playStripItem = (item) => this.videoModal.show(item);
+    this.favoritesStrip = new HorizontalMediaStrip({
+      sectionEl: $('#favorites-strip-section'),
+      trackEl: $('#favorites-strip'),
+      viewportEl: $('#favorites-strip-viewport'),
+      prevBtn: $('#favorites-strip-prev'),
+      nextBtn: $('#favorites-strip-next'),
+      emptyEl: $('#favorites-strip-empty'),
+      clearBtn: $('#favorites-clear'),
+      onPlay: playStripItem,
+      onClear: () => this.favorites.clear(),
+    });
+    this.historyStrip = new HorizontalMediaStrip({
+      sectionEl: $('#history-strip-section'),
+      trackEl: $('#history-strip'),
+      viewportEl: $('#history-strip-viewport'),
+      prevBtn: $('#history-strip-prev'),
+      nextBtn: $('#history-strip-next'),
+      clearBtn: $('#history-strip-clear'),
+      showPlayedAt: true,
+      onPlay: playStripItem,
+      onClear: () => this.playbackHistory.clear(),
+    });
 
     const showVideo = this.videoModal.show.bind(this.videoModal);
     this.videoModal.show = (item, playlist, index) => {
@@ -172,7 +200,48 @@ export class SearchMode {
       }
     };
 
+    this._resultsVisible = false;
+
+    const refreshMediaStrips = () => {
+      this.favoritesStrip.render(this.favorites.getAll());
+      this.historyStrip.render(this.playbackHistory.getAll());
+      this._applyMediaStripsVisibility();
+    };
+
+    this._applyMediaStripsVisibility = () => {
+      if (this._resultsVisible) {
+        if (this.favoritesStrip.sectionEl) {
+          this.favoritesStrip.sectionEl.hidden = true;
+        }
+        if (this.historyStrip.sectionEl) {
+          this.historyStrip.sectionEl.hidden = true;
+        }
+        return;
+      }
+      this.favoritesStrip.render(this.favorites.getAll());
+      this.historyStrip.render(this.playbackHistory.getAll());
+    };
+
+    this.favorites.onChange(refreshMediaStrips);
+    this.playbackHistory.onChange(refreshMediaStrips);
+    this.searchView.onFavoriteChange = refreshMediaStrips;
+    this.searchView.onResultsChange = (hasResults) => {
+      this._resultsVisible = hasResults;
+      this._applyMediaStripsVisibility();
+    };
+    this.searchView.onClearView = () => {
+      this.stopTrendingInfiniteScroll();
+      this.searchView.clearResults();
+      this.searchView.setHint('', false);
+    };
+    refreshMediaStrips();
+
     $('#playback-history-open')?.addEventListener('click', () => {
+      const section = $('#history-strip-section');
+      if (section && !section.hidden) {
+        section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        return;
+      }
       this.playbackHistoryModal.open();
     });
   }
@@ -182,7 +251,7 @@ export class SearchMode {
 
     const hint = musicOnly ? '🎵 Chargement…' : '🔥 Chargement…';
     this.searchView.setHint(hint, false);
-    this.searchView.results.innerHTML = '';
+    this.searchView.clearResults();
     this.seenTrendingIds.clear();
     this.trendingKeywordsShown = [];
     this.trendingMusicOnly = musicOnly;
