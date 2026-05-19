@@ -145,18 +145,6 @@
           <!-- Phrase contexte + formulaire (mobile : sticky seul ce bloc ; desktop : zone parente) -->
           <div class="search-sticky-stack">
             <p class="hint hint--search-context" id="search-hint" hidden></p>
-            <div class="channel-context-bar" id="channel-context-bar" hidden>
-              <button
-                type="button"
-                id="channel-favorite-btn"
-                class="channel-favorite-btn"
-                aria-pressed="false"
-                title="Ajouter cette chaîne aux favoris"
-              >
-                <span class="channel-favorite-btn-star" aria-hidden="true">★</span>
-                <span id="channel-favorite-btn-label">Chaîne en favoris</span>
-              </button>
-            </div>
             <div class="search-form-sticky">
               <form class="search-form" id="search-form" action="#" method="get">
                 <input
@@ -343,6 +331,18 @@
               </button>
             </div>
           </section>
+          <div class="channel-context-bar" id="channel-context-bar" hidden>
+            <button
+              type="button"
+              id="channel-favorite-btn"
+              class="channel-favorite-btn"
+              aria-pressed="false"
+              title="Ajouter cette chaîne aux favoris"
+            >
+              <span class="channel-favorite-btn-star" aria-hidden="true">★</span>
+              <span id="channel-favorite-btn-label">Chaîne en favoris</span>
+            </button>
+          </div>
           <ul class="results" id="search-results" aria-live="polite"></ul>
         </div>
 

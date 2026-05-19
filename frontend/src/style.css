@@ -1299,8 +1299,9 @@ body.mode-ripper .search-sticky-stack {
 
 .channel-context-bar {
   display: flex;
-  justify-content: center;
-  margin: 0.15rem 0 0.35rem;
+  justify-content: flex-start;
+  margin: 0 0 0.85rem;
+  padding: 0;
 }
 
 .channel-favorite-btn {
