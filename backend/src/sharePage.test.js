@@ -124,6 +124,17 @@ describe('sharePage', () => {
     expect(isLinkPreviewBot('Mozilla/5.0 (iPhone; Instagram 123)')).toBe(false);
   });
 
+  it('isLinkPreviewBot détecte Snap URL Preview (aperçu lien Snapchat)', () => {
+    expect(
+      isLinkPreviewBot(
+        'Snap URL Preview Service; bot; snapchat; https://developers.snap.com/robots'
+      )
+    ).toBe(true);
+    expect(shouldRedirectShareVisitor(
+      'Snap URL Preview Service; bot; snapchat; https://developers.snap.com/robots'
+    )).toBe(false);
+  });
+
   it('shouldRedirectShareVisitor : humain oui, crawler non', () => {
     expect(
       shouldRedirectShareVisitor(

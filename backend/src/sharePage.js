@@ -137,7 +137,7 @@ export function buildPublicOrigin(request) {
 export function isLinkPreviewBot(userAgent) {
   const ua = String(userAgent || '');
   // Ne pas matcher « Instagram » / « WhatsApp » seuls : ce sont aussi les WebViews in-app (humains).
-  return /facebookexternalhit|facebot|twitterbot|linkedinbot|slackbot|discordbot|telegrambot|pinterestbot|vkshare|embedly|outbrain|flipboard|tumblr|skypeuripreview|Applebot|bingpreview|MicrosoftTeams/i.test(
+  return /facebookexternalhit|facebot|twitterbot|linkedinbot|slackbot|discordbot|telegrambot|pinterestbot|vkshare|embedly|outbrain|flipboard|tumblr|skypeuripreview|Applebot|bingpreview|MicrosoftTeams|Snap URL Preview/i.test(
     ua
   );
 }
@@ -174,16 +174,24 @@ export function shouldRedirectShareVisitor(userAgent) {
 }
 
 /**
- * @param {{ origin: string; videoId: string; title: string }} opts
+ * @param {{ origin: string; videoId: string; title: string; imageWidth?: number; imageHeight?: number }} opts
  * @returns {string}
  */
-export function renderSharePageHtml({ origin, videoId, title }) {
+export function renderSharePageHtml({
+  origin,
+  videoId,
+  title,
+  imageWidth = 1280,
+  imageHeight = 720
+}) {
   const safeTitle = escapeHtmlAttr(title);
   const sharePath = `/v/${encodeURIComponent(videoId)}`;
   const shareUrl = `${origin}${sharePath}`;
   const appUrl = `${origin}/?v=${encodeURIComponent(videoId)}`;
   const thumbUrl = shareOgThumbUrl(origin, videoId);
   const desc = escapeHtmlAttr('Ouvrir dans YT Ripper Web');
+  const imgW = Math.max(1, Math.round(Number(imageWidth) || 1280));
+  const imgH = Math.max(1, Math.round(Number(imageHeight) || 720));
 
   const fbId = (process.env.FB_APP_ID || process.env.META_FB_APP_ID || '').trim();
   const fbAppMeta =
@@ -205,8 +213,8 @@ ${fbAppMeta}  <link rel="canonical" href="${escapeHtmlAttr(shareUrl)}" />
   <meta property="og:image" content="${escapeHtmlAttr(thumbUrl)}" />
   <meta property="og:image:secure_url" content="${escapeHtmlAttr(thumbUrl)}" />
   <meta property="og:image:type" content="image/jpeg" />
-  <meta property="og:image:width" content="480" />
-  <meta property="og:image:height" content="360" />
+  <meta property="og:image:width" content="${imgW}" />
+  <meta property="og:image:height" content="${imgH}" />
   <meta property="og:image:alt" content="${safeTitle}" />
   <meta property="og:site_name" content="YT Ripper Web" />
   <meta name="twitter:card" content="summary_large_image" />
@@ -215,7 +223,7 @@ ${fbAppMeta}  <link rel="canonical" href="${escapeHtmlAttr(shareUrl)}" />
   <meta name="twitter:image" content="${escapeHtmlAttr(thumbUrl)}" />
 </head>
 <body>
-  <p style="max-width:480px;margin:0 auto"><img src="${escapeHtmlAttr(thumbUrl)}" width="480" height="360" alt="${safeTitle}" loading="eager" decoding="async" /></p>
+  <p style="max-width:${imgW}px;margin:0 auto"><img src="${escapeHtmlAttr(thumbUrl)}" width="${imgW}" height="${imgH}" alt="${safeTitle}" loading="eager" decoding="async" /></p>
   <p><a href="${escapeHtmlAttr(appUrl)}">Ouvrir la vidéo dans YT Ripper</a></p>
 </body>
 </html>`;

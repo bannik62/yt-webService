@@ -37,6 +37,7 @@ import {
   shareAppDeepLinkUrl,
   shouldRedirectShareVisitor
 } from './sharePage.js';
+import { fetchShareThumbnail } from './shareThumb.js';
 import { fetchVideoMeta } from './video/videoMeta.js';
 import { ProxyQuotaError } from './ripper/proxyQuotaError.js';
 import { isWorkerHealthRecent } from './workerIngestGate.js';
@@ -177,6 +178,7 @@ await app.register(rateLimit, {
     return (
       url.startsWith('/api/worker') ||
       url.startsWith('/share-thumb/') ||
+      url.startsWith('/v/') ||
       url.startsWith('/api/probe-delegation/')
     );
   },
@@ -204,22 +206,15 @@ app.get('/share-thumb/:file', async (request, reply) => {
     return reply.status(404).type('text/plain; charset=utf-8').send('Not found');
   }
   const videoId = m[1];
-  const upstream = `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`;
   try {
-    const res = await fetch(upstream, {
-      signal: AbortSignal.timeout(12000),
-      headers: { 'User-Agent': 'yt-webService-share-thumb/1.0' }
-    });
-    if (!res.ok) {
-      request.log.warn({ status: res.status, videoId }, 'share-thumb: upstream');
-      return reply.status(502).type('text/plain; charset=utf-8').send('Bad gateway');
-    }
-    const ctype = res.headers.get('content-type') || 'image/jpeg';
-    const buf = Buffer.from(await res.arrayBuffer());
+    const { buffer, contentType } = await fetchShareThumbnail(
+      videoId,
+      request.log
+    );
     return reply
       .header('Cache-Control', 'public, max-age=86400, immutable')
-      .type(ctype.startsWith('image/') ? ctype : 'image/jpeg')
-      .send(buf);
+      .type(contentType)
+      .send(buffer);
   } catch (err) {
     request.log.warn({ err, videoId }, 'share-thumb: fetch');
     return reply.status(502).type('text/plain; charset=utf-8').send('Bad gateway');
