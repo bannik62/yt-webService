@@ -1297,6 +1297,75 @@ body.mode-ripper .search-sticky-stack {
   margin-bottom: 1.75rem;
 }
 
+.channel-context-bar {
+  display: flex;
+  justify-content: center;
+  margin: 0.15rem 0 0.35rem;
+}
+
+.channel-favorite-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid #3c4043;
+  border-radius: 999px;
+  background: #2a2d33;
+  color: #e8eaed;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.channel-favorite-btn:hover {
+  border-color: #5f6368;
+  background: #35383f;
+}
+
+.channel-favorite-btn.is-active {
+  border-color: gold;
+  background: rgba(255, 215, 0, 0.12);
+}
+
+.channel-favorite-btn-star {
+  color: #9aa0a6;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.channel-favorite-btn.is-active .channel-favorite-btn-star {
+  color: gold;
+}
+
+.channel-favorites-track {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.channel-favorite-badge {
+  flex: 0 0 auto;
+  max-width: 12rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid #3c4043;
+  border-radius: 999px;
+  background: #2a2d33;
+  color: #e8eaed;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.channel-favorite-badge:hover {
+  border-color: #e62117;
+  background: rgba(230, 33, 23, 0.15);
+  color: #fff;
+}
+
 .media-strip-header {
   display: flex;
   align-items: center;

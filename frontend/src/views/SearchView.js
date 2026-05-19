@@ -12,13 +12,24 @@ export class SearchView {
     this.submitBtn = $('#search-submit-btn');
     this.clearBtn = $('#search-clear-btn');
     this.hint = $('#search-hint');
+    this.channelContextBar = $('#channel-context-bar');
+    this.channelFavoriteBtn = $('#channel-favorite-btn');
+    this.channelFavoriteBtnLabel = $('#channel-favorite-btn-label');
     this.results = $('#search-results');
     /** @type {((item: object) => void) | null} */
     this.onShareLink = null;
     /** @type {import('../models/Favorites.js').Favorites | null} */
     this.favorites = null;
+    /** @type {import('../models/ChannelFavorites.js').ChannelFavorites | null} */
+    this.channelFavorites = null;
     /** @type {(() => void) | null} */
     this.onFavoriteChange = null;
+    /** @type {(() => void) | null} */
+    this.onChannelFavoriteChange = null;
+    /** @type {(() => void) | null} */
+    this.onBeforeSearch = null;
+    /** @type {object | null} */
+    this._channelContext = null;
     /** @type {((hasResults: boolean) => void) | null} */
     this.onResultsChange = null;
     /** @type {(() => void) | null} */
@@ -39,8 +50,61 @@ export class SearchView {
     });
 
     this.clearBtn?.addEventListener('click', () => {
+      this.clearChannelContext();
       this.onClearView?.();
     });
+
+    this.channelFavoriteBtn?.addEventListener('click', () => {
+      if (!this.channelFavorites || !this._channelContext) return;
+      const added = this.channelFavorites.toggle(this._channelContext);
+      this._syncChannelFavoriteBtn(added);
+      this.onChannelFavoriteChange?.();
+    });
+  }
+
+  /**
+   * @param {object} ctx — channelId, channelUrl, channelName, thumbnail?
+   */
+  setChannelContext(ctx) {
+    if (!ctx?.channelName && !ctx?.channelId && !ctx?.channelUrl) {
+      this.clearChannelContext();
+      return;
+    }
+    this._channelContext = {
+      channelId: ctx.channelId ?? null,
+      channelUrl: ctx.channelUrl ?? null,
+      channelName: ctx.channelName || 'Chaîne',
+      thumbnail: ctx.thumbnail ?? null,
+    };
+    if (this.channelContextBar) {
+      this.channelContextBar.hidden = false;
+    }
+    const isFav = this.channelFavorites?.isFavorite(this._channelContext) ?? false;
+    this._syncChannelFavoriteBtn(isFav);
+  }
+
+  clearChannelContext() {
+    this._channelContext = null;
+    if (this.channelContextBar) {
+      this.channelContextBar.hidden = true;
+    }
+  }
+
+  /**
+   * @param {boolean} isFavorite
+   */
+  _syncChannelFavoriteBtn(isFavorite) {
+    if (!this.channelFavoriteBtn) return;
+    this.channelFavoriteBtn.classList.toggle('is-active', isFavorite);
+    this.channelFavoriteBtn.setAttribute('aria-pressed', isFavorite ? 'true' : 'false');
+    this.channelFavoriteBtn.title = isFavorite
+      ? 'Retirer cette chaîne des favoris'
+      : 'Ajouter cette chaîne aux favoris';
+    if (this.channelFavoriteBtnLabel) {
+      this.channelFavoriteBtnLabel.textContent = isFavorite
+        ? 'Chaîne en favoris'
+        : 'Ajouter la chaîne';
+    }
   }
 
   async handleSearch() {
@@ -54,10 +118,7 @@ export class SearchView {
    * @param {object} item — carte (channelId / channelUrl si dispo)
    */
   async searchByChannel(item) {
-    const channelName =
-      item?.channel && String(item.channel).trim() && item.channel !== '—'
-        ? String(item.channel).trim()
-        : '';
+    const channelName = this.#channelNameFromItem(item);
     if (!channelName && !item?.channelId && !item?.channelUrl) return;
 
     if (this.input) this.input.value = channelName || item.channelId || '';
@@ -75,15 +136,30 @@ export class SearchView {
       });
       const count = data.items?.length ?? 0;
       if (count === 0) {
+        this.clearChannelContext();
         this.setHint(`Aucune vidéo trouvée pour ${label}.`, false);
         return;
       }
+      const resolvedName =
+        (typeof data.channelName === 'string' && data.channelName.trim()) ||
+        channelName ||
+        label;
+      const first = data.items[0];
+      this.setChannelContext({
+        channelId:
+          data.channelId || item?.channelId || first?.channelId || null,
+        channelUrl:
+          data.channelUrl || item?.channelUrl || first?.channelUrl || null,
+        channelName: resolvedName,
+        thumbnail: item?.thumbnail || first?.thumbnail || null,
+      });
       this.setHint(
-        `Chaîne : ${label} — ${count} vidéo${count > 1 ? 's' : ''} (uniquement cette chaîne)`,
+        `Chaîne : ${resolvedName} — ${count} vidéo${count > 1 ? 's' : ''} (jusqu’à 50, cette chaîne uniquement)`,
         false
       );
       this.renderResults(data.items);
     } catch (err) {
+      this.clearChannelContext();
       const name = err && typeof err === 'object' && 'name' in err ? err.name : '';
       if (name === 'TimeoutError' || name === 'AbortError') {
         this.setHint('Délai dépassé — vérifie que le backend tourne.', true);
@@ -99,6 +175,7 @@ export class SearchView {
    */
   async runSearch(query, hintWhileLoading = 'Recherche…') {
     this.onBeforeSearch?.();
+    this.clearChannelContext();
     this.clearResults();
     this.setHint(hintWhileLoading, false);
 
@@ -127,6 +204,16 @@ export class SearchView {
     if (!this.results) return;
     this.results.innerHTML = '';
     this._syncResultsVisibility();
+  }
+
+  #channelNameFromItem(item) {
+    if (item?.channelName && String(item.channelName).trim()) {
+      return String(item.channelName).trim();
+    }
+    if (item?.channel && String(item.channel).trim() && item.channel !== '—') {
+      return String(item.channel).trim();
+    }
+    return '';
   }
 
   renderResults(items) {

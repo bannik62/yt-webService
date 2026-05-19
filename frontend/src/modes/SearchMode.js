@@ -6,7 +6,9 @@ import { DownloadProgressModal } from '../views/DownloadProgressModal.js';
 import { DownloadList } from '../models/DownloadList.js';
 import { PlaybackHistory } from '../models/PlaybackHistory.js';
 import { Favorites } from '../models/Favorites.js';
+import { ChannelFavorites } from '../models/ChannelFavorites.js';
 import { HorizontalMediaStrip } from '../views/HorizontalMediaStrip.js';
+import { ChannelFavoritesStrip } from '../views/ChannelFavoritesStrip.js';
 import {
   tryAcquireUserDownload,
   releaseUserDownload
@@ -25,8 +27,10 @@ export class SearchMode {
     this.videoModal = new VideoModal(this.api);
     this.playbackHistory = new PlaybackHistory();
     this.favorites = new Favorites();
+    this.channelFavorites = new ChannelFavorites();
     this.downloadProgressModal = new DownloadProgressModal();
     this.searchView.favorites = this.favorites;
+    this.searchView.channelFavorites = this.channelFavorites;
 
     const playStripItem = (item) => {
       if (!item) return;
@@ -60,6 +64,18 @@ export class SearchMode {
       showPlayedAt: true,
       onPlay: playStripItem,
       onClear: () => this.playbackHistory.clear(),
+    });
+    this.channelFavoritesStrip = new ChannelFavoritesStrip({
+      sectionEl: $('#channel-favorites-strip-section'),
+      trackEl: $('#channel-favorites-strip'),
+      viewportEl: $('#channel-favorites-strip-viewport'),
+      prevBtn: $('#channel-favorites-strip-prev'),
+      nextBtn: $('#channel-favorites-strip-next'),
+      clearBtn: $('#channel-favorites-clear'),
+      onSelect: (ch) => {
+        void this.searchView.searchByChannel(ch);
+      },
+      onClear: () => this.channelFavorites.clear(),
     });
 
     const showVideo = this.videoModal.show.bind(this.videoModal);
@@ -212,6 +228,7 @@ export class SearchMode {
     const refreshMediaStrips = () => {
       this.favoritesStrip.render(this.favorites.getAll());
       this.historyStrip.render(this.playbackHistory.getAll());
+      this.channelFavoritesStrip.render(this.channelFavorites.getAll());
       this._applyMediaStripsVisibility();
     };
 
@@ -223,22 +240,29 @@ export class SearchMode {
         if (this.historyStrip.sectionEl) {
           this.historyStrip.sectionEl.hidden = true;
         }
+        if (this.channelFavoritesStrip.sectionEl) {
+          this.channelFavoritesStrip.sectionEl.hidden = true;
+        }
         return;
       }
       this.favoritesStrip.render(this.favorites.getAll());
       this.historyStrip.render(this.playbackHistory.getAll());
+      this.channelFavoritesStrip.render(this.channelFavorites.getAll());
     };
 
     this.videoModal.onFavoriteChange = refreshMediaStrips;
     this.favorites.onChange(refreshMediaStrips);
+    this.channelFavorites.onChange(refreshMediaStrips);
     this.playbackHistory.onChange(refreshMediaStrips);
     this.searchView.onFavoriteChange = refreshMediaStrips;
+    this.searchView.onChannelFavoriteChange = refreshMediaStrips;
     this.searchView.onResultsChange = (hasResults) => {
       this._resultsVisible = hasResults;
       this._applyMediaStripsVisibility();
     };
     this.searchView.onClearView = () => {
       this.stopTrendingInfiniteScroll();
+      this.searchView.clearChannelContext();
       this.searchView.clearResults();
       this.searchView.setHint('', false);
     };
