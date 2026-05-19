@@ -2137,6 +2137,18 @@ body.mode-ripper .channel-favorites-section {
   margin-bottom: 0.75rem;
 }
 
+.video-player-inapp-hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: #bdc1c6;
+  line-height: 1.35;
+}
+
+.video-player-modal-body .btn-open-youtube-external {
+  width: 100%;
+  margin-bottom: 0.75rem;
+}
+
 .video-player-modal-toolbar {
   flex-shrink: 0;
   margin-bottom: 0.75rem;

@@ -159,8 +159,28 @@ export function shareOgThumbUrl(origin, videoId) {
  * @param {string} videoId
  * @returns {string}
  */
-export function shareAppDeepLinkUrl(origin, videoId) {
+/**
+ * WebView Meta (Messenger, app Facebook) : préférer #v= si la query est perdue après 302.
+ * @param {string | undefined} userAgent
+ * @returns {boolean}
+ */
+export function isMetaInAppBrowser(userAgent) {
+  const ua = String(userAgent || '');
+  if (isLinkPreviewBot(ua)) return false;
+  return /FBAN|FBAV|FB_IAB|Messenger/i.test(ua);
+}
+
+/**
+ * @param {string} origin
+ * @param {string} videoId
+ * @param {{ useHash?: boolean }} [opts]
+ * @returns {string}
+ */
+export function shareAppDeepLinkUrl(origin, videoId, opts = {}) {
   const base = String(origin || '').replace(/\/$/, '');
+  if (opts.useHash) {
+    return `${base}/#v=${encodeURIComponent(videoId)}`;
+  }
   return `${base}/?v=${encodeURIComponent(videoId)}`;
 }
 

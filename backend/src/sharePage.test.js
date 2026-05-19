@@ -6,7 +6,8 @@ import {
   renderSharePageHtml,
   shareAppDeepLinkUrl,
   shareOgThumbUrl,
-  shouldRedirectShareVisitor
+  shouldRedirectShareVisitor,
+  isMetaInAppBrowser
 } from './sharePage.js';
 
 describe('sharePage', () => {
@@ -152,6 +153,24 @@ describe('sharePage', () => {
     expect(shareAppDeepLinkUrl('https://yt.codeurbase.fr', 'dQw4w9WgXcQ')).toBe(
       'https://yt.codeurbase.fr/?v=dQw4w9WgXcQ'
     );
+    expect(
+      shareAppDeepLinkUrl('https://yt.codeurbase.fr', 'dQw4w9WgXcQ', {
+        useHash: true
+      })
+    ).toBe('https://yt.codeurbase.fr/#v=dQw4w9WgXcQ');
+  });
+
+  it('isMetaInAppBrowser : Messenger in-app oui, crawler non', () => {
+    expect(
+      isMetaInAppBrowser(
+        'Mozilla/5.0 FBAN/Messenger.20.0.0.0; FB_IAB/MESSENGER'
+      )
+    ).toBe(true);
+    expect(
+      isMetaInAppBrowser(
+        'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)'
+      )
+    ).toBe(false);
   });
 
   it('renderSharePageHtml : pas de redirection JS dans le HTML OG', () => {

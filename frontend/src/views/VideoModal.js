@@ -1,4 +1,5 @@
 import { createElement } from '../utils/dom.js';
+import { isInAppSocialBrowser, openYoutubeExternally } from '../utils/inAppBrowser.js';
 import { createPacmanLoaderMarkup } from '../utils/pacmanLoader.js';
 import {
   escapeHtml,
@@ -769,6 +770,29 @@ export class VideoModal {
         )
       );
       this._footerMainEl.appendChild(navigation);
+    }
+
+    if (isInAppSocialBrowser()) {
+      const videoId = resolveVideoId(this.currentItem?.url, this.currentItem);
+      if (videoId) {
+        const hint = createElement('p', {
+          className: 'video-player-inapp-hint',
+        });
+        hint.textContent =
+          'Dans Messenger ou l’app Facebook, la lecture intégrée est souvent bloquée.';
+        this._footerMainEl.appendChild(hint);
+        this._footerMainEl.appendChild(
+          createElement(
+            'button',
+            {
+              className: 'btn btn-primary btn-large btn-open-youtube-external',
+              type: 'button',
+              onClick: () => openYoutubeExternally(videoId),
+            },
+            '▶ Ouvrir sur YouTube'
+          )
+        );
+      }
     }
 
     const actions = createElement('div', { className: 'video-player-modal-actions' });

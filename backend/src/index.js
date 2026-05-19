@@ -35,7 +35,8 @@ import {
   isValidYoutubeVideoId,
   renderSharePageHtml,
   shareAppDeepLinkUrl,
-  shouldRedirectShareVisitor
+  shouldRedirectShareVisitor,
+  isMetaInAppBrowser
 } from './sharePage.js';
 import { fetchShareThumbnail } from './shareThumb.js';
 import { fetchVideoMeta } from './video/videoMeta.js';
@@ -239,7 +240,8 @@ app.get('/v/:videoId', async (request, reply) => {
   const userAgent = request.headers['user-agent'];
 
   if (shouldRedirectShareVisitor(userAgent)) {
-    return reply.redirect(shareAppDeepLinkUrl(origin, videoId), 302);
+    const useHash = isMetaInAppBrowser(userAgent);
+    return reply.redirect(shareAppDeepLinkUrl(origin, videoId, { useHash }), 302);
   }
 
   const title = 'Vidéo YouTube';

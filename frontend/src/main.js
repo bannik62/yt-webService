@@ -1,6 +1,7 @@
 import { $ } from './utils/dom.js';
 import { ApiClient } from './api/ApiClient.js';
 import { SearchMode } from './modes/SearchMode.js';
+import { getShareVideoIdFromLocation } from './utils/shareDeepLink.js';
 import { RipperMode } from './modes/RipperMode.js';
 import { ProxyModal } from './views/ProxyModal.js';
 
@@ -247,9 +248,9 @@ class App {
       this.updateProxyButton(); // Mettre à jour au démarrage
     }
 
-    // Lien profond ?v=VIDEOID : forcer le mode recherche avant lecture des radios
-    const shareV = new URLSearchParams(window.location.search).get('v');
-    if (shareV && /^[a-zA-Z0-9_-]{11}$/.test(shareV)) {
+    // Lien profond ?v= ou #v= (Messenger peut perdre la query après redirect)
+    const shareV = getShareVideoIdFromLocation();
+    if (shareV) {
       const searchRadio = document.querySelector(
         'input[name="mode"][value="search"]'
       );
@@ -285,30 +286,38 @@ class App {
 
     initStickyTopScrollGlass();
 
-    // Lien partagé ?v= : ouvrir la modal avant d’afficher l’accueil
-    if (shareV && /^[a-zA-Z0-9_-]{11}$/.test(shareV)) {
-      this.handleSearchShareDeepLink();
-    }
-
-    // Afficher le mode initial (sans animation au premier rendu)
+    // Afficher le mode recherche avant d’ouvrir la modal (lien partagé)
     this.switchMode(this.currentMode, { instant: true });
 
-    if (!shareV || !/^[a-zA-Z0-9_-]{11}$/.test(shareV)) {
+    if (shareV) {
       this.handleSearchShareDeepLink();
     }
+
+    window.addEventListener('pageshow', (ev) => {
+      const id = getShareVideoIdFromLocation();
+      if (id && (ev.persisted || shareV)) {
+        this.handleSearchShareDeepLink();
+      }
+    });
   }
 
   handleSearchShareDeepLink() {
-    const params = new URLSearchParams(window.location.search);
-    const v = params.get('v');
-    if (!v || !/^[a-zA-Z0-9_-]{11}$/.test(v)) return;
+    const v = getShareVideoIdFromLocation();
+    if (!v) return;
 
     void this.searchMode.openSharedVideoFromQuery(v).then((ok) => {
       if (!ok) return;
+      const params = new URLSearchParams(window.location.search);
       params.delete('v');
       const q = params.toString();
+      let hash = window.location.hash.replace(/^#/, '').trim();
+      if (/^v=/.test(hash) || /^[a-zA-Z0-9_-]{11}$/.test(hash)) {
+        hash = '';
+      }
       const next =
-        window.location.pathname + (q ? `?${q}` : '') + window.location.hash;
+        window.location.pathname +
+        (q ? `?${q}` : '') +
+        (hash ? `#${hash}` : '');
       window.history.replaceState(null, '', next);
     });
   }
