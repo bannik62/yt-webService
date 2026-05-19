@@ -1,4 +1,5 @@
 import { createElement } from '../utils/dom.js';
+import { createPacmanLoaderMarkup } from '../utils/pacmanLoader.js';
 import {
   escapeHtml,
   formatDuration,
@@ -582,18 +583,13 @@ export class VideoModal {
     });
     videoBox.appendChild(this._playerSlotExpanded);
     this._playerLoadingEl = createElement('div', {
-      className: 'video-player-loading',
+      className: 'video-player-loading pacman-loader-host',
       hidden: true,
       'aria-live': 'polite',
     });
-    this._playerLoadingEl.appendChild(
-      createElement('span', {
-        className: 'video-player-loading-spinner',
-        'aria-hidden': 'true',
-      })
-    );
+    this._playerLoadingEl.appendChild(createPacmanLoaderMarkup());
     const loadingLabel = createElement('span', {
-      className: 'video-player-loading-label',
+      className: 'search-loading-label',
     });
     loadingLabel.textContent = 'Chargement de la vidéo…';
     this._playerLoadingEl.appendChild(loadingLabel);
