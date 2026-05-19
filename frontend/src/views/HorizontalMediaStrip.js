@@ -16,6 +16,7 @@ export class HorizontalMediaStrip {
    *   clearBtn?: HTMLElement | null,
    *   onPlay: (item: object) => void,
    *   onClear?: () => void,
+   *   onRemove?: (entry: object) => void,
    *   showWhenEmpty?: boolean,
    *   showPlayedAt?: boolean,
    * }} config
@@ -30,6 +31,7 @@ export class HorizontalMediaStrip {
     this.clearBtn = config.clearBtn ?? null;
     this.onPlay = config.onPlay;
     this.onClear = config.onClear;
+    this.onRemove = config.onRemove;
     this.showWhenEmpty = config.showWhenEmpty ?? false;
     this.showPlayedAt = config.showPlayedAt ?? false;
 
@@ -93,6 +95,22 @@ export class HorizontalMediaStrip {
             draggable: 'false',
           })
         );
+      }
+
+      if (this.onRemove && videoId) {
+        const removeBtn = createElement('button', {
+          type: 'button',
+          className: 'media-strip-remove-btn',
+          title: 'Retirer',
+          'aria-label': 'Retirer',
+        });
+        removeBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 12a1 1 0 0 0 1 .9h8a1 1 0 0 0 1-.9l1-12"/></svg>`;
+        removeBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.onRemove?.(entry);
+        });
+        thumbWrapEl.appendChild(removeBtn);
       }
 
       const grad = createElement('div', { className: 'media-strip-card-overlay' });

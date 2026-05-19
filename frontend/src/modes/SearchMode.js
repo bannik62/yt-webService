@@ -53,6 +53,10 @@ export class SearchMode {
       clearBtn: $('#favorites-clear'),
       onPlay: playStripItem,
       onClear: () => this.favorites.clear(),
+      onRemove: (entry) => {
+        const id = entry.videoId || entry.id;
+        if (id) this.favorites.remove(String(id));
+      },
     });
     this.historyStrip = new HorizontalMediaStrip({
       sectionEl: $('#history-strip-section'),
@@ -64,6 +68,10 @@ export class SearchMode {
       showPlayedAt: true,
       onPlay: playStripItem,
       onClear: () => this.playbackHistory.clear(),
+      onRemove: (entry) => {
+        const id = entry.videoId || entry.id;
+        if (id) this.playbackHistory.remove(String(id));
+      },
     });
     this.channelFavoritesStrip = new ChannelFavoritesStrip({
       sectionEl: $('#channel-favorites-strip-section'),

@@ -68,6 +68,21 @@ export class Favorites {
     return [...this.#entries];
   }
 
+  /**
+   * @param {string} videoId
+   * @returns {boolean}
+   */
+  remove(videoId) {
+    const id = typeof videoId === 'string' ? videoId.trim() : '';
+    if (!id) return false;
+    const idx = this.#entries.findIndex((e) => e.videoId === id);
+    if (idx < 0) return false;
+    this.#entries.splice(idx, 1);
+    this.#save();
+    this.#onChange?.();
+    return true;
+  }
+
   clear() {
     this.#entries = [];
     this.#save();

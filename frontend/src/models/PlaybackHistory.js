@@ -49,6 +49,21 @@ export class PlaybackHistory {
     return [...this.#entries];
   }
 
+  /**
+   * @param {string} videoId
+   * @returns {boolean}
+   */
+  remove(videoId) {
+    const id = typeof videoId === 'string' ? videoId.trim() : '';
+    if (!id) return false;
+    const idx = this.#entries.findIndex((e) => e.videoId === id);
+    if (idx < 0) return false;
+    this.#entries.splice(idx, 1);
+    this.#save();
+    this.#onChange?.();
+    return true;
+  }
+
   clear() {
     this.#entries = [];
     this.#save();
@@ -56,6 +71,9 @@ export class PlaybackHistory {
   }
 
   #videoIdFromItem(item) {
+    if (item?.videoId && /^[a-zA-Z0-9_-]{11}$/.test(String(item.videoId))) {
+      return String(item.videoId);
+    }
     if (item?.id && /^[a-zA-Z0-9_-]{11}$/.test(String(item.id))) {
       return String(item.id);
     }
