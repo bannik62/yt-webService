@@ -244,7 +244,7 @@ app.get('/v/:videoId', async (request, reply) => {
   const userAgent = request.headers['user-agent'];
 
   if (shouldRedirectShareVisitor(userAgent)) {
-    return reply.redirect(302, shareAppDeepLinkUrl(origin, videoId));
+    return reply.redirect(shareAppDeepLinkUrl(origin, videoId), 302);
   }
 
   const title = 'Vidéo YouTube';
