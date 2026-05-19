@@ -285,9 +285,17 @@ class App {
 
     initStickyTopScrollGlass();
 
+    // Lien partagé ?v= : ouvrir la modal avant d’afficher l’accueil
+    if (shareV && /^[a-zA-Z0-9_-]{11}$/.test(shareV)) {
+      this.handleSearchShareDeepLink();
+    }
+
     // Afficher le mode initial (sans animation au premier rendu)
     this.switchMode(this.currentMode, { instant: true });
-    this.handleSearchShareDeepLink();
+
+    if (!shareV || !/^[a-zA-Z0-9_-]{11}$/.test(shareV)) {
+      this.handleSearchShareDeepLink();
+    }
   }
 
   handleSearchShareDeepLink() {

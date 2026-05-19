@@ -126,6 +126,8 @@ export class VideoModal {
     /** @type {HTMLElement | null} */
     this._playerHost = null;
     /** @type {HTMLElement | null} */
+    this._playerLoadingEl = null;
+    /** @type {HTMLElement | null} */
     this._playerFloat = null;
     /** @type {ResizeObserver | null} */
     this._layoutObserver = null;
@@ -178,8 +180,26 @@ export class VideoModal {
     this._updateTitles();
     this._updateFooter();
     this._updateDockActions();
+    this._setPlayerLoading(true);
     void this._attachPlayer(videoId);
     void this._loadVideoMeta(videoId, item);
+  }
+
+  /**
+   * Met à jour titre / meta sans rouvrir la modal (ex. après probe lien partagé).
+   * @param {object} patch
+   */
+  updateFromItem(patch) {
+    if (!patch || !this.currentItem) return;
+    const prevId = resolveVideoId(this.currentItem?.url, this.currentItem);
+    this.currentItem = { ...this.currentItem, ...patch };
+    this._updateTitles();
+    this._updateFooter();
+    this._updateDockActions();
+    const videoId = resolveVideoId(this.currentItem?.url, this.currentItem);
+    if (videoId && videoId === prevId) {
+      void this._loadVideoMeta(videoId, this.currentItem);
+    }
   }
 
   minimize() {
@@ -218,6 +238,7 @@ export class VideoModal {
     this._playerSlotDock = null;
     this._playerHost = null;
     this._playerFloat = null;
+    this._playerLoadingEl = null;
     if (this._layoutObserver) {
       this._layoutObserver.disconnect();
       this._layoutObserver = null;
@@ -254,8 +275,17 @@ export class VideoModal {
     this._updateTitles();
     this._updateFooter();
     this._updateDockActions();
+    this._setPlayerLoading(true);
     void this._attachPlayer(videoId);
     void this._loadVideoMeta(videoId, this.currentItem);
+  }
+
+  /**
+   * @param {boolean} visible
+   */
+  _setPlayerLoading(visible) {
+    if (!this._playerLoadingEl) return;
+    this._playerLoadingEl.hidden = !visible;
   }
 
   _setMode(mode) {
@@ -551,6 +581,23 @@ export class VideoModal {
       className: 'video-container-inner video-player-slot-target',
     });
     videoBox.appendChild(this._playerSlotExpanded);
+    this._playerLoadingEl = createElement('div', {
+      className: 'video-player-loading',
+      hidden: true,
+      'aria-live': 'polite',
+    });
+    this._playerLoadingEl.appendChild(
+      createElement('span', {
+        className: 'video-player-loading-spinner',
+        'aria-hidden': 'true',
+      })
+    );
+    const loadingLabel = createElement('span', {
+      className: 'video-player-loading-label',
+    });
+    loadingLabel.textContent = 'Chargement de la vidéo…';
+    this._playerLoadingEl.appendChild(loadingLabel);
+    videoBox.appendChild(this._playerLoadingEl);
     body.appendChild(videoBox);
 
     this._footerMainEl = createElement('div', {
@@ -870,6 +917,7 @@ export class VideoModal {
     }
 
     if (this._ytPlayer && this._playerReady && this._loadedVideoId !== videoId) {
+      this._setPlayerLoading(true);
       this._loadedVideoId = videoId;
       this._ytPlayer.loadVideoById(videoId);
       return;
@@ -908,10 +956,19 @@ export class VideoModal {
             this._ytPlayer?.loadVideoById(next);
           }
           this._pendingVideoId = null;
+          this._setPlayerLoading(false);
           this._syncPlayerLayout();
         },
             onStateChange: (e) => {
-              if (e.data !== window.YT.PlayerState.ENDED) return;
+              const st = e.data;
+              if (
+                st === window.YT.PlayerState.PLAYING ||
+                st === window.YT.PlayerState.BUFFERING ||
+                st === window.YT.PlayerState.CUED
+              ) {
+                this._setPlayerLoading(false);
+              }
+              if (st !== window.YT.PlayerState.ENDED) return;
               if (
                 this.playlist &&
                 this.currentIndex < this.playlist.length - 1

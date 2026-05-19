@@ -134,9 +134,29 @@ export class SearchMode {
   async openSharedVideoFromQuery(videoId) {
     if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) return false;
     const url = `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
+    const thumbDefault = `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
+
+    this._resultsVisible = true;
+    this._applyMediaStripsVisibility();
+
+    this.videoModal.show({
+      id: videoId,
+      title: 'Chargement…',
+      url,
+      channel: 'YouTube',
+      duration: null,
+      thumbnail: thumbDefault,
+    });
+
     try {
       const data = await this.api.probe({ url, noPlaylist: true });
-      if (!data || data.ok !== true) return false;
+      if (!data || data.ok !== true) {
+        this.downloadListView.showNotification(
+          'Impossible de récupérer les infos de la vidéo.',
+          true
+        );
+        return false;
+      }
       const title =
         typeof data.title === 'string' && data.title.trim()
           ? data.title.trim()
@@ -145,7 +165,6 @@ export class SearchMode {
         typeof data.channel === 'string' && data.channel.trim()
           ? data.channel.trim()
           : 'YouTube';
-      const thumbDefault = `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
       const thumbnail =
         typeof data.thumbnailUrl === 'string' && data.thumbnailUrl.startsWith('http')
           ? data.thumbnailUrl
@@ -154,15 +173,12 @@ export class SearchMode {
         typeof data.durationLabel === 'string' && data.durationLabel.trim()
           ? data.durationLabel.trim()
           : null;
-      const item = {
-        id: videoId,
+      this.videoModal.updateFromItem({
         title,
-        url,
         channel,
         duration,
-        thumbnail
-      };
-      this.videoModal.show(item);
+        thumbnail,
+      });
       return true;
     } catch {
       this.downloadListView.showNotification(
@@ -280,7 +296,18 @@ export class SearchMode {
       this.searchView.clearChannelContext();
       this.searchView.clearResults();
       this.searchView.setHint('', false);
+      this._resultsVisible = false;
+      this._applyMediaStripsVisibility();
     };
+
+    try {
+      const shareV = new URLSearchParams(window.location.search).get('v');
+      if (shareV && /^[a-zA-Z0-9_-]{11}$/.test(shareV)) {
+        this._resultsVisible = true;
+      }
+    } catch {
+      /* ignore */
+    }
     refreshMediaStrips();
   }
 
