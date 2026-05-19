@@ -33,7 +33,9 @@ import {
 import {
   buildPublicOrigin,
   isValidYoutubeVideoId,
-  renderSharePageHtml
+  renderSharePageHtml,
+  shareAppDeepLinkUrl,
+  shouldRedirectShareVisitor
 } from './sharePage.js';
 import { fetchVideoMeta } from './video/videoMeta.js';
 import { ProxyQuotaError } from './ripper/proxyQuotaError.js';
@@ -225,7 +227,7 @@ app.get('/share-thumb/:file', async (request, reply) => {
 });
 
 /**
- * Partage : HTML Open Graph + lien vers l’app (pas de redirection, pas de HTML différent par User-Agent).
+ * Partage : crawlers → HTML Open Graph ; navigateurs → redirection vers /?v=
  */
 app.get('/v/:videoId', async (request, reply) => {
   const videoId = String(request.params.videoId || '').trim();
@@ -238,8 +240,14 @@ app.get('/v/:videoId', async (request, reply) => {
       );
   }
 
-  const title = 'Vidéo YouTube';
   const origin = buildPublicOrigin(request);
+  const userAgent = request.headers['user-agent'];
+
+  if (shouldRedirectShareVisitor(userAgent)) {
+    return reply.redirect(302, shareAppDeepLinkUrl(origin, videoId));
+  }
+
+  const title = 'Vidéo YouTube';
   const html = renderSharePageHtml({
     origin,
     videoId,

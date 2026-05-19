@@ -4,7 +4,9 @@ import {
   isLinkPreviewBot,
   isValidYoutubeVideoId,
   renderSharePageHtml,
-  shareOgThumbUrl
+  shareAppDeepLinkUrl,
+  shareOgThumbUrl,
+  shouldRedirectShareVisitor
 } from './sharePage.js';
 
 describe('sharePage', () => {
@@ -122,7 +124,26 @@ describe('sharePage', () => {
     expect(isLinkPreviewBot('Mozilla/5.0 (iPhone; Instagram 123)')).toBe(false);
   });
 
-  it('renderSharePageHtml : pas de redirection JS (anti-cloaking)', () => {
+  it('shouldRedirectShareVisitor : humain oui, crawler non', () => {
+    expect(
+      shouldRedirectShareVisitor(
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0'
+      )
+    ).toBe(true);
+    expect(
+      shouldRedirectShareVisitor(
+        'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)'
+      )
+    ).toBe(false);
+  });
+
+  it('shareAppDeepLinkUrl pointe vers la SPA', () => {
+    expect(shareAppDeepLinkUrl('https://yt.codeurbase.fr', 'dQw4w9WgXcQ')).toBe(
+      'https://yt.codeurbase.fr/?v=dQw4w9WgXcQ'
+    );
+  });
+
+  it('renderSharePageHtml : pas de redirection JS dans le HTML OG', () => {
     const html = renderSharePageHtml({
       origin: 'https://yt.codeurbase.fr',
       videoId: 'dQw4w9WgXcQ',

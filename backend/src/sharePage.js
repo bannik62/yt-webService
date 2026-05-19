@@ -1,6 +1,6 @@
 /**
  * Page HTML minimale pour partage (Open Graph + lien vers l’app).
- * Aucune redirection ni contenu différent selon le User-Agent (évite d’être vu comme du cloaking par Meta).
+ * Les crawlers d’aperçu reçoivent le HTML OG ; les navigateurs sont redirigés vers /?v=.
  */
 
 /** Identifiant vidéo classique YouTube (11 caractères). */
@@ -151,6 +151,26 @@ export function isLinkPreviewBot(userAgent) {
 export function shareOgThumbUrl(origin, videoId) {
   const base = String(origin || '').replace(/\/$/, '');
   return `${base}/share-thumb/${encodeURIComponent(videoId)}.jpg`;
+}
+
+/**
+ * URL de l’app pour ouvrir la vidéo (SPA).
+ * @param {string} origin
+ * @param {string} videoId
+ * @returns {string}
+ */
+export function shareAppDeepLinkUrl(origin, videoId) {
+  const base = String(origin || '').replace(/\/$/, '');
+  return `${base}/?v=${encodeURIComponent(videoId)}`;
+}
+
+/**
+ * Les humains (navigateurs) sont redirigés ; les bots d’aperçu reçoivent le HTML OG.
+ * @param {string | undefined} userAgent
+ * @returns {boolean}
+ */
+export function shouldRedirectShareVisitor(userAgent) {
+  return !isLinkPreviewBot(userAgent);
 }
 
 /**
