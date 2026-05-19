@@ -232,6 +232,7 @@ export class SearchMode {
     };
 
     this._resultsVisible = false;
+    this._searchLoading = false;
 
     const refreshMediaStrips = () => {
       this.favoritesStrip.render(this.favorites.getAll());
@@ -241,7 +242,8 @@ export class SearchMode {
     };
 
     this._applyMediaStripsVisibility = () => {
-      if (this._resultsVisible) {
+      const hideHome = this._resultsVisible || this._searchLoading;
+      if (hideHome) {
         if (this.favoritesStrip.sectionEl) {
           this.favoritesStrip.sectionEl.hidden = true;
         }
@@ -268,8 +270,13 @@ export class SearchMode {
       this._resultsVisible = hasResults;
       this._applyMediaStripsVisibility();
     };
+    this.searchView.onLoadingChange = (loading) => {
+      this._searchLoading = loading;
+      this._applyMediaStripsVisibility();
+    };
     this.searchView.onClearView = () => {
       this.stopTrendingInfiniteScroll();
+      this.searchView.setLoading(false);
       this.searchView.clearChannelContext();
       this.searchView.clearResults();
       this.searchView.setHint('', false);
@@ -283,6 +290,7 @@ export class SearchMode {
 
     const hint = musicOnly ? '🎵 Chargement…' : '🔥 Chargement…';
     this.searchView.setHint(hint, false);
+    this.searchView.setLoading(true, 'Chargement…');
     this.searchView.clearResults();
     this.seenTrendingIds.clear();
     this.trendingKeywordsShown = [];
@@ -312,6 +320,8 @@ export class SearchMode {
     } catch (err) {
       this.trendingFeedActive = false;
       this.searchView.setHint(err.message || 'Erreur lors du chargement', true);
+    } finally {
+      this.searchView.setLoading(false);
     }
   }
 

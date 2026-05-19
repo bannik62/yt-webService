@@ -1370,6 +1370,185 @@ body.mode-ripper .channel-favorites-section {
   color: gold;
 }
 
+#search-container:has(#search-loading:not([hidden])) {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - 10rem);
+}
+
+#search-container:has(#search-loading:not([hidden])) #search-results:empty {
+  flex: 0 0 0;
+  margin: 0;
+  min-height: 0;
+}
+
+@media (min-width: 769px) {
+  #search-container:has(#search-loading:not([hidden])) {
+    min-height: calc(100dvh - 13rem);
+  }
+}
+
+.search-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 12rem;
+  margin: 0;
+  color: #bdc1c6;
+  font-size: 1.05rem;
+  font-weight: 500;
+}
+
+.search-loading[hidden] {
+  display: none !important;
+}
+
+.search-loading .loader-pacman {
+  position: relative;
+  height: 60px;
+  width: 160px;
+  flex-shrink: 0;
+}
+
+.search-loading .circles {
+  position: absolute;
+  left: -5px;
+  top: 0;
+  height: 60px;
+  width: 180px;
+  animation: search-loading-animcircles 0.5s infinite linear;
+}
+
+.search-loading .circles span {
+  position: absolute;
+  top: 22px;
+  height: 16px;
+  width: 16px;
+  border-radius: 0;
+  background: none;
+}
+
+.search-loading .circles span.one {
+  right: 80px;
+}
+
+.search-loading .circles span.two {
+  right: 40px;
+}
+
+.search-loading .circles span.three {
+  right: 0;
+}
+
+.search-loading .yt-dot {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+@keyframes search-loading-animcircles {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(-40px, 0);
+  }
+}
+
+.search-loading .pacman {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 60px;
+  width: 60px;
+}
+
+.search-loading .pacman .eye {
+  position: absolute;
+  top: 10px;
+  left: 30px;
+  height: 7px;
+  width: 7px;
+  border-radius: 7px;
+  background-color: #1c163a;
+}
+
+.search-loading .pacman span {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 60px;
+  width: 60px;
+}
+
+.search-loading .pacman span::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  height: 30px;
+  width: 60px;
+  background-color: #fffb16;
+}
+
+.search-loading .pacman .top::before {
+  top: 0;
+  border-radius: 60px 60px 0 0;
+}
+
+.search-loading .pacman .bottom::before {
+  bottom: 0;
+  border-radius: 0 0 60px 60px;
+}
+
+.search-loading .pacman .left::before {
+  bottom: 0;
+  height: 60px;
+  width: 30px;
+  border-radius: 60px 0 0 60px;
+}
+
+.search-loading .pacman .top {
+  animation: search-loading-animtop 0.5s infinite;
+}
+
+.search-loading .pacman .bottom {
+  animation: search-loading-animbottom 0.5s infinite;
+}
+
+@keyframes search-loading-animtop {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(-45deg);
+  }
+}
+
+@keyframes search-loading-animbottom {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(45deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search-loading .circles,
+  .search-loading .pacman .top,
+  .search-loading .pacman .bottom {
+    animation: none;
+  }
+}
+
 #search-container > .channel-favorites-section {
   margin-top: 0;
   margin-bottom: 1rem;

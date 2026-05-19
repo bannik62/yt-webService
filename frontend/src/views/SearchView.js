@@ -16,6 +16,8 @@ export class SearchView {
     this.channelFavoriteBtn = $('#channel-favorite-btn');
     this.channelFavoriteBtnLabel = $('#channel-favorite-btn-label');
     this.results = $('#search-results');
+    this.loadingEl = $('#search-loading');
+    this.loadingLabelEl = $('#search-loading-label');
     /** @type {((item: object) => void) | null} */
     this.onShareLink = null;
     /** @type {import('../models/Favorites.js').Favorites | null} */
@@ -32,6 +34,8 @@ export class SearchView {
     this._channelContext = null;
     /** @type {((hasResults: boolean) => void) | null} */
     this.onResultsChange = null;
+    /** @type {((loading: boolean) => void) | null} */
+    this.onLoadingChange = null;
     /** @type {(() => void) | null} */
     this.onClearView = null;
 
@@ -117,6 +121,20 @@ export class SearchView {
    * Vide les résultats / tendances et charge l'onglet vidéos de la chaîne.
    * @param {object} item — carte (channelId / channelUrl si dispo)
    */
+  /**
+   * @param {boolean} loading
+   * @param {string} [label]
+   */
+  setLoading(loading, label = 'Chargement…') {
+    if (this.loadingEl) {
+      this.loadingEl.hidden = !loading;
+    }
+    if (this.loadingLabelEl && label) {
+      this.loadingLabelEl.textContent = label;
+    }
+    this.onLoadingChange?.(loading);
+  }
+
   async searchByChannel(item) {
     const channelName = this.#channelNameFromItem(item);
     if (!channelName && !item?.channelId && !item?.channelUrl) return;
@@ -124,6 +142,7 @@ export class SearchView {
     if (this.input) this.input.value = channelName || item.channelId || '';
 
     this.onBeforeSearch?.();
+    this.setLoading(true, 'Chargement des vidéos…');
     this.clearResults();
     const label = channelName || 'cette chaîne';
     this.setHint(`Chaîne : ${label} — chargement des vidéos…`, false);
@@ -166,6 +185,8 @@ export class SearchView {
       } else {
         this.setHint(err.message || 'Impossible de charger la chaîne.', true);
       }
+    } finally {
+      this.setLoading(false);
     }
   }
 
@@ -176,6 +197,7 @@ export class SearchView {
   async runSearch(query, hintWhileLoading = 'Recherche…') {
     this.onBeforeSearch?.();
     this.clearChannelContext();
+    this.setLoading(true, 'Recherche…');
     this.clearResults();
     this.setHint(hintWhileLoading, false);
 
@@ -197,6 +219,8 @@ export class SearchView {
       } else {
         this.setHint(err.message || 'Réseau ou serveur indisponible.', true);
       }
+    } finally {
+      this.setLoading(false);
     }
   }
 
