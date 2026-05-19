@@ -271,6 +271,7 @@ export class SearchMode {
 
   async loadTrending(musicOnly = false) {
     this.stopTrendingInfiniteScroll();
+    this.searchView.clearChannelContext();
 
     const hint = musicOnly ? '🎵 Chargement…' : '🔥 Chargement…';
     this.searchView.setHint(hint, false);
