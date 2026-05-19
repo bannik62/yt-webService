@@ -6,7 +6,7 @@ import {
   channelNamesMatch,
 } from './channelVideos.js';
 
-const DEFAULT_MAX = 30;
+const DEFAULT_MAX = 50;
 /** Plafond configurable via SEARCH_MAX_RESULTS (docker / .env). */
 const MAX_RESULTS_CAP = 50;
 const QUERY_MAX_LEN = 500;

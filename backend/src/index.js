@@ -47,7 +47,7 @@ const HOST = process.env.HOST || '0.0.0.0';
 
 const searchMaxRaw = Number(process.env.SEARCH_MAX_RESULTS);
 const searchMaxResults =
-  Number.isFinite(searchMaxRaw) && searchMaxRaw > 0 ? searchMaxRaw : 30;
+  Number.isFinite(searchMaxRaw) && searchMaxRaw > 0 ? searchMaxRaw : 50;
 
 const searchEngine = new SearchEngine({
   maxResults: searchMaxResults,

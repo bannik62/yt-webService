@@ -204,9 +204,9 @@ export class VideoModal {
     }
     document.body.classList.remove('has-video-dock');
     this._mode = null;
-    this.currentItem = null;
-    this.playlist = null;
-    this.currentIndex = 0;
+        this.currentItem = null;
+        this.playlist = null;
+        this.currentIndex = 0;
     this._overlay = null;
     this._modalTitleEl = null;
     this._dockTitleEl = null;
@@ -487,8 +487,8 @@ export class VideoModal {
       createElement(
         'button',
         {
-          className: 'modal-close',
-          type: 'button',
+      className: 'modal-close',
+      type: 'button',
           title: 'Fermer la lecture',
           'aria-label': 'Fermer',
           onClick: () => this.close(),
@@ -844,16 +844,16 @@ export class VideoModal {
     const hostId = this._playerHost.id;
     if (!hostId) return;
 
-    this._ytPlayer = new window.YT.Player(hostId, {
-      videoId,
-      width: '100%',
-      height: '100%',
-      playerVars: {
-        autoplay: 1,
-        rel: 0,
+        this._ytPlayer = new window.YT.Player(hostId, {
+          videoId,
+          width: '100%',
+          height: '100%',
+          playerVars: {
+            autoplay: 1,
+            rel: 0,
         modestbranding: 1,
-      },
-      events: {
+          },
+          events: {
         onReady: () => {
           this._playerReady = true;
           this._loadedVideoId = videoId;
@@ -865,14 +865,14 @@ export class VideoModal {
           this._pendingVideoId = null;
           this._layoutPlayerFloat();
         },
-        onStateChange: (e) => {
-          if (e.data !== window.YT.PlayerState.ENDED) return;
-          if (
-            this.playlist &&
-            this.currentIndex < this.playlist.length - 1
-          ) {
-            this.showNext();
-          }
+            onStateChange: (e) => {
+              if (e.data !== window.YT.PlayerState.ENDED) return;
+              if (
+                this.playlist &&
+                this.currentIndex < this.playlist.length - 1
+              ) {
+                this.showNext();
+              }
         },
       },
     });

@@ -126,6 +126,17 @@ describe('SearchEngine.search + yt-dlp mock', () => {
     );
   });
 
+  test('maxResults 50 → ytsearch60 et playlist-end 50', async () => {
+    mockSpawnImpl.mockReturnValue(makeChildProcess([''], '', 0));
+    const engine = new SearchEngine({ maxResults: 50, ytDlpPath: '/fake/yt-dlp' });
+    await engine.search('documentaire');
+
+    const [, args] = mockSpawnImpl.mock.calls[0];
+    expect(args[0]).toBe('ytsearch60:documentaire');
+    expect(args).toContain('--playlist-end');
+    expect(args[args.indexOf('--playlist-end') + 1]).toBe('50');
+  });
+
   test('lignes JSON invalides ignorées', async () => {
     const good = JSON.stringify({ id: 'x', title: 'OK' });
     mockSpawnImpl.mockReturnValue(

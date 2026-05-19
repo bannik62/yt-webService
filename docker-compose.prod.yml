@@ -27,7 +27,7 @@ services:
       # Liens OG en https même si la liaison jusqu’à ce conteneur est en clair (hors localhost). Désactiver : FORCE_HTTPS_PUBLIC_ORIGIN=0
       FORCE_HTTPS_PUBLIC_ORIGIN: ${FORCE_HTTPS_PUBLIC_ORIGIN:-1}
       FB_APP_ID: ${FB_APP_ID:-}
-      SEARCH_MAX_RESULTS: ${SEARCH_MAX_RESULTS:-30}
+      SEARCH_MAX_RESULTS: ${SEARCH_MAX_RESULTS:-50}
       PROXY_URL: ${PROXY_URL:-}
       WEBSHARE_API_KEY: ${WEBSHARE_API_KEY:-}
       WORKER_LOCAL_URL: ${WORKER_LOCAL_URL:-}
