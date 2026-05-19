@@ -2065,27 +2065,41 @@ body.mode-ripper .search-sticky-stack {
   padding: 1rem 1.5rem;
   border-top: 1px solid #2a2d33;
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  flex-shrink: 0;
   position: relative;
   z-index: 10;
 }
 
 .modal-footer-main {
   flex-shrink: 0;
+  width: 100%;
 }
 
 .modal-video-meta {
-  flex: 1;
+  width: 100%;
   min-width: 0;
-  text-align: right;
+  text-align: left;
   font-size: 0.85rem;
   line-height: 1.45;
   color: #a8adb8;
   position: relative;
   z-index: 20;
   pointer-events: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid #2a2d33;
+  max-height: min(32vh, 13rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.modal-video-meta.is-loading,
+.modal-video-meta.is-empty {
+  max-height: none;
+  overflow: visible;
 }
 
 .modal-video-meta.is-loading {
@@ -2119,7 +2133,7 @@ body.mode-ripper .search-sticky-stack {
 
 .modal-video-meta-summary-inner {
   overflow: hidden;
-  max-height: 6rem;
+  max-height: 4.5rem;
   transition: max-height 0.25s ease;
 }
 
@@ -2158,17 +2172,6 @@ body.mode-ripper .search-sticky-stack {
 
 .modal-video-meta-more:hover {
   color: #a8d4ff;
-}
-
-@media (max-width: 640px) {
-  .modal-footer {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .modal-video-meta {
-    text-align: left;
-  }
 }
 
 .modal-nav {

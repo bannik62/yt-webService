@@ -135,4 +135,19 @@ describe('sharePage', () => {
     expect(html).not.toContain('location.replace');
     expect(html).not.toContain('<script');
   });
+
+  it('renderSharePageHtml : titre malveillant échappé (XSS)', () => {
+    const evil = '"></title><script>alert(1)</script><img src=x onerror=alert(1) ';
+    const html = renderSharePageHtml({
+      origin: 'https://yt.codeurbase.fr',
+      videoId: 'dQw4w9WgXcQ',
+      title: evil,
+    });
+    expect(html).not.toMatch(/<script[\s>]/i);
+    expect(html).not.toMatch(/<img src=x onerror/i);
+    expect(html).toContain('&lt;script');
+    expect(html).toContain('&lt;img');
+    expect(html).toContain('<title>');
+    expect(html.indexOf('<title>')).toBeLessThan(html.indexOf('</title>'));
+  });
 });
