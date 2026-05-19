@@ -1826,21 +1826,56 @@ body.mode-ripper .search-sticky-stack {
   overflow-y: auto;
 }
 
-/* Lecteur vidéo : une seule zone scroll (modal entière), alignement vidéo / boutons */
-.video-player-overlay .modal-content {
+/* Lecteur vidéo : header fixe, corps scrollable (pattern history-modal) */
+.video-player-modal-content {
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  overflow: hidden;
+}
+
+.video-player-modal-body {
+  flex: 1;
+  min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  padding: 1rem 1.5rem 1.25rem;
+  -webkit-overflow-scrolling: touch;
 }
 
-.video-player-overlay .modal-body {
-  padding: 1rem 1.5rem 0;
-  flex: 0 0 auto;
-  overflow: visible;
+.video-player-modal-body .video-container {
+  margin-bottom: 0.75rem;
 }
 
-.video-player-overlay .modal-footer {
-  padding: 0.75rem 1.5rem 1.25rem;
+.video-player-modal-toolbar {
+  flex-shrink: 0;
+  margin-bottom: 0.75rem;
+}
+
+.video-player-modal-toolbar .video-player-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.video-player-modal-body .modal-video-meta {
+  margin-top: 0;
+  padding-top: 0;
   border-top: none;
+}
+
+.video-player-shell.is-expanded .video-player-float {
+  display: none !important;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.video-player-shell.is-expanded .video-container-inner .video-container-host {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .video-container {

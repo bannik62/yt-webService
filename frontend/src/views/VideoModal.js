@@ -130,6 +130,8 @@ export class VideoModal {
     /** @type {ResizeObserver | null} */
     this._layoutObserver = null;
     /** @type {HTMLElement | null} */
+    this._modalBodyEl = null;
+    /** @type {HTMLElement | null} */
     this._footerMainEl = null;
     /** @type {HTMLElement | null} */
     this._dockActionsEl = null;
@@ -211,6 +213,7 @@ export class VideoModal {
     this._modalTitleEl = null;
     this._dockTitleEl = null;
     this._metaEl = null;
+    this._modalBodyEl = null;
     this._playerSlotExpanded = null;
     this._playerSlotDock = null;
     this._playerHost = null;
@@ -263,28 +266,73 @@ export class VideoModal {
     this._shell.classList.toggle('is-docked', mode === 'docked');
     document.body.classList.toggle('has-video-dock', mode === 'docked');
 
+    this._mountPlayerHost();
+
     if (mode === 'expanded') {
       requestAnimationFrame(() => {
         this._overlay?.classList.add('show');
-        this._layoutPlayerFloat();
+        this._syncPlayerLayout();
       });
     } else {
       this._overlay?.classList.remove('show');
       requestAnimationFrame(() => {
         this._placeDockDefault();
-        this._layoutPlayerFloat();
+        this._syncPlayerLayout();
       });
     }
   }
 
+  /** Lecteur dans le slot (modal) ou dans le float (dock) — pas de fixed en mode agrandi. */
+  _mountPlayerHost() {
+    if (!this._playerHost || !this._playerFloat || !this._playerSlotExpanded) return;
+
+    if (this._mode === 'expanded') {
+      this._playerFloat.hidden = true;
+      if (this._playerHost.parentElement !== this._playerSlotExpanded) {
+        this._playerSlotExpanded.appendChild(this._playerHost);
+      }
+      return;
+    }
+
+    if (this._mode === 'docked') {
+      if (this._playerHost.parentElement !== this._playerFloat) {
+        this._playerFloat.appendChild(this._playerHost);
+      }
+    }
+  }
+
+  _syncPlayerLayout() {
+    if (this._mode === 'expanded') {
+      this._sizeExpandedPlayer();
+    } else if (this._mode === 'docked') {
+      this._layoutPlayerFloat();
+    }
+  }
+
+  _sizeExpandedPlayer() {
+    if (this._mode !== 'expanded' || !this._playerSlotExpanded) return;
+
+    const rect = this._playerSlotExpanded.getBoundingClientRect();
+    if (rect.width < 2 || rect.height < 2) {
+      requestAnimationFrame(() => this._sizeExpandedPlayer());
+      return;
+    }
+
+    const w = Math.round(rect.width);
+    const h = Math.round(rect.height);
+    if (this._ytPlayer?.setSize && this._playerReady && w > 0 && h > 0) {
+      try {
+        this._ytPlayer.setSize(w, h);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
   _layoutPlayerFloat() {
-    if (!this._playerFloat || !this._mode) return;
+    if (this._mode !== 'docked' || !this._playerFloat || !this._playerSlotDock) return;
 
-    const target =
-      this._mode === 'docked' ? this._playerSlotDock : this._playerSlotExpanded;
-    if (!target) return;
-
-    const rect = target.getBoundingClientRect();
+    const rect = this._playerSlotDock.getBoundingClientRect();
     if (rect.width < 2 || rect.height < 2) {
       requestAnimationFrame(() => this._layoutPlayerFloat());
       return;
@@ -299,7 +347,7 @@ export class VideoModal {
     floatEl.style.top = `${rect.top}px`;
     floatEl.style.width = `${w}px`;
     floatEl.style.height = `${h}px`;
-    floatEl.style.zIndex = this._mode === 'docked' ? '9001' : '10001';
+    floatEl.style.zIndex = '9001';
 
     if (this._ytPlayer?.setSize && this._playerReady && w > 0 && h > 0) {
       try {
@@ -313,14 +361,13 @@ export class VideoModal {
   _bindPlayerLayoutWatch() {
     if (this._layoutObserver) return;
 
-    const relayout = () => {
-      if (this._mode) this._layoutPlayerFloat();
-    };
+    const relayout = () => this._syncPlayerLayout();
 
     if (typeof ResizeObserver !== 'undefined') {
       this._layoutObserver = new ResizeObserver(relayout);
-      if (this._playerSlotExpanded) {
-        this._layoutObserver.observe(this._playerSlotExpanded);
+      const videoBox = this._playerSlotExpanded?.parentElement;
+      if (videoBox) {
+        this._layoutObserver.observe(videoBox);
       }
       if (this._playerSlotDock) {
         this._layoutObserver.observe(this._playerSlotDock);
@@ -331,9 +378,6 @@ export class VideoModal {
     }
 
     window.addEventListener('resize', relayout);
-    document.querySelector('.main-content')?.addEventListener('scroll', relayout, {
-      passive: true,
-    });
   }
 
   _placeDockDefault() {
@@ -457,7 +501,7 @@ export class VideoModal {
     });
 
     const modalContent = createElement('div', {
-      className: 'modal-content',
+      className: 'modal-content video-player-modal-content',
       onClick: (e) => e.stopPropagation(),
     });
 
@@ -498,7 +542,10 @@ export class VideoModal {
     );
     header.appendChild(headerActions);
 
-    const body = createElement('div', { className: 'modal-body' });
+    const body = createElement('div', {
+      className: 'modal-body video-player-modal-body',
+    });
+    this._modalBodyEl = body;
     const videoBox = createElement('div', { className: 'video-container' });
     this._playerSlotExpanded = createElement('div', {
       className: 'video-container-inner video-player-slot-target',
@@ -507,26 +554,25 @@ export class VideoModal {
     body.appendChild(videoBox);
 
     this._footerMainEl = createElement('div', {
-      className: 'modal-footer-main',
+      className: 'video-player-modal-toolbar',
     });
     this._metaEl = createElement('div', {
       className: 'modal-video-meta',
       'aria-live': 'polite',
     });
 
-    const footer = createElement('div', { className: 'modal-footer' });
-    footer.appendChild(this._footerMainEl);
-    footer.appendChild(this._metaEl);
+    body.appendChild(this._footerMainEl);
+    body.appendChild(this._metaEl);
 
     modalContent.appendChild(header);
     modalContent.appendChild(body);
-    modalContent.appendChild(footer);
     overlayEl.appendChild(modalContent);
 
     this._playerHost = createElement('div', {
       className: 'video-container-host',
       id: `yt-player-host-${Date.now()}`,
     });
+    this._playerSlotExpanded.appendChild(this._playerHost);
 
     const dock = createElement('div', {
       className: 'video-player-dock',
@@ -595,7 +641,6 @@ export class VideoModal {
       className: 'video-player-float',
       hidden: true,
     });
-    this._playerFloat.appendChild(this._playerHost);
 
     shellRoot.appendChild(overlayEl);
     shellRoot.appendChild(dock);
@@ -863,7 +908,7 @@ export class VideoModal {
             this._ytPlayer?.loadVideoById(next);
           }
           this._pendingVideoId = null;
-          this._layoutPlayerFloat();
+          this._syncPlayerLayout();
         },
             onStateChange: (e) => {
               if (e.data !== window.YT.PlayerState.ENDED) return;
