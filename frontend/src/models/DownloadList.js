@@ -75,6 +75,32 @@ export class DownloadList {
   }
 
   /**
+   * Remplace la liste (UUID neufs, dédoublonnage URL, plafonné à #maxItems).
+   * @param {Array<{ url: string, title?: string, channel?: string, duration?: number|null, thumbnail?: string|null }>} items
+   */
+  replaceAll(items) {
+    const raw = Array.isArray(items) ? items : [];
+    const next = [];
+    for (const src of raw) {
+      if (next.length >= this.#maxItems) break;
+      const url = src?.url;
+      if (!url || typeof url !== 'string') continue;
+      if (next.some((i) => i.url === url)) continue;
+      next.push({
+        id: crypto.randomUUID(),
+        url,
+        title: src.title ?? 'Sans titre',
+        channel: src.channel ?? '—',
+        duration: src.duration ?? null,
+        thumbnail: src.thumbnail ?? null,
+      });
+    }
+    this.#items = next;
+    this.saveToStorage();
+    this.#triggerChange();
+  }
+
+  /**
    * Obtient tous les items
    * @returns {Array}
    */

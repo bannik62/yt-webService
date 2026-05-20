@@ -1,6 +1,7 @@
 import { $ } from '../utils/dom.js';
 import { SearchView } from '../views/SearchView.js';
 import { DownloadListView } from '../views/DownloadListView.js';
+import { SavedPlaylistsBar } from '../views/SavedPlaylistsBar.js';
 import { VideoModal } from '../views/VideoModal.js';
 import { DownloadProgressModal } from '../views/DownloadProgressModal.js';
 import { DownloadList } from '../models/DownloadList.js';
@@ -24,6 +25,7 @@ export class SearchMode {
     this.downloadList = new DownloadList();
     this.searchView = new SearchView(this.api);
     this.downloadListView = new DownloadListView(this.downloadList);
+    this.savedPlaylistsBar = new SavedPlaylistsBar(this.downloadList);
     this.videoModal = new VideoModal(this.api);
     this.playbackHistory = new PlaybackHistory();
     this.favorites = new Favorites();

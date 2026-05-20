@@ -84,6 +84,51 @@ body {
   font-weight: 700;
 }
 
+.saved-playlists-toolbar {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.saved-playlists-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #9aa0a6;
+}
+
+.saved-playlists-select {
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.4rem;
+  border: 1px solid #2a2d33;
+  background: #0f1114;
+  color: #e8eaed;
+  font-size: 0.85rem;
+}
+
+.saved-playlists-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.saved-playlists-btn {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.35rem 0.5rem !important;
+  font-size: 0.78rem !important;
+}
+
+.saved-playlists-actions .btn-ghost.saved-playlists-btn {
+  flex: 0 0 auto;
+}
+
 .sidebar-body {
   flex: 1;
   min-height: 0; /* nécessaire en flex pour que overflow + scrollbar custom s’appliquent ici */

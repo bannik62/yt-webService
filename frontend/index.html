@@ -55,6 +55,33 @@
               <span class="badge" id="download-list-count" hidden>0</span>
             </h2>
           </div>
+          <div class="saved-playlists-toolbar" id="saved-playlists-toolbar">
+            <label class="saved-playlists-label" for="saved-playlist-select">Enregistrées (navigateur)</label>
+            <select
+              id="saved-playlist-select"
+              class="saved-playlists-select"
+              aria-label="Playlist enregistrée dans le navigateur"
+            >
+              <option value="">— Choisir —</option>
+            </select>
+            <div class="saved-playlists-actions">
+              <button type="button" id="saved-playlist-load" class="btn btn-secondary saved-playlists-btn">
+                Charger
+              </button>
+              <button type="button" id="saved-playlist-save" class="btn btn-secondary saved-playlists-btn">
+                Enregistrer
+              </button>
+              <button
+                type="button"
+                id="saved-playlist-delete"
+                class="btn btn-ghost saved-playlists-btn"
+                disabled
+                title="Supprimer la playlist sélectionnée"
+              >
+                Supprimer
+              </button>
+            </div>
+          </div>
         </div>
         
         <div class="sidebar-body">
