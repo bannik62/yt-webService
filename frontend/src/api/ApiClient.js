@@ -419,4 +419,58 @@ export class ApiClient {
   streamJob(jobId) {
     return new EventSource(`${this.baseUrl}/api/jobs/${jobId}/stream`);
   }
+
+  /**
+   * Enregistre un événement stats anonyme (fire-and-forget côté UI).
+   * @param {{
+   *   type: 'video_view',
+   *   anonId: string,
+   *   videoId: string,
+   *   channelId?: string,
+   *   channelName?: string,
+   *   title?: string
+   * }} payload
+   * @returns {Promise<{ ok?: boolean, recorded?: boolean }>}
+   */
+  async recordUsageEvent(payload) {
+    try {
+      const res = await fetch(`${this.baseUrl}/api/stats/event`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(8000)
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || `Erreur serveur (${res.status})`);
+      }
+      return await res.json();
+    } catch (err) {
+      this._handleFetchError(err, 'stats');
+    }
+  }
+
+  /**
+   * Agrégats stats communautaires (tops anonymes).
+   * @param {{ days?: number, limit?: number }} [opts]
+   */
+  async fetchUsageStatsSummary(opts = {}) {
+    try {
+      const params = new URLSearchParams();
+      if (opts.days != null) params.set('days', String(opts.days));
+      if (opts.limit != null) params.set('limit', String(opts.limit));
+      const qs = params.toString();
+      const res = await fetch(
+        `${this.baseUrl}/api/stats/summary${qs ? `?${qs}` : ''}`,
+        { signal: AbortSignal.timeout(10000) }
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || `Erreur serveur (${res.status})`);
+      }
+      return await res.json();
+    } catch (err) {
+      this._handleFetchError(err, 'stats');
+    }
+  }
 }

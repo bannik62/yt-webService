@@ -23,6 +23,7 @@ import { JobManager } from './ripper/JobManager.js';
 import { normalizePlaylistMaxDownloads } from './ripper/playlistLimit.js';
 import { initProxyAtStartup, getProxyPool, selectProxyByIndex, refreshProxyPool, getCurrentProxy, getCurrentProxyInfo, resolveProxyUrl } from './proxy/proxyManager.js';
 import workerIngestRoutes from './routes/workerIngest.js';
+import usageStatsRoutes from './routes/usageStats.js';
 import { startWorkerConnectivityHeartbeat } from './workerConnectivityHeartbeat.js';
 import { recordWorkerHealthy } from './workerIngestGate.js';
 import { readDownloadStats } from './downloadStats.js';
@@ -192,6 +193,10 @@ await app.register(rateLimit, {
 await app.register(workerIngestRoutes, {
   prefix: '/api/worker',
   jobManager
+});
+
+await app.register(usageStatsRoutes, {
+  prefix: '/api/stats'
 });
 
 app.get('/health', async () => ({ ok: true }));

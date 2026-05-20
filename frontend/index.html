@@ -241,6 +241,44 @@
         </div>
 
         <div class="view-container view-mode-animate" id="search-container">
+          <section class="community-stats-section" id="community-stats-section" hidden>
+            <button
+              type="button"
+              class="community-stats-toggle"
+              id="community-stats-toggle"
+              aria-expanded="false"
+              aria-controls="community-stats-panel"
+            >
+              <span class="community-stats-toggle__title">Communauté</span>
+              <span class="community-stats-toggle__hint" id="community-stats-toggle-hint"></span>
+              <span class="community-stats-toggle__chev" aria-hidden="true"></span>
+            </button>
+            <div class="community-stats-panel" id="community-stats-panel" hidden>
+              <div class="community-stats-toolbar">
+                <p class="community-stats-meta" id="community-stats-meta"></p>
+                <button
+                  type="button"
+                  class="btn btn-ghost community-stats-refresh"
+                  id="community-stats-refresh"
+                  title="Actualiser les stats"
+                >
+                  Actualiser
+                </button>
+              </div>
+              <div class="community-stats-grid">
+                <div class="community-stats-block">
+                  <h4 class="community-stats-subtitle">Vidéos les plus vues <span class="community-stats-limit">(top 50)</span></h4>
+                  <ol class="community-stats-list" id="community-stats-videos"></ol>
+                  <p class="community-stats-more" id="community-stats-videos-more" hidden></p>
+                </div>
+                <div class="community-stats-block">
+                  <h4 class="community-stats-subtitle">Chaînes les plus vues <span class="community-stats-limit">(top 50)</span></h4>
+                  <ol class="community-stats-list" id="community-stats-channels"></ol>
+                  <p class="community-stats-more" id="community-stats-channels-more" hidden></p>
+                </div>
+              </div>
+            </div>
+          </section>
           <section
             class="media-strip-section channel-favorites-section"
             id="channel-favorites-strip-section"

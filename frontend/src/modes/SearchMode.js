@@ -10,6 +10,7 @@ import { Favorites } from '../models/Favorites.js';
 import { ChannelFavorites } from '../models/ChannelFavorites.js';
 import { HorizontalMediaStrip } from '../views/HorizontalMediaStrip.js';
 import { ChannelFavoritesStrip } from '../views/ChannelFavoritesStrip.js';
+import { CommunityStatsPanel } from '../views/CommunityStatsPanel.js';
 import {
   tryAcquireUserDownload,
   releaseUserDownload
@@ -27,6 +28,7 @@ export class SearchMode {
     this.downloadListView = new DownloadListView(this.downloadList);
     this.savedPlaylistsBar = new SavedPlaylistsBar(this.downloadList);
     this.videoModal = new VideoModal(this.api);
+    this.communityStats = new CommunityStatsPanel(this.api);
     this.playbackHistory = new PlaybackHistory();
     this.favorites = new Favorites();
     this.channelFavorites = new ChannelFavorites();
@@ -90,7 +92,10 @@ export class SearchMode {
 
     const showVideo = this.videoModal.show.bind(this.videoModal);
     this.videoModal.show = (item, playlist, index) => {
-      if (item) this.playbackHistory.record(item);
+      if (item) {
+        this.playbackHistory.record(item);
+        this.communityStats.recordVideoView(item);
+      }
       showVideo(item, playlist, index);
     };
     this.currentJobId = null;
@@ -271,11 +276,13 @@ export class SearchMode {
         if (this.channelFavoritesStrip.sectionEl) {
           this.channelFavoritesStrip.sectionEl.hidden = true;
         }
+        this.communityStats.setHomeVisible(false);
         return;
       }
       this.favoritesStrip.render(this.favorites.getAll());
       this.historyStrip.render(this.playbackHistory.getAll());
       this.channelFavoritesStrip.render(this.channelFavorites.getAll());
+      this.communityStats.setHomeVisible(true);
     };
 
     this.videoModal.onFavoriteChange = refreshMediaStrips;
@@ -311,6 +318,7 @@ export class SearchMode {
       /* ignore */
     }
     refreshMediaStrips();
+    void this.communityStats.refresh();
   }
 
   async loadTrending(musicOnly = false) {

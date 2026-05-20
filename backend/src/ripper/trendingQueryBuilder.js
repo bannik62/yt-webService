@@ -91,6 +91,7 @@ const SUBJECTS_GENERAL = [
   'concert',
   'radio amateur',
   'vhs',
+  'super 8',
   'cassette',
   'caméscope',
   'mini dv',
@@ -411,6 +412,20 @@ const MODIFIERS_MUSIC = [
   'été',
   'hiver',
   'pluie',
+  'tecnho retro',
+  'tecnho techno',
+  'tecnho trance',
+  'tecnho country',
+  'tecnho folk',
+  'tecnho celtique',
+  'tecnho classique',
+  'tecnho opéra',
+  'bande originale',
+  'tecnho remix',
+  'tecnho cover',
+  'tecnho medley',
+  'tecnho mashup',
+  'tecnho beat',    
 ];
 
 /**
@@ -427,6 +442,22 @@ const MODIFIERS_MUSIC = [
  * @property {number} weight
  * @property {string} id
  * @property {(ctx: PatternCtx) => string} build
+  'tecnho techno',
+  'tecnho trance',
+  'tecnho dubstep',
+  'tecnho reggae',
+  'tecnho ska',
+  'tecnho country',
+  'tecnho folk',
+  'tecnho celtique',
+  'tecnho classique',
+  'tecnho opéra',
+  'tecnho bande originale',
+  'tecnho remix',
+  'tecnho cover',
+  'tecnho medley',
+  'tecnho mashup',
+  'tecnho beat',
  * @property {(ctx: PatternCtx) => { subject: string, verb: string, modifier: string }} fields
  */
 
