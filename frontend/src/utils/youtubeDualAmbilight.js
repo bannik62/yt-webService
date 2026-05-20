@@ -13,6 +13,72 @@ export const AMBILIGHT_BLEED_RATIO = 0.42;
 
 export const AMBILIGHT_PREF_KEY = 'ytripper.ambilight.enabled';
 
+/** Part de l’écran : mobile 70 % / desktop 65 % / desktop + plein écran navigateur 70 %. */
+export const AMBILIGHT_CINEMA_VIDEO_RATIO_MOBILE = 0.7;
+export const AMBILIGHT_CINEMA_VIDEO_RATIO_DESKTOP = 0.65;
+export const AMBILIGHT_CINEMA_VIDEO_RATIO_DESKTOP_FULLSCREEN = 0.7;
+
+/** @deprecated utiliser getCinemaVideoRatio() */
+export const AMBILIGHT_CINEMA_VIDEO_RATIO = AMBILIGHT_CINEMA_VIDEO_RATIO_MOBILE;
+
+/** Aligné sur le breakpoint desktop du projet (769px). */
+export const AMBILIGHT_CINEMA_DESKTOP_MIN_WIDTH = 769;
+
+/**
+ * Plein écran navigateur actif (F11 / bouton full screen).
+ */
+export function isBrowserFullscreen() {
+  const doc = document;
+  return Boolean(
+    doc.fullscreenElement ??
+      /** @type {Document & { webkitFullscreenElement?: Element }} */ (doc)
+        .webkitFullscreenElement
+  );
+}
+
+/**
+ * Ratio vidéo mode cinéma (desktop 70 % si plein écran navigateur).
+ * @param {number} [vw]
+ * @param {boolean} [fullscreen]
+ */
+export function getCinemaVideoRatio(
+  vw = window.innerWidth,
+  fullscreen = isBrowserFullscreen()
+) {
+  if (vw < AMBILIGHT_CINEMA_DESKTOP_MIN_WIDTH) {
+    return AMBILIGHT_CINEMA_VIDEO_RATIO_MOBILE;
+  }
+  if (fullscreen) {
+    return AMBILIGHT_CINEMA_VIDEO_RATIO_DESKTOP_FULLSCREEN;
+  }
+  return AMBILIGHT_CINEMA_VIDEO_RATIO_DESKTOP;
+}
+
+/**
+ * Rectangle 16:9 centré (ratio responsive desktop / mobile).
+ * @returns {{ left: number, top: number, width: number, height: number }}
+ */
+export function computeCinemaVideoRect(
+  vw = window.innerWidth,
+  vh = window.innerHeight,
+  ratio = getCinemaVideoRatio(vw)
+) {
+  const maxW = vw * ratio;
+  const maxH = vh * ratio;
+  let w = maxW;
+  let h = (w * 9) / 16;
+  if (h > maxH) {
+    h = maxH;
+    w = (h * 16) / 9;
+  }
+  return {
+    left: Math.round((vw - w) / 2),
+    top: Math.round((vh - h) / 2),
+    width: Math.round(w),
+    height: Math.round(h),
+  };
+}
+
 const yt = () => window.YT;
 
 /**

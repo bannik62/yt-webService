@@ -1,6 +1,8 @@
 import { createElement } from '../utils/dom.js';
 import {
+  AMBILIGHT_CINEMA_DESKTOP_MIN_WIDTH,
   AMBILIGHT_PREF_KEY,
+  computeCinemaVideoRect,
   ambilightPlayerVars,
   muteAmbilightPlayer,
   setAmbilightPlaybackQuality,
@@ -137,7 +139,9 @@ export class VideoModal {
     /** @type {boolean | null} null = préférence session ; false = coupé par l’utilisateur */
     this._ambilightOn = null;
     this._ambilightAttachPending = false;
-    /** @type {import('../models/Favorites.js').Favorites | null} */
+    /** @type {HTMLButtonElement | null} */
+    this._cinemaFullscreenBtn = null;
+    this._cinemaFullscreenBound = false;
     this.favorites = null;
     /** @type {(() => void) | null} */
     this.onFavoriteChange = null;
@@ -324,6 +328,158 @@ export class VideoModal {
     this._modalContentEl?.classList.toggle('has-ambilight', visible);
     this._videoContainer?.classList.toggle('has-ambilight', visible);
     this._dockMediaEl?.classList.toggle('has-ambilight', visible);
+    if (!visible) this._shell?.classList.remove('is-ambilight-cinema');
+    this._updateCinemaFullscreenButton();
+    if (this._mode) this._layoutPlayerFloat();
+  }
+
+  _isCinemaDesktop() {
+    return window.innerWidth >= AMBILIGHT_CINEMA_DESKTOP_MIN_WIDTH;
+  }
+
+  _updateCinemaFullscreenButton() {
+    const btn = this._cinemaFullscreenBtn;
+    if (!btn) return;
+    const show =
+      this._isAmbilightCinemaLayout() && this._isCinemaDesktop();
+    btn.hidden = !show;
+  }
+
+  _layoutCinemaFullscreenButton(video, padX, padY) {
+    const btn = this._cinemaFullscreenBtn;
+    if (!btn || !this._isCinemaDesktop()) {
+      this._updateCinemaFullscreenButton();
+      return;
+    }
+    btn.hidden = false;
+    const left = Math.max(16, Math.round(video.left - padX + 12));
+    const top = Math.round(video.top + video.height + padY + 18);
+    btn.style.left = `${left}px`;
+    btn.style.top = `${top}px`;
+    btn.style.bottom = 'auto';
+    btn.style.right = 'auto';
+  }
+
+  async _requestCinemaFullscreen() {
+    const doc = document;
+    const docEl = document.documentElement;
+    const fsEl =
+      doc.fullscreenElement ??
+      /** @type {Document & { webkitFullscreenElement?: Element }} */ (doc)
+        .webkitFullscreenElement;
+
+    try {
+      if (fsEl) {
+        const exit =
+          doc.exitFullscreen?.bind(doc) ??
+          /** @type {Document & { webkitExitFullscreen?: () => Promise<void> }} */ (
+            doc
+          ).webkitExitFullscreen?.bind(doc);
+        if (exit) await exit();
+        return;
+      }
+
+      const req =
+        docEl.requestFullscreen?.bind(docEl) ??
+        /** @type {HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }} */ (
+          docEl
+        ).webkitRequestFullscreen?.bind(docEl);
+      if (!req) return;
+      await req();
+    } catch {
+      /* politique navigateur ou gesture refusée */
+    }
+  }
+
+  _bindCinemaFullscreenListener() {
+    if (this._cinemaFullscreenBound) return;
+    this._cinemaFullscreenBound = true;
+    const onFsChange = () => {
+      if (this._isAmbilightCinemaLayout()) {
+        this._layoutPlayerFloat();
+      }
+      const btn = this._cinemaFullscreenBtn;
+      if (!btn) return;
+      const active = Boolean(
+        document.fullscreenElement ??
+          /** @type {Document & { webkitFullscreenElement?: Element }} */ (document)
+            .webkitFullscreenElement
+      );
+      btn.textContent = active ? 'exit full screen' : 'full screen';
+      btn.setAttribute(
+        'aria-label',
+        active ? 'Quitter le plein écran' : 'Plein écran navigateur'
+      );
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    document.addEventListener('webkitfullscreenchange', onFsChange);
+  }
+
+  /** @param {HTMLElement | null} host */
+  _resetPlayerHostCinemaStyles(host) {
+    if (!host) return;
+    host.style.left = '';
+    host.style.top = '';
+    host.style.width = '';
+    host.style.height = '';
+    host.style.transform = '';
+  }
+
+  _isAmbilightCinemaLayout() {
+    return (
+      this._mode === 'expanded' &&
+      this._ambilightReady &&
+      Boolean(this._shell?.classList.contains('has-ambilight'))
+    );
+  }
+
+  _layoutCinemaPlayerFloat() {
+    const floatEl = this._playerFloat;
+    if (!floatEl) return;
+
+    this._shell?.classList.add('is-ambilight-cinema');
+
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const video = computeCinemaVideoRect(vw, vh);
+    const padX = Math.round(video.width * 0.15);
+    const padY = Math.round(video.height * 0.15);
+
+    floatEl.hidden = false;
+    floatEl.style.left = `${video.left - padX}px`;
+    floatEl.style.top = `${video.top - padY}px`;
+    floatEl.style.width = `${video.width + padX * 2}px`;
+    floatEl.style.height = `${video.height + padY * 2}px`;
+    floatEl.style.zIndex = '10001';
+
+    if (this._playerHost) {
+      this._playerHost.style.left = `${padX}px`;
+      this._playerHost.style.top = `${padY}px`;
+      this._playerHost.style.width = `${video.width}px`;
+      this._playerHost.style.height = `${video.height}px`;
+      this._playerHost.style.transform = 'none';
+    }
+
+    if (this._ytPlayer?.setSize && this._playerReady) {
+      try {
+        this._ytPlayer.setSize(video.width, video.height);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    if (this._ytAmbilightPlayer && this._ambilightReady) {
+      try {
+        setAmbilightPlayerSize(this._ytAmbilightPlayer, {
+          width: video.width + padX * 2,
+          height: video.height + padY * 2,
+        });
+      } catch {
+        /* ignore */
+      }
+    }
+
+    this._layoutCinemaFullscreenButton(video, padX, padY);
   }
 
   /** @returns {'off' | 'loading' | 'on'} */
@@ -453,6 +609,7 @@ export class VideoModal {
           this._setAmbilightLayerVisible(true);
           this._ambilightAttachPending = false;
           this._updateAmbilightButtons();
+          if (this._mode === 'expanded') this._layoutPlayerFloat();
         },
         onStateChange: () => {
           const back = this._ytAmbilightPlayer;
@@ -634,6 +791,15 @@ export class VideoModal {
    */
   _layoutPlayerFloat() {
     if (!this._playerFloat || !this._mode) return;
+
+    if (this._isAmbilightCinemaLayout()) {
+      this._layoutCinemaPlayerFloat();
+      return;
+    }
+
+    this._resetPlayerHostCinemaStyles(this._playerHost);
+    this._shell?.classList.remove('is-ambilight-cinema');
+    this._updateCinemaFullscreenButton();
 
     const target =
       this._mode === 'docked' ? this._playerSlotDock : this._playerSlotExpanded;
@@ -1010,9 +1176,23 @@ export class VideoModal {
     this._playerLoadingEl.appendChild(loadingLabel);
     this._playerFloat.appendChild(this._playerLoadingEl);
 
+    this._cinemaFullscreenBtn = createElement('button', {
+      className: 'video-player-cinema-fullscreen-btn',
+      type: 'button',
+      hidden: true,
+      title: 'Plein écran navigateur (comme F11)',
+      'aria-label': 'Plein écran navigateur',
+      onClick: (e) => {
+        e.stopPropagation();
+        void this._requestCinemaFullscreen();
+      },
+    });
+    this._cinemaFullscreenBtn.textContent = 'full screen';
+
     shellRoot.appendChild(overlayEl);
     shellRoot.appendChild(dock);
     shellRoot.appendChild(this._playerFloat);
+    shellRoot.appendChild(this._cinemaFullscreenBtn);
     document.body.appendChild(shellRoot);
 
     this._shell = shellRoot;
@@ -1022,12 +1202,26 @@ export class VideoModal {
     this._bindDockDrag(dock);
     this._bindPlayerLayoutWatch();
     this._bindEscHandler();
+    this._bindCinemaFullscreenListener();
   }
 
   _bindEscHandler() {
     this._removeEscHandler();
     this._escHandler = (e) => {
       if (e.key !== 'Escape' || !this._shell) return;
+      const fsEl =
+        document.fullscreenElement ??
+        /** @type {Document & { webkitFullscreenElement?: Element }} */ (document)
+          .webkitFullscreenElement;
+      if (fsEl) {
+        const exit =
+          document.exitFullscreen?.bind(document) ??
+          /** @type {Document & { webkitExitFullscreen?: () => Promise<void> }} */ (
+            document
+          ).webkitExitFullscreen?.bind(document);
+        void exit?.();
+        return;
+      }
       if (this._mode === 'expanded') {
         this.minimize();
       } else {
