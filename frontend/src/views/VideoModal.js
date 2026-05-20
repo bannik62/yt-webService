@@ -108,6 +108,10 @@ export class VideoModal {
     this.onPrevious = null;
     /** @type {((item: object, meta: object) => void) | null} */
     this.onVideoMetaLoaded = null;
+    /** @type {((item: object) => void) | null} */
+    this.onVideoReplayed = null;
+    /** @type {number} */
+    this._lastEndedAt = 0;
     /** @type {import('../models/Favorites.js').Favorites | null} */
     this.favorites = null;
     /** @type {(() => void) | null} */
@@ -262,6 +266,7 @@ export class VideoModal {
     this._loadedVideoId = null;
     this._playerReady = false;
     this._pendingVideoId = null;
+    this._lastEndedAt = 0;
   }
 
   showNext() {
@@ -1004,13 +1009,26 @@ export class VideoModal {
               ) {
                 this._setPlayerLoading(false);
               }
+              if (st === window.YT.PlayerState.PLAYING) {
+                if (
+                  this._lastEndedAt &&
+                  Date.now() - this._lastEndedAt < 30_000 &&
+                  this.currentItem
+                ) {
+                  this.onVideoReplayed?.(this.currentItem);
+                }
+                this._lastEndedAt = 0;
+                return;
+              }
               if (st !== window.YT.PlayerState.ENDED) return;
               if (
                 this.playlist &&
                 this.currentIndex < this.playlist.length - 1
               ) {
                 this.showNext();
+                return;
               }
+              this._lastEndedAt = Date.now();
         },
       },
     });

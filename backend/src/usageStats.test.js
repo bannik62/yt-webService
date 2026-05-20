@@ -50,7 +50,7 @@ describe('usageStats', () => {
     ).toBe(false);
   });
 
-  it('recordUsageEvent déduplique par jour', async () => {
+  it('recordUsageEvent déduplique dans la même fenêtre courte', async () => {
     const anonId = 'anon-user-12345678';
     const videoId = 'dQw4w9WgXcQ';
     const payload = {
@@ -94,11 +94,37 @@ describe('usageStats', () => {
     expect(summary.topChannels[0].uniqueViewers).toBe(2);
   });
 
-  it('dedupKey inclut la date du jour', () => {
+  it('dedupKey utilise une fenêtre temporelle', () => {
     const d = new Date('2026-05-20T12:00:00.000Z');
-    expect(dedupKey('anon-12345678', 'abcdefghijk', d)).toBe(
-      'anon-12345678:abcdefghijk:2026-05-20'
-    );
+    const key = dedupKey('anon-12345678', 'abcdefghijk', d);
+    expect(key.startsWith('anon-12345678:abcdefghijk:')).toBe(true);
+    expect(key.split(':').pop()).toMatch(/^\d+$/);
+  });
+
+  it('compte une nouvelle vue après la fenêtre de dédup', async () => {
+    const { VIEW_DEDUP_WINDOW_MS } = await import('./usageStats.js');
+    const anonId = 'anon-user-12345678';
+    const videoId = 'dQw4w9WgXcQ';
+
+    await recordUsageEvent({
+      anonId,
+      videoId,
+      title: 'Loop test',
+      channelName: 'Test Channel'
+    });
+
+    const later = new Date(Date.now() + VIEW_DEDUP_WINDOW_MS + 500);
+    const r2 = await recordUsageEvent({
+      anonId,
+      videoId,
+      title: 'Loop test',
+      channelName: 'Test Channel',
+      at: later.toISOString()
+    });
+    expect(r2.recorded).toBe(true);
+
+    const summary = await getUsageStatsSummary({ days: 7, limit: 5 });
+    expect(summary.topVideos[0].views).toBe(2);
   });
 
   it('isValidChannelLabel rejette placeholders', () => {

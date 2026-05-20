@@ -117,6 +117,9 @@ export class SearchMode {
       };
       this._recordCommunityViewIfReady(enriched);
     };
+    this.videoModal.onVideoReplayed = (item) => {
+      this._recordCommunityViewIfReady(item);
+    };
     this.currentJobId = null;
     this.eventSource = null;
 

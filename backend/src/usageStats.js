@@ -10,6 +10,9 @@ const MAX_EVENTS = 20_000;
 /** Nombre max d’entrées renvoyées dans topVideos / topChannels. */
 export const STATS_DISPLAY_LIMIT = 15;
 
+/** Même vidéo + même visiteur : 1 vue par fenêtre (relecture en boucle possible après). */
+export const VIEW_DEDUP_WINDOW_MS = 2 * 60 * 1000;
+
 /** @type {Promise<void>} */
 let writeChain = Promise.resolve();
 
@@ -41,8 +44,8 @@ async function readStoreUnlocked() {
  * @param {Date} [now]
  */
 export function dedupKey(anonId, videoId, now = new Date()) {
-  const day = now.toISOString().slice(0, 10);
-  return `${anonId}:${videoId}:${day}`;
+  const bucket = Math.floor(now.getTime() / VIEW_DEDUP_WINDOW_MS);
+  return `${anonId}:${videoId}:${bucket}`;
 }
 
 /**
@@ -150,7 +153,7 @@ export function validateUsageEvent(payload) {
 }
 
 /**
- * Enregistre une vue vidéo (1 par anonId / vidéo / jour).
+ * Enregistre une vue vidéo (dédup courte par anonId + vidéo, voir VIEW_DEDUP_WINDOW_MS).
  * @param {{
  *   anonId: string,
  *   videoId: string,
@@ -178,7 +181,9 @@ async function recordUsageEventUnlocked(evt) {
   const videoId = normalizeVideoId(evt.videoId);
   if (!anonId || !videoId) return { recorded: false };
 
-  const now = new Date();
+  const atRaw = evt.at;
+  const parsedAt = typeof atRaw === 'string' ? Date.parse(atRaw) : NaN;
+  const now = Number.isFinite(parsedAt) ? new Date(parsedAt) : new Date();
   const key = dedupKey(anonId, videoId, now);
   const filePath = statsPath();
   const dir = path.dirname(filePath);
@@ -225,13 +230,13 @@ function pruneStore(store, now) {
     store.events = store.events.slice(-MAX_EVENTS);
   }
 
-  const dedupCutoffDay = new Date(now);
-  dedupCutoffDay.setUTCDate(dedupCutoffDay.getUTCDate() - 2);
-  const dedupCutoff = dedupCutoffDay.toISOString().slice(0, 10);
+  const dedupCutoffMs = now.getTime() - 48 * 60 * 60 * 1000;
+  const minBucket = Math.floor(dedupCutoffMs / VIEW_DEDUP_WINDOW_MS);
   const nextDedup = {};
   for (const [k, v] of Object.entries(store.dedup)) {
-    const day = k.split(':').pop();
-    if (day && day >= dedupCutoff) nextDedup[k] = v;
+    const bucketRaw = k.split(':').pop();
+    const bucket = Number(bucketRaw);
+    if (Number.isFinite(bucket) && bucket >= minBucket) nextDedup[k] = v;
   }
   store.dedup = nextDedup;
   return store;
