@@ -7,7 +7,9 @@ const {
   recordUsageEvent,
   getUsageStatsSummary,
   dedupKey,
-  validateUsageEvent
+  validateUsageEvent,
+  isValidChannelLabel,
+  channelAggregateKey
 } = await import('./usageStats.js');
 
 describe('usageStats', () => {
@@ -97,6 +99,63 @@ describe('usageStats', () => {
     expect(dedupKey('anon-12345678', 'abcdefghijk', d)).toBe(
       'anon-12345678:abcdefghijk:2026-05-20'
     );
+  });
+
+  it('isValidChannelLabel rejette placeholders', () => {
+    expect(isValidChannelLabel('ARTE')).toBe(true);
+    expect(isValidChannelLabel('—')).toBe(false);
+    expect(isValidChannelLabel('unknown')).toBe(false);
+    expect(isValidChannelLabel('')).toBe(false);
+  });
+
+  it('fusionne même chaîne (UC… + nom seul)', async () => {
+    const nameToId = new Map([['arte', 'UCarte12345']]);
+    expect(channelAggregateKey(
+      { channelId: 'UCarte12345', channelName: 'ARTE' },
+      nameToId
+    )).toBe('id:UCarte12345');
+    expect(channelAggregateKey({ channelName: 'ARTE' }, nameToId)).toBe(
+      'id:UCarte12345'
+    );
+
+    await recordUsageEvent({
+      anonId: 'anon-user-11111111',
+      videoId: 'abcdefghij1',
+      channelId: 'UCarte12345',
+      channelName: 'ARTE'
+    });
+    await recordUsageEvent({
+      anonId: 'anon-user-22222222',
+      videoId: 'abcdefghij2',
+      channelName: 'ARTE'
+    });
+
+    const summary = await getUsageStatsSummary({ days: 7, limit: 15 });
+    const arteRows = summary.topChannels.filter((c) => c.channelName === 'ARTE');
+    expect(arteRows).toHaveLength(1);
+    expect(arteRows[0].views).toBe(2);
+  });
+
+  it('n’agrège pas les chaînes invalides', async () => {
+    await recordUsageEvent({
+      anonId: 'anon-user-11111111',
+      videoId: 'abcdefghij1',
+      channelName: '—'
+    });
+    await recordUsageEvent({
+      anonId: 'anon-user-22222222',
+      videoId: 'abcdefghij2',
+      channelName: 'Vraie chaîne'
+    });
+
+    const summary = await getUsageStatsSummary({ days: 7, limit: 15 });
+    expect(summary.topChannels).toHaveLength(1);
+    expect(summary.topChannels[0].channelName).toBe('Vraie chaîne');
+    expect(
+      summary.topChannels.some(
+        (c) => c.channelName === '—' || c.channelName === 'unknown'
+      )
+    ).toBe(false);
   });
 
   it('limite à 15 et compte les vidéos non affichées', async () => {

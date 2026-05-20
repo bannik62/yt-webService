@@ -106,6 +106,8 @@ export class VideoModal {
     this.onAdd = null;
     this.onNext = null;
     this.onPrevious = null;
+    /** @type {((item: object, meta: object) => void) | null} */
+    this.onVideoMetaLoaded = null;
     /** @type {import('../models/Favorites.js').Favorites | null} */
     this.favorites = null;
     /** @type {(() => void) | null} */
@@ -1176,5 +1178,14 @@ export class VideoModal {
       lines: display.lines,
       summary: display.summary,
     });
+
+    if (meta?.channel && this.currentItem) {
+      this.currentItem = {
+        ...this.currentItem,
+        channel: meta.channel,
+        channelName: meta.channel,
+      };
+    }
+    this.onVideoMetaLoaded?.(this.currentItem, meta);
   }
 }

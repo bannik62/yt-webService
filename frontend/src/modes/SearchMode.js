@@ -16,6 +16,7 @@ import {
   releaseUserDownload
 } from '../downloadGate.js';
 import { getPublicShareBaseUrl } from '../config/publicSite.js';
+import { channelLabelFromItem, validChannelLabel } from '../utils/channelLabel.js';
 
 /**
  * Mode Search : Recherche YouTube + Playlist + Batch download
@@ -96,7 +97,7 @@ export class SearchMode {
     this._onVideoPlayed = (item) => {
       if (!item) return;
       this.playbackHistory.record(item);
-      this.communityStats.recordVideoView(item);
+      this._recordCommunityViewIfReady(item);
     };
     this.videoModal.show = (item, playlist, index) => {
       this._onVideoPlayed(item);
@@ -104,6 +105,18 @@ export class SearchMode {
     };
     this.videoModal.onNext = (item) => this._onVideoPlayed(item);
     this.videoModal.onPrevious = (item) => this._onVideoPlayed(item);
+    this.videoModal.onVideoMetaLoaded = (item, meta) => {
+      const channel =
+        validChannelLabel(meta?.channel) || channelLabelFromItem(item);
+      if (!channel || !item) return;
+      const enriched = {
+        ...item,
+        channel,
+        channelName: channel,
+        channelId: item.channelId || item.channel_id || '',
+      };
+      this._recordCommunityViewIfReady(enriched);
+    };
     this.currentJobId = null;
     this.eventSource = null;
 
@@ -137,6 +150,15 @@ export class SearchMode {
     };
 
     this.init();
+  }
+
+  /**
+   * Stats communauté : uniquement quand le nom de chaîne est connu (carte ou meta).
+   * @param {object} item
+   */
+  _recordCommunityViewIfReady(item) {
+    if (!channelLabelFromItem(item)) return;
+    this.communityStats.recordVideoView(item);
   }
 
   /**

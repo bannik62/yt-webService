@@ -89,6 +89,43 @@ export function normalizeChannelId(raw) {
   return t;
 }
 
+/** @param {unknown} raw */
+export function isValidChannelLabel(raw) {
+  const t = String(raw ?? '').trim();
+  if (!t) return false;
+  if (t === '—' || t === '-' || t === '–') return false;
+  if (/^unknown$/i.test(t)) return false;
+  if (/^youtube$/i.test(t)) return false;
+  return true;
+}
+
+/**
+ * @param {unknown} raw
+ * @returns {string}
+ */
+export function normalizeChannelNameKey(raw) {
+  const t = normalizeLabel(raw);
+  if (!isValidChannelLabel(t)) return '';
+  return t.toLowerCase();
+}
+
+/**
+ * @param {{ channelId?: string, channelName?: string }} e
+ * @param {Map<string, string>} nameToChannelId
+ * @returns {string | null} clé d’agrégat `id:…` ou `name:…`
+ */
+export function channelAggregateKey(e, nameToChannelId) {
+  const id = normalizeChannelId(e.channelId);
+  const name = isValidChannelLabel(e.channelName)
+    ? normalizeLabel(e.channelName)
+    : '';
+  if (id) return `id:${id}`;
+  if (!name) return null;
+  const linked = nameToChannelId.get(normalizeChannelNameKey(name));
+  if (linked) return `id:${linked}`;
+  return `name:${normalizeChannelNameKey(name)}`;
+}
+
 /**
  * @param {{
  *   type?: string,
@@ -150,13 +187,17 @@ async function recordUsageEventUnlocked(evt) {
   let store = await readStoreUnlocked();
   if (store.dedup[key]) return { recorded: false };
 
+  const channelId = normalizeChannelId(evt.channelId);
+  const channelNameRaw = normalizeLabel(evt.channelName);
+  const channelName = isValidChannelLabel(channelNameRaw) ? channelNameRaw : '';
+
   store.events.push({
     at: now.toISOString(),
     type: 'video_view',
     anonId,
     videoId,
-    channelId: normalizeChannelId(evt.channelId),
-    channelName: normalizeLabel(evt.channelName),
+    channelId,
+    channelName,
     title: normalizeLabel(evt.title)
   });
   store.dedup[key] = 1;
@@ -215,16 +256,28 @@ export async function getUsageStatsSummary(opts = {}) {
   cutoff.setUTCDate(cutoff.getUTCDate() - days);
   const cutoffMs = cutoff.getTime();
 
+  const recentEvents = store.events.filter((e) => {
+    if (e?.type !== 'video_view') return false;
+    const t = Date.parse(String(e.at ?? ''));
+    return Number.isFinite(t) && t >= cutoffMs;
+  });
+
+  /** @type {Map<string, string>} nom normalisé → channelId */
+  const nameToChannelId = new Map();
+  for (const e of recentEvents) {
+    const id = normalizeChannelId(e.channelId);
+    const name = isValidChannelLabel(e.channelName)
+      ? normalizeChannelNameKey(e.channelName)
+      : '';
+    if (id && name) nameToChannelId.set(name, id);
+  }
+
   /** @type {Map<string, { videoId: string, title: string, channelName: string, views: number, anonSet: Set<string> }>} */
   const videos = new Map();
   /** @type {Map<string, { channelId: string, channelName: string, views: number, anonSet: Set<string> }>} */
   const channels = new Map();
 
-  for (const e of store.events) {
-    if (e?.type !== 'video_view') continue;
-    const t = Date.parse(String(e.at ?? ''));
-    if (!Number.isFinite(t) || t < cutoffMs) continue;
-
+  for (const e of recentEvents) {
     const videoId = normalizeVideoId(e.videoId);
     const anonId = normalizeAnonId(e.anonId);
     if (!videoId || !anonId) continue;
@@ -246,24 +299,32 @@ export async function getUsageStatsSummary(opts = {}) {
       const tTitle = normalizeLabel(e.title);
       if (tTitle) v.title = tTitle;
     }
-    const cName = normalizeLabel(e.channelName);
+    const cName = isValidChannelLabel(e.channelName)
+      ? normalizeLabel(e.channelName)
+      : '';
     if (cName) v.channelName = cName;
 
-    const channelId = normalizeChannelId(e.channelId) || normalizeLabel(e.channelName) || 'unknown';
-    let c = channels.get(channelId);
+    const chKey = channelAggregateKey(e, nameToChannelId);
+    if (!chKey) continue;
+
+    let c = channels.get(chKey);
     if (!c) {
+      const displayId = chKey.startsWith('id:')
+        ? chKey.slice(3)
+        : chKey.startsWith('name:')
+          ? chKey.slice(5)
+          : chKey;
       c = {
-        channelId,
-        channelName: normalizeLabel(e.channelName) || channelId,
+        channelId: chKey.startsWith('id:') ? displayId : '',
+        channelName: cName || displayId,
         views: 0,
         anonSet: new Set()
       };
-      channels.set(channelId, c);
+      channels.set(chKey, c);
     }
     c.views += 1;
     c.anonSet.add(anonId);
-    const chName = normalizeLabel(e.channelName);
-    if (chName) c.channelName = chName;
+    if (cName) c.channelName = cName;
   }
 
   const sortedVideos = [...videos.values()].sort(
@@ -294,10 +355,7 @@ export async function getUsageStatsSummary(opts = {}) {
   return {
     periodDays: days,
     displayLimit: limit,
-    totalEvents: store.events.filter((e) => {
-      const t = Date.parse(String(e?.at ?? ''));
-      return Number.isFinite(t) && t >= cutoffMs;
-    }).length,
+    totalEvents: recentEvents.length,
     totalVideos,
     totalChannels,
     videosNotShown: Math.max(0, totalVideos - topVideos.length),

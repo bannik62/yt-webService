@@ -1,5 +1,6 @@
 import { $ } from '../utils/dom.js';
 import { getOrCreateAnonStatsId } from '../utils/anonStatsId.js';
+import { channelLabelFromItem, validChannelLabel } from '../utils/channelLabel.js';
 
 const EXPANDED_STORAGE_KEY = 'yt-community-stats-expanded';
 
@@ -255,15 +256,21 @@ export class CommunityStatsPanel {
     const videoId = String(item?.id || item?.videoId || '').trim();
     if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) return;
 
+    const channelName = channelLabelFromItem(item);
+    if (!channelName) return;
+
+    const channelId = String(item?.channelId || item?.channel_id || '').trim();
+    const payload = {
+      type: 'video_view',
+      anonId: getOrCreateAnonStatsId(),
+      videoId,
+      channelName,
+      title: item?.title || '',
+    };
+    if (channelId) payload.channelId = channelId;
+
     void this.api
-      .recordUsageEvent({
-        type: 'video_view',
-        anonId: getOrCreateAnonStatsId(),
-        videoId,
-        channelId: item?.channelId || item?.channel_id || '',
-        channelName: item?.channel || item?.channelName || item?.uploader || '',
-        title: item?.title || ''
-      })
+      .recordUsageEvent(payload)
       .then((res) => {
         if (res?.recorded) {
           void this.refresh();
