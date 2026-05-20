@@ -136,6 +136,8 @@ export class VideoModal {
     /** @type {HTMLElement | null} */
     this._modalBodyEl = null;
     /** @type {HTMLElement | null} */
+    this._modalContentEl = null;
+    /** @type {HTMLElement | null} */
     this._footerMainEl = null;
     /** @type {HTMLElement | null} */
     this._dockActionsEl = null;
@@ -236,6 +238,7 @@ export class VideoModal {
     this._dockTitleEl = null;
     this._metaEl = null;
     this._modalBodyEl = null;
+    this._modalContentEl = null;
     this._playerSlotExpanded = null;
     this._playerSlotDock = null;
     this._playerHost = null;
@@ -302,6 +305,7 @@ export class VideoModal {
       requestAnimationFrame(() => {
         this._overlay?.classList.add('show');
         this._layoutPlayerFloat();
+        requestAnimationFrame(() => this._layoutPlayerFloat());
       });
     } else {
       this._overlay?.classList.remove('show');
@@ -351,6 +355,17 @@ export class VideoModal {
     }
   }
 
+  /**
+   * Recaler le float après reflow modal (footer/meta, centrage overlay).
+   * ResizeObserver sur le slot seul ne suffit pas si la fenêtre vidéo bouge sans changer de taille.
+   */
+  _scheduleVideoFloatLayout() {
+    if (!this._shell || this._mode !== 'expanded') return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => this._layoutPlayerFloat());
+    });
+  }
+
   _bindPlayerLayoutWatch() {
     if (this._layoutObserver) return;
 
@@ -368,6 +383,9 @@ export class VideoModal {
       }
       if (this._dockEl) {
         this._layoutObserver.observe(this._dockEl);
+      }
+      if (this._modalContentEl) {
+        this._layoutObserver.observe(this._modalContentEl);
       }
     }
 
@@ -502,6 +520,7 @@ export class VideoModal {
       className: 'modal-content video-player-modal-content',
       onClick: (e) => e.stopPropagation(),
     });
+    this._modalContentEl = modalContent;
 
     const header = createElement('div', { className: 'modal-header' });
     this._modalTitleEl = createElement('h2', {
@@ -812,6 +831,7 @@ export class VideoModal {
     );
 
     this._footerMainEl.appendChild(actions);
+    this._scheduleVideoFloatLayout();
   }
 
   /**
@@ -997,18 +1017,21 @@ export class VideoModal {
     if (state === 'loading') {
       metaEl.classList.add('is-loading');
       metaEl.textContent = 'Chargement des infos…';
+      this._scheduleVideoFloatLayout();
       return;
     }
 
     if (state === 'error') {
       metaEl.classList.add('is-error');
       metaEl.textContent = opts.message || 'Infos indisponibles';
+      this._scheduleVideoFloatLayout();
       return;
     }
 
     if (state === 'empty') {
       metaEl.classList.add('is-empty');
       metaEl.textContent = 'Aucune info complémentaire';
+      this._scheduleVideoFloatLayout();
       return;
     }
 
@@ -1022,6 +1045,7 @@ export class VideoModal {
     if (opts.summary) {
       this._appendExpandableSummary(metaEl, opts.summary);
     }
+    this._scheduleVideoFloatLayout();
   }
 
   _appendExpandableSummary(metaEl, summaryText) {
@@ -1060,6 +1084,7 @@ export class VideoModal {
       summaryWrap.classList.toggle('is-expanded', expanded);
       btn.textContent = expanded ? 'Voir moins' : 'Voir plus';
       btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      this._scheduleVideoFloatLayout();
     });
     summaryWrap.appendChild(btn);
     metaEl.appendChild(summaryWrap);
@@ -1113,6 +1138,7 @@ export class VideoModal {
         });
         warning.textContent = msg;
         metaEl.appendChild(warning);
+        this._scheduleVideoFloatLayout();
       }
       return;
     }
