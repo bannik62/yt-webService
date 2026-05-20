@@ -28,7 +28,9 @@ export class SearchMode {
     this.downloadListView = new DownloadListView(this.downloadList);
     this.savedPlaylistsBar = new SavedPlaylistsBar(this.downloadList);
     this.videoModal = new VideoModal(this.api);
-    this.communityStats = new CommunityStatsPanel(this.api);
+    this.communityStats = new CommunityStatsPanel(this.api, {
+      onPlayVideo: (entry) => this._playCommunityVideo(entry),
+    });
     this.playbackHistory = new PlaybackHistory();
     this.favorites = new Favorites();
     this.channelFavorites = new ChannelFavorites();
@@ -91,13 +93,17 @@ export class SearchMode {
     });
 
     const showVideo = this.videoModal.show.bind(this.videoModal);
+    this._onVideoPlayed = (item) => {
+      if (!item) return;
+      this.playbackHistory.record(item);
+      this.communityStats.recordVideoView(item);
+    };
     this.videoModal.show = (item, playlist, index) => {
-      if (item) {
-        this.playbackHistory.record(item);
-        this.communityStats.recordVideoView(item);
-      }
+      this._onVideoPlayed(item);
       showVideo(item, playlist, index);
     };
+    this.videoModal.onNext = (item) => this._onVideoPlayed(item);
+    this.videoModal.onPrevious = (item) => this._onVideoPlayed(item);
     this.currentJobId = null;
     this.eventSource = null;
 
@@ -131,6 +137,41 @@ export class SearchMode {
     };
 
     this.init();
+  }
+
+  /**
+   * @param {{ videoId: string, title?: string, channelName?: string }} entry
+   */
+  _communityVideoItem(entry) {
+    const videoId = String(entry?.videoId || '').trim();
+    return {
+      id: videoId,
+      videoId,
+      title: entry.title || 'Vidéo',
+      channel: entry.channelName || '—',
+      url: `https://www.youtube.com/watch?v=${videoId}`,
+      thumbnail: `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`,
+    };
+  }
+
+  /**
+   * Ouvre une vidéo depuis le classement Communauté (playlist = top affiché).
+   * @param {{ videoId: string, title?: string, channelName?: string }} entry
+   */
+  _playCommunityVideo(entry) {
+    const videoId = String(entry?.videoId || '').trim();
+    if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) return;
+
+    const top = this.communityStats._lastSummary?.topVideos ?? [];
+    const playlist = top.map((v) => this._communityVideoItem(v));
+    const idx = playlist.findIndex((p) => p.videoId === videoId);
+    const item = this._communityVideoItem(entry);
+    this.videoModal.playbackFromDownloadList = false;
+    if (playlist.length > 1 && idx >= 0) {
+      this.videoModal.show(item, playlist, idx);
+    } else {
+      this.videoModal.show(item);
+    }
   }
 
   /**
@@ -250,9 +291,22 @@ export class SearchMode {
     // Clic "Lire la playlist"
     this.downloadListView.onPlay = (items) => {
       if (items.length > 0) {
+        this.videoModal.playbackFromDownloadList = true;
         this.videoModal.show(items[0], items, 0);
       }
     };
+
+    this.downloadList.onChange(() => {
+      if (
+        this.videoModal.playbackFromDownloadList &&
+        this.videoModal.currentItem
+      ) {
+        const fresh = this.downloadList.getAll();
+        if (fresh.length > 0) {
+          this.videoModal.syncPlaylist(fresh);
+        }
+      }
+    });
 
     this._resultsVisible = false;
     this._searchLoading = false;

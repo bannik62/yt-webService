@@ -1503,6 +1503,26 @@ body.mode-ripper .channel-favorites-section {
   white-space: nowrap;
 }
 
+.community-stats-play {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #e8eaed;
+  font: inherit;
+  font-size: 0.78rem;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: text-decoration-color 0.15s ease, color 0.15s ease;
+}
+
+.community-stats-play:hover {
+  color: #fff;
+  text-decoration-color: #8ab4f8;
+}
+
 .community-stats-count {
   color: #9aa0a6;
   font-variant-numeric: tabular-nums;

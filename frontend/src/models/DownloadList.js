@@ -4,7 +4,8 @@
 export class DownloadList {
   #items = [];
   #maxItems = 50;
-  #onChange = null;
+  /** @type {Array<() => void>} */
+  #onChangeListeners = [];
 
   constructor() {
     this.loadFromStorage();
@@ -131,14 +132,23 @@ export class DownloadList {
   }
 
   /**
-   * Enregistre un callback de changement
+   * Enregistre un callback de changement (plusieurs abonnés possibles).
+   * @param {() => void} callback
    */
   onChange(callback) {
-    this.#onChange = callback;
+    if (typeof callback === 'function') {
+      this.#onChangeListeners.push(callback);
+    }
   }
 
   #triggerChange() {
-    if (this.#onChange) this.#onChange();
+    for (const fn of this.#onChangeListeners) {
+      try {
+        fn();
+      } catch (err) {
+        console.error('[DownloadList] onChange:', err);
+      }
+    }
   }
 
   /**

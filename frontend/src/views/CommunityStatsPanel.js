@@ -9,9 +9,11 @@ const EXPANDED_STORAGE_KEY = 'yt-community-stats-expanded';
 export class CommunityStatsPanel {
   /**
    * @param {import('../api/ApiClient.js').ApiClient} api
+   * @param {{ onPlayVideo?: (entry: { videoId: string, title?: string, channelName?: string }) => void }} [opts]
    */
-  constructor(api) {
+  constructor(api, opts = {}) {
     this.api = api;
+    this.onPlayVideo = opts.onPlayVideo ?? null;
     this.sectionEl = $('#community-stats-section');
     this.toggleBtn = $('#community-stats-toggle');
     this.toggleHintEl = $('#community-stats-toggle-hint');
@@ -35,6 +37,14 @@ export class CommunityStatsPanel {
     this.refreshBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
       void this.refresh();
+    });
+
+    this.videosEl?.addEventListener('click', (e) => {
+      const btn = e.target.closest('.community-stats-play');
+      if (!btn) return;
+      const videoId = btn.dataset.videoId;
+      const entry = this._lastSummary?.topVideos?.find((v) => v.videoId === videoId);
+      if (entry) this.onPlayVideo?.(entry);
     });
 
     this.setExpanded(this._expanded, { persist: false });
@@ -190,7 +200,7 @@ export class CommunityStatsPanel {
       summary?.topVideos ?? [],
       (item, i) =>
         `<li><span class="community-stats-rank">${i + 1}</span>` +
-        `<span class="community-stats-label" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</span>` +
+        `<button type="button" class="community-stats-play community-stats-label" data-video-id="${escapeHtml(item.videoId)}" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</button>` +
         `<span class="community-stats-count">${item.views} vues · ${item.uniqueViewers} pers.</span></li>`
     );
 

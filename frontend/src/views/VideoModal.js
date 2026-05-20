@@ -101,6 +101,8 @@ export class VideoModal {
     this.currentItem = null;
     this.playlist = null;
     this.currentIndex = 0;
+    /** Lecture lancée depuis « Ma liste » (sync live avec DownloadList). */
+    this.playbackFromDownloadList = false;
     this.onAdd = null;
     this.onNext = null;
     this.onPrevious = null;
@@ -172,6 +174,7 @@ export class VideoModal {
     this.currentItem = item;
     this.playlist = playlist;
     this.currentIndex = index;
+    if (!playlist) this.playbackFromDownloadList = false;
 
     const videoId = resolveVideoId(item?.url, item);
     if (!videoId) {
@@ -230,9 +233,10 @@ export class VideoModal {
     }
     document.body.classList.remove('has-video-dock');
     this._mode = null;
-        this.currentItem = null;
-        this.playlist = null;
-        this.currentIndex = 0;
+    this.currentItem = null;
+    this.playlist = null;
+    this.currentIndex = 0;
+    this.playbackFromDownloadList = false;
     this._overlay = null;
     this._modalTitleEl = null;
     this._dockTitleEl = null;
@@ -263,7 +267,7 @@ export class VideoModal {
     this.currentIndex++;
     this.currentItem = this.playlist[this.currentIndex];
     this._applyTrackChange();
-    if (this.onNext) this.onNext(this.currentIndex);
+    if (this.onNext) this.onNext(this.currentItem, this.currentIndex);
   }
 
   showPrevious() {
@@ -271,7 +275,38 @@ export class VideoModal {
     this.currentIndex--;
     this.currentItem = this.playlist[this.currentIndex];
     this._applyTrackChange();
-    if (this.onPrevious) this.onPrevious(this.currentIndex);
+    if (this.onPrevious) this.onPrevious(this.currentItem, this.currentIndex);
+  }
+
+  /**
+   * Met à jour la playlist en cours (ex. ajouts à « Ma liste » pendant la lecture).
+   * @param {object[]} items
+   */
+  syncPlaylist(items) {
+    if (!Array.isArray(items) || items.length === 0) return;
+
+    const prevUrl = this.currentItem?.url;
+    const prevId = resolveVideoId(this.currentItem?.url, this.currentItem);
+
+    this.playlist = items;
+
+    let idx = this.currentIndex;
+    if (prevUrl || prevId) {
+      const found = items.findIndex(
+        (i) =>
+          (prevUrl && i.url === prevUrl) ||
+          (prevId && resolveVideoId(i.url, i) === prevId)
+      );
+      if (found >= 0) idx = found;
+      else idx = Math.min(this.currentIndex, items.length - 1);
+    } else {
+      idx = Math.min(this.currentIndex, items.length - 1);
+    }
+
+    this.currentIndex = idx;
+    this.currentItem = items[idx];
+    this._updateFooter();
+    this._updateDockActions();
   }
 
   _applyTrackChange() {
@@ -787,7 +822,7 @@ export class VideoModal {
 
     const actions = createElement('div', { className: 'video-player-modal-actions' });
 
-    if (!hasPlaylistNav) {
+    if (!this.playlist) {
       actions.appendChild(
         createElement(
           'button',
@@ -799,20 +834,6 @@ export class VideoModal {
             },
           },
           '➕ Ajouter à ma liste'
-        )
-      );
-    } else {
-      actions.appendChild(
-        createElement(
-          'button',
-          {
-            className: 'btn btn-secondary',
-            type: 'button',
-            onClick: () => {
-              if (this.onAdd) this.onAdd(this.currentItem);
-            },
-          },
-          '➕ Liste'
         )
       );
     }
@@ -886,20 +907,22 @@ export class VideoModal {
       );
     }
 
-    this._dockActionsEl.appendChild(
-      createElement(
-        'button',
-        {
-          className: 'video-player-dock-btn video-player-dock-btn--add',
-          type: 'button',
-          title: 'Ajouter à la liste',
-          onClick: () => {
-            if (this.onAdd) this.onAdd(this.currentItem);
+    if (!this.playlist) {
+      this._dockActionsEl.appendChild(
+        createElement(
+          'button',
+          {
+            className: 'video-player-dock-btn video-player-dock-btn--add',
+            type: 'button',
+            title: 'Ajouter à la liste',
+            onClick: () => {
+              if (this.onAdd) this.onAdd(this.currentItem);
+            },
           },
-        },
-        '+'
-      )
-    );
+          '+'
+        )
+      );
+    }
 
     this._dockActionsEl.appendChild(this._createFavoriteButton(true));
 
