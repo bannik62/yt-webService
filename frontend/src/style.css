@@ -2167,18 +2167,8 @@ body.mode-ripper .channel-favorites-section {
   border-top: none;
 }
 
-.video-player-shell.is-expanded .video-player-float {
-  display: none !important;
-  visibility: hidden;
-  pointer-events: none;
-}
-
-.video-player-shell.is-expanded .video-container-inner .video-container-host {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
+/* Lecteur modal « float-only » (beb0d1d) : `.video-player-float` reste visible en agrandi,
+   positionné au-dessus du trou vidéo — ne pas masquer ici (cassait le lecteur). */
 
 .video-container {
   position: relative;

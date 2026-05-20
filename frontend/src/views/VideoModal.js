@@ -298,73 +298,34 @@ export class VideoModal {
     this._shell.classList.toggle('is-docked', mode === 'docked');
     document.body.classList.toggle('has-video-dock', mode === 'docked');
 
-    this._mountPlayerHost();
-
     if (mode === 'expanded') {
       requestAnimationFrame(() => {
         this._overlay?.classList.add('show');
-        this._syncPlayerLayout();
+        this._layoutPlayerFloat();
       });
     } else {
       this._overlay?.classList.remove('show');
       requestAnimationFrame(() => {
         this._placeDockDefault();
-        this._syncPlayerLayout();
+        this._layoutPlayerFloat();
       });
     }
   }
 
-  /** Lecteur dans le slot (modal) ou dans le float (dock) — pas de fixed en mode agrandi. */
-  _mountPlayerHost() {
-    if (!this._playerHost || !this._playerFloat || !this._playerSlotExpanded) return;
-
-    if (this._mode === 'expanded') {
-      this._playerFloat.hidden = true;
-      if (this._playerHost.parentElement !== this._playerSlotExpanded) {
-        this._playerSlotExpanded.appendChild(this._playerHost);
-      }
-      return;
-    }
-
-    if (this._mode === 'docked') {
-      if (this._playerHost.parentElement !== this._playerFloat) {
-        this._playerFloat.appendChild(this._playerHost);
-      }
-    }
-  }
-
-  _syncPlayerLayout() {
-    if (this._mode === 'expanded') {
-      this._sizeExpandedPlayer();
-    } else if (this._mode === 'docked') {
-      this._layoutPlayerFloat();
-    }
-  }
-
-  _sizeExpandedPlayer() {
-    if (this._mode !== 'expanded' || !this._playerSlotExpanded) return;
-
-    const rect = this._playerSlotExpanded.getBoundingClientRect();
-    if (rect.width < 2 || rect.height < 2) {
-      requestAnimationFrame(() => this._sizeExpandedPlayer());
-      return;
-    }
-
-    const w = Math.round(rect.width);
-    const h = Math.round(rect.height);
-    if (this._ytPlayer?.setSize && this._playerReady && w > 0 && h > 0) {
-      try {
-        this._ytPlayer.setSize(w, h);
-      } catch {
-        /* ignore */
-      }
-    }
-  }
-
+  /**
+   * Modèle « float-only » : l’iframe reste dans `.video-player-float` — on ne fait que positionner le float
+   * au-dessus du trou modal ou du dock (évite reparent DOM / iframe YouTube noir ou contrôles HS).
+   *
+   * @see docs/VIDEO-MODAL-YOUTUBE-DOCK.md — ne pas réintroduire appendChild du host entre slot et float.
+   */
   _layoutPlayerFloat() {
-    if (this._mode !== 'docked' || !this._playerFloat || !this._playerSlotDock) return;
+    if (!this._playerFloat || !this._mode) return;
 
-    const rect = this._playerSlotDock.getBoundingClientRect();
+    const target =
+      this._mode === 'docked' ? this._playerSlotDock : this._playerSlotExpanded;
+    if (!target) return;
+
+    const rect = target.getBoundingClientRect();
     if (rect.width < 2 || rect.height < 2) {
       requestAnimationFrame(() => this._layoutPlayerFloat());
       return;
@@ -379,7 +340,7 @@ export class VideoModal {
     floatEl.style.top = `${rect.top}px`;
     floatEl.style.width = `${w}px`;
     floatEl.style.height = `${h}px`;
-    floatEl.style.zIndex = '9001';
+    floatEl.style.zIndex = this._mode === 'docked' ? '9001' : '10001';
 
     if (this._ytPlayer?.setSize && this._playerReady && w > 0 && h > 0) {
       try {
@@ -393,13 +354,14 @@ export class VideoModal {
   _bindPlayerLayoutWatch() {
     if (this._layoutObserver) return;
 
-    const relayout = () => this._syncPlayerLayout();
+    const relayout = () => {
+      if (this._mode) this._layoutPlayerFloat();
+    };
 
     if (typeof ResizeObserver !== 'undefined') {
       this._layoutObserver = new ResizeObserver(relayout);
-      const videoBox = this._playerSlotExpanded?.parentElement;
-      if (videoBox) {
-        this._layoutObserver.observe(videoBox);
+      if (this._playerSlotExpanded) {
+        this._layoutObserver.observe(this._playerSlotExpanded);
       }
       if (this._playerSlotDock) {
         this._layoutObserver.observe(this._playerSlotDock);
@@ -410,6 +372,10 @@ export class VideoModal {
     }
 
     window.addEventListener('resize', relayout);
+    document.querySelector('.main-content')?.addEventListener('scroll', relayout, {
+      passive: true,
+    });
+    this._modalBodyEl?.addEventListener('scroll', relayout, { passive: true });
   }
 
   _placeDockDefault() {
@@ -583,18 +549,6 @@ export class VideoModal {
       className: 'video-container-inner video-player-slot-target',
     });
     videoBox.appendChild(this._playerSlotExpanded);
-    this._playerLoadingEl = createElement('div', {
-      className: 'video-player-loading pacman-loader-host',
-      hidden: true,
-      'aria-live': 'polite',
-    });
-    this._playerLoadingEl.appendChild(createPacmanLoaderMarkup());
-    const loadingLabel = createElement('span', {
-      className: 'search-loading-label',
-    });
-    loadingLabel.textContent = 'Chargement de la vidéo…';
-    this._playerLoadingEl.appendChild(loadingLabel);
-    videoBox.appendChild(this._playerLoadingEl);
     body.appendChild(videoBox);
 
     this._footerMainEl = createElement('div', {
@@ -616,7 +570,6 @@ export class VideoModal {
       className: 'video-container-host',
       id: `yt-player-host-${Date.now()}`,
     });
-    this._playerSlotExpanded.appendChild(this._playerHost);
 
     const dock = createElement('div', {
       className: 'video-player-dock',
@@ -685,6 +638,20 @@ export class VideoModal {
       className: 'video-player-float',
       hidden: true,
     });
+    this._playerFloat.appendChild(this._playerHost);
+
+    this._playerLoadingEl = createElement('div', {
+      className: 'video-player-loading pacman-loader-host',
+      hidden: true,
+      'aria-live': 'polite',
+    });
+    this._playerLoadingEl.appendChild(createPacmanLoaderMarkup());
+    const loadingLabel = createElement('span', {
+      className: 'search-loading-label',
+    });
+    loadingLabel.textContent = 'Chargement de la vidéo…';
+    this._playerLoadingEl.appendChild(loadingLabel);
+    this._playerFloat.appendChild(this._playerLoadingEl);
 
     shellRoot.appendChild(overlayEl);
     shellRoot.appendChild(dock);
@@ -977,7 +944,7 @@ export class VideoModal {
           }
           this._pendingVideoId = null;
           this._setPlayerLoading(false);
-          this._syncPlayerLayout();
+          this._layoutPlayerFloat();
         },
             onStateChange: (e) => {
               const st = e.data;
