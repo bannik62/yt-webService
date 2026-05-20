@@ -5,6 +5,10 @@ services:
       - '4000:4000'  # ✅ Exposer backend pour npm run dev frontend
     environment:
       NODE_ENV: development
+      DOWNLOAD_STATS_PATH: ${DOWNLOAD_STATS_PATH:-/app/data/download-stats.json}
+      USAGE_STATS_PATH: ${USAGE_STATS_PATH:-/app/data/usage-stats.json}
+    volumes:
+      - ./backend/data:/app/data
 
   web:
     ports:

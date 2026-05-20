@@ -8,7 +8,7 @@ const DEFAULT_PATH = path.join(__dirname, '..', 'data', 'usage-stats.json');
 const RETENTION_DAYS = 30;
 const MAX_EVENTS = 20_000;
 /** Nombre max d’entrées renvoyées dans topVideos / topChannels. */
-export const STATS_DISPLAY_LIMIT = 50;
+export const STATS_DISPLAY_LIMIT = 15;
 
 /** @type {Promise<void>} */
 let writeChain = Promise.resolve();

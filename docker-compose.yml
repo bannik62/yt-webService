@@ -14,8 +14,11 @@ services:
       SEARCH_MAX_RESULTS: '50'
       LOG_LEVEL: ${LOG_LEVEL:-info}
       ADMIN_STATS_SECRET: ${ADMIN_STATS_SECRET:-}
-      DOWNLOAD_STATS_PATH: ${DOWNLOAD_STATS_PATH:-}
+      DOWNLOAD_STATS_PATH: ${DOWNLOAD_STATS_PATH:-/app/data/download-stats.json}
+      USAGE_STATS_PATH: ${USAGE_STATS_PATH:-/app/data/usage-stats.json}
       LOG_FILTER_DELEGATIONS_POLL: ${LOG_FILTER_DELEGATIONS_POLL:-}
+    volumes:
+      - ./backend/data:/app/data
     restart: unless-stopped
 
   web:

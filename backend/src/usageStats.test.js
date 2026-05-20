@@ -99,8 +99,8 @@ describe('usageStats', () => {
     );
   });
 
-  it('limite à 50 et compte les vidéos non affichées', async () => {
-    for (let i = 0; i < 55; i++) {
+  it('limite à 15 et compte les vidéos non affichées', async () => {
+    for (let i = 0; i < 20; i++) {
       const videoId = `v${String(i).padStart(10, '0')}`;
       await recordUsageEvent({
         anonId: `anon-user-${String(i).padStart(8, '0')}`,
@@ -110,10 +110,10 @@ describe('usageStats', () => {
       });
     }
 
-    const summary = await getUsageStatsSummary({ days: 7, limit: 50 });
-    expect(summary.topVideos).toHaveLength(50);
-    expect(summary.totalVideos).toBe(55);
+    const summary = await getUsageStatsSummary({ days: 7, limit: 15 });
+    expect(summary.topVideos).toHaveLength(15);
+    expect(summary.totalVideos).toBe(20);
     expect(summary.videosNotShown).toBe(5);
-    expect(summary.displayLimit).toBe(50);
+    expect(summary.displayLimit).toBe(15);
   });
 });

@@ -24,7 +24,7 @@ export class CommunityStatsPanel {
     this.videosMoreEl = $('#community-stats-videos-more');
     this.channelsMoreEl = $('#community-stats-channels-more');
     this.refreshBtn = $('#community-stats-refresh');
-    this.displayLimit = 50;
+    this.displayLimit = 15;
     this._loading = false;
     this._homeVisible = true;
     this._lastSummary = null;
