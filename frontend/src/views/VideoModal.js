@@ -375,7 +375,7 @@ export class VideoModal {
     document.querySelector('.main-content')?.addEventListener('scroll', relayout, {
       passive: true,
     });
-    this._modalBodyEl?.addEventListener('scroll', relayout, { passive: true });
+    this._metaEl?.addEventListener('scroll', relayout, { passive: true });
   }
 
   _placeDockDefault() {
@@ -559,11 +559,15 @@ export class VideoModal {
       'aria-live': 'polite',
     });
 
-    body.appendChild(this._footerMainEl);
-    body.appendChild(this._metaEl);
+    const modalFooter = createElement('div', {
+      className: 'modal-footer video-player-modal-footer',
+    });
+    modalFooter.appendChild(this._footerMainEl);
+    modalFooter.appendChild(this._metaEl);
 
     modalContent.appendChild(header);
     modalContent.appendChild(body);
+    modalContent.appendChild(modalFooter);
     overlayEl.appendChild(modalContent);
 
     this._playerHost = createElement('div', {
