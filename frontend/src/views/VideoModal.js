@@ -1,4 +1,13 @@
 import { createElement } from '../utils/dom.js';
+import {
+  AMBILIGHT_PREF_KEY,
+  ambilightPlayerVars,
+  muteAmbilightPlayer,
+  setAmbilightPlaybackQuality,
+  setAmbilightPlayerSize,
+  startAmbilightSyncLoop,
+  syncAmbilightState,
+} from '../utils/youtubeDualAmbilight.js';
 import { isInAppSocialBrowser, openYoutubeExternally } from '../utils/inAppBrowser.js';
 import { createPacmanLoaderMarkup } from '../utils/pacmanLoader.js';
 import {
@@ -112,6 +121,22 @@ export class VideoModal {
     this.onVideoReplayed = null;
     /** @type {number} */
     this._lastEndedAt = 0;
+    /** @type {YT.Player | null} */
+    this._ytAmbilightPlayer = null;
+    this._ambilightReady = false;
+    this._ambilightVideoId = null;
+    /** @type {(() => void) | null} */
+    this._stopAmbilightSync = null;
+    /** @type {HTMLElement | null} */
+    this._videoContainer = null;
+    /** @type {HTMLElement | null} */
+    this._ambilightHost = null;
+    /** @type {HTMLElement | null} */
+    this._dockMediaEl = null;
+    this._ambilightBtn = null;
+    /** @type {boolean | null} null = préférence session ; false = coupé par l’utilisateur */
+    this._ambilightOn = null;
+    this._ambilightAttachPending = false;
     /** @type {import('../models/Favorites.js').Favorites | null} */
     this.favorites = null;
     /** @type {(() => void) | null} */
@@ -253,6 +278,12 @@ export class VideoModal {
     this._playerSlotDock = null;
     this._playerHost = null;
     this._playerFloat = null;
+    this._videoContainer = null;
+    this._ambilightHost = null;
+    this._dockMediaEl = null;
+    this._ambilightBtn = null;
+    this._ambilightOn = null;
+    this._ambilightAttachPending = false;
     this._playerLoadingEl = null;
     if (this._layoutObserver) {
       this._layoutObserver.disconnect();
@@ -267,6 +298,231 @@ export class VideoModal {
     this._playerReady = false;
     this._pendingVideoId = null;
     this._lastEndedAt = 0;
+    this._destroyAmbilightPlayer();
+  }
+
+  _isAmbilightEnabled() {
+    if (this._ambilightOn === false) return false;
+    if (this._ambilightOn === true) return true;
+    try {
+      return sessionStorage.getItem(AMBILIGHT_PREF_KEY) !== '0';
+    } catch {
+      return true;
+    }
+  }
+
+  /** @returns {HTMLElement | null} */
+  _getActiveAmbilightHost() {
+    return this._ambilightHost;
+  }
+
+  _setAmbilightLayerVisible(visible) {
+    const host = this._getActiveAmbilightHost();
+    if (host) host.classList.toggle('is-disabled', !visible);
+    this._playerFloat?.classList.toggle('has-ambilight', visible);
+    this._shell?.classList.toggle('has-ambilight', visible);
+    this._modalContentEl?.classList.toggle('has-ambilight', visible);
+    this._videoContainer?.classList.toggle('has-ambilight', visible);
+    this._dockMediaEl?.classList.toggle('has-ambilight', visible);
+  }
+
+  /** @returns {'off' | 'loading' | 'on'} */
+  _ambilightUiState() {
+    if (!this._isAmbilightEnabled()) return 'off';
+    if (this._ambilightAttachPending) return 'loading';
+    if (this._ytAmbilightPlayer && !this._ambilightReady) return 'loading';
+    if (this._ytAmbilightPlayer && this._ambilightReady) return 'on';
+    return 'off';
+  }
+
+  _toggleAmbientLight() {
+    if (this._ambilightUiState() === 'on') {
+      this._ambilightOn = false;
+      try {
+        sessionStorage.setItem(AMBILIGHT_PREF_KEY, '0');
+      } catch {
+        /* ignore */
+      }
+      this._destroyAmbilightPlayer();
+      this._setAmbilightLayerVisible(false);
+      this._updateAmbilightButtons();
+      return;
+    }
+
+    this._ambilightOn = true;
+    try {
+      sessionStorage.setItem(AMBILIGHT_PREF_KEY, '1');
+    } catch {
+      /* ignore */
+    }
+
+    const videoId = resolveVideoId(this.currentItem?.url, this.currentItem);
+    if (!videoId) return;
+
+    if (!this._playerReady) {
+      this._ambilightAttachPending = true;
+      this._updateAmbilightButtons();
+      return;
+    }
+
+    void this._attachAmbilightPlayer(videoId);
+  }
+
+  _destroyAmbilightPlayer() {
+    if (this._stopAmbilightSync) {
+      this._stopAmbilightSync();
+      this._stopAmbilightSync = null;
+    }
+    if (this._ytAmbilightPlayer) {
+      try {
+        this._ytAmbilightPlayer.destroy();
+      } catch {
+        /* ignore */
+      }
+      this._ytAmbilightPlayer = null;
+    }
+    this._ambilightReady = false;
+    this._ambilightVideoId = null;
+  }
+
+  _onMainPlayerStateForAmbilight(e) {
+    if (!this._ytAmbilightPlayer || !this._ambilightReady || !this._ytPlayer) return;
+    syncAmbilightState(this._ytPlayer, this._ytAmbilightPlayer);
+  }
+
+  async _attachAmbilightPlayer(videoId) {
+    if (!this._isAmbilightEnabled()) {
+      this._setAmbilightLayerVisible(false);
+      return;
+    }
+
+    const host = this._getActiveAmbilightHost();
+    if (!host?.id || !this._ytPlayer || !this._playerReady) {
+      this._ambilightAttachPending = true;
+      this._updateAmbilightButtons();
+      return;
+    }
+
+    this._layoutPlayerFloat();
+    this._updateAmbilightButtons();
+
+    const ambIframe = this._ytAmbilightPlayer?.getIframe?.();
+    if (
+      this._ytAmbilightPlayer &&
+      this._ambilightReady &&
+      this._ambilightVideoId === videoId &&
+      ambIframe &&
+      host.contains(ambIframe)
+    ) {
+      syncAmbilightState(this._ytPlayer, this._ytAmbilightPlayer);
+      this._setAmbilightLayerVisible(true);
+      this._updateAmbilightButtons();
+      return;
+    }
+
+    this._destroyAmbilightPlayer();
+    await loadYoutubeIframeAPI();
+    if (!host.isConnected) return;
+
+    // Visible avant init YouTube (iframe dans un parent caché = lecteur noir / figé).
+    this._setAmbilightLayerVisible(true);
+
+    this._ytAmbilightPlayer = new window.YT.Player(host.id, {
+      videoId,
+      width: '100%',
+      height: '100%',
+      playerVars: ambilightPlayerVars(),
+      events: {
+        onReady: () => {
+          this._ambilightReady = true;
+          this._ambilightVideoId = videoId;
+          const back = this._ytAmbilightPlayer;
+          const main = this._ytPlayer;
+          if (!back || !main) return;
+          muteAmbilightPlayer(back);
+          const slot =
+            this._mode === 'docked' ? this._playerSlotDock : this._playerSlotExpanded;
+          const slotRect = slot?.getBoundingClientRect();
+          if (slotRect && slotRect.width > 0) {
+            setAmbilightPlayerSize(back, slotRect);
+          }
+          setAmbilightPlaybackQuality(back);
+          syncAmbilightState(main, back);
+          if (this._stopAmbilightSync) this._stopAmbilightSync();
+          this._stopAmbilightSync = startAmbilightSyncLoop(main, back);
+          this._setAmbilightLayerVisible(true);
+          this._ambilightAttachPending = false;
+          this._updateAmbilightButtons();
+        },
+        onStateChange: () => {
+          const back = this._ytAmbilightPlayer;
+          const main = this._ytPlayer;
+          if (!back || !main || !this._ambilightReady) return;
+          syncAmbilightState(main, back);
+        },
+        onError: () => {
+          this._destroyAmbilightPlayer();
+          this._setAmbilightLayerVisible(false);
+          this._updateAmbilightButtons();
+        },
+      },
+    });
+  }
+
+  _updateAmbilightButtons() {
+    const state = this._ambilightUiState();
+    const labels = {
+      off: { text: 'Ambilight', title: 'Activer l’ambilight' },
+      loading: { text: 'Ambilight…', title: 'Chargement de l’ambilight…' },
+      on: { text: 'Ambilight', title: 'Désactiver l’ambilight' },
+    };
+    const { text, title } = labels[state];
+
+    const buttons = this._shell?.querySelectorAll('.btn-ambilight') ?? [];
+    for (const btn of buttons) {
+      btn.classList.remove('is-on', 'is-off', 'is-loading');
+      btn.classList.add(
+        state === 'on' ? 'is-on' : state === 'loading' ? 'is-loading' : 'is-off'
+      );
+      btn.setAttribute('aria-pressed', state === 'on' ? 'true' : 'false');
+      btn.setAttribute('data-ambilight-state', state);
+      btn.title = title;
+      if (!btn.classList.contains('video-player-dock-btn')) {
+        btn.textContent = text;
+      }
+    }
+    if (this._ambilightBtn) {
+      this._ambilightBtn.classList.remove('is-on', 'is-off', 'is-loading');
+      this._ambilightBtn.classList.add(
+        state === 'on' ? 'is-on' : state === 'loading' ? 'is-loading' : 'is-off'
+      );
+      this._ambilightBtn.setAttribute('aria-pressed', state === 'on' ? 'true' : 'false');
+      this._ambilightBtn.title = title;
+    }
+  }
+
+  /**
+   * @param {boolean} [compact]
+   */
+  _createAmbilightButton(compact = false) {
+    const btn = createElement('button', {
+      className: compact
+        ? 'video-player-dock-btn btn-ambilight is-off'
+        : 'btn btn-secondary btn-ambilight is-off',
+      type: 'button',
+      title: 'Ambilight',
+      'aria-label': 'Ambilight',
+      'aria-pressed': 'false',
+      'data-ambilight-state': 'off',
+      onClick: (e) => {
+        e.stopPropagation();
+        void this._toggleAmbientLight();
+      },
+    });
+    btn.textContent = compact ? 'Amb' : 'Ambilight';
+    this._ambilightBtn = btn;
+    this._updateAmbilightButtons();
+    return btn;
   }
 
   showNext() {
@@ -325,6 +581,10 @@ export class VideoModal {
     this._setPlayerLoading(true);
     void this._attachPlayer(videoId);
     void this._loadVideoMeta(videoId, this.currentItem);
+    if (this._ytAmbilightPlayer && this._isAmbilightEnabled()) {
+      this._loadedVideoId = videoId;
+      this._ytAmbilightPlayer.loadVideoById(videoId);
+    }
   }
 
   /**
@@ -355,6 +615,14 @@ export class VideoModal {
         this._placeDockDefault();
         this._layoutPlayerFloat();
       });
+    }
+    if (this._isAmbilightEnabled() && this._playerReady) {
+      const videoId = resolveVideoId(this.currentItem?.url, this.currentItem);
+      if (videoId) {
+        void this._attachAmbilightPlayer(videoId);
+      }
+    } else {
+      this._setAmbilightLayerVisible(false);
     }
   }
 
@@ -391,6 +659,19 @@ export class VideoModal {
     if (this._ytPlayer?.setSize && this._playerReady && w > 0 && h > 0) {
       try {
         this._ytPlayer.setSize(w, h);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    if (
+      this._ytAmbilightPlayer &&
+      this._ambilightReady &&
+      w > 0 &&
+      h > 0
+    ) {
+      try {
+        setAmbilightPlayerSize(this._ytAmbilightPlayer, { width: w, height: h });
       } catch {
         /* ignore */
       }
@@ -606,6 +887,7 @@ export class VideoModal {
     });
     this._modalBodyEl = body;
     const videoBox = createElement('div', { className: 'video-container' });
+    this._videoContainer = videoBox;
     this._playerSlotExpanded = createElement('div', {
       className: 'video-container-inner video-player-slot-target',
     });
@@ -641,10 +923,14 @@ export class VideoModal {
       onClick: (e) => e.stopPropagation(),
     });
 
-    this._playerSlotDock = createElement('div', {
-      className: 'video-player-dock__media video-player-slot-target',
+    this._dockMediaEl = createElement('div', {
+      className: 'video-player-dock__media',
     });
-    dock.appendChild(this._playerSlotDock);
+    this._playerSlotDock = createElement('div', {
+      className: 'video-player-slot-target',
+    });
+    this._dockMediaEl.appendChild(this._playerSlotDock);
+    dock.appendChild(this._dockMediaEl);
 
     const dockBodyEl = createElement('div', { className: 'video-player-dock__body' });
     const dockDragHeader = createElement('div', {
@@ -703,6 +989,12 @@ export class VideoModal {
       className: 'video-player-float',
       hidden: true,
     });
+    this._ambilightHost = createElement('div', {
+      className: 'video-player-ambilight-back is-disabled',
+      id: `yt-ambilight-${Date.now()}`,
+      'aria-hidden': 'true',
+    });
+    this._playerFloat.appendChild(this._ambilightHost);
     this._playerFloat.appendChild(this._playerHost);
 
     this._playerLoadingEl = createElement('div', {
@@ -846,6 +1138,7 @@ export class VideoModal {
     }
 
     actions.appendChild(this._createFavoriteButton(false));
+    actions.appendChild(this._createAmbilightButton());
     actions.appendChild(
       createElement(
         'button',
@@ -859,6 +1152,7 @@ export class VideoModal {
     );
 
     this._footerMainEl.appendChild(actions);
+    this._updateAmbilightButtons();
     this._scheduleVideoFloatLayout();
   }
 
@@ -932,6 +1226,7 @@ export class VideoModal {
     }
 
     this._dockActionsEl.appendChild(this._createFavoriteButton(true));
+    this._dockActionsEl.appendChild(this._createAmbilightButton(true));
 
     if (hasPlaylistNav) {
       this._dockActionsEl.appendChild(
@@ -961,6 +1256,10 @@ export class VideoModal {
       this._setPlayerLoading(true);
       this._loadedVideoId = videoId;
       this._ytPlayer.loadVideoById(videoId);
+      if (this._ytAmbilightPlayer && this._isAmbilightEnabled()) {
+        this._ambilightVideoId = videoId;
+        this._ytAmbilightPlayer.loadVideoById(videoId);
+      }
       return;
     }
 
@@ -999,8 +1298,18 @@ export class VideoModal {
           this._pendingVideoId = null;
           this._setPlayerLoading(false);
           this._layoutPlayerFloat();
+          const id =
+            resolveVideoId(this.currentItem?.url, this.currentItem) || videoId;
+          if (this._isAmbilightEnabled()) {
+            void this._attachAmbilightPlayer(id);
+          }
+          if (this._ambilightAttachPending && this._isAmbilightEnabled()) {
+            this._ambilightAttachPending = false;
+            void this._attachAmbilightPlayer(id);
+          }
         },
             onStateChange: (e) => {
+              this._onMainPlayerStateForAmbilight(e);
               const st = e.data;
               if (
                 st === window.YT.PlayerState.PLAYING ||
@@ -1035,6 +1344,7 @@ export class VideoModal {
   }
 
   _destroyYtPlayer() {
+    this._destroyAmbilightPlayer();
     if (this._ytPlayer) {
       try {
         this._ytPlayer.destroy();

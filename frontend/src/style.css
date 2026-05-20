@@ -2359,10 +2359,117 @@ body.mode-ripper .channel-favorites-section {
 
 .video-player-modal-body .video-container {
   margin-bottom: 0;
+  overflow: visible;
+}
+
+.video-player-modal-body .video-container-inner {
+  z-index: 1;
+  background: transparent;
+  pointer-events: none;
+}
+
+/* 2ᵉ lecteur YouTube flouté — centré, agrandi ; clip bas pour ne pas recouvrir les boutons */
+.video-player-ambilight-back {
+  left: 79px;
+  top: 50px;
+  position: absolute;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 1;
+  transform: scale(1.9);
+  transform-origin: center center;
+  filter: blur(52px) saturate(3.8) brightness(1.12) contrast(1.06);
+  will-change: filter, transform;
+  clip-path: inset(0% -55% -55% -53%);
+}
+
+.video-player-ambilight-back.is-disabled {
+  visibility: hidden;
+  opacity: 0 !important;
+  filter: none !important;
+  transform: scale(1);
+  transform-origin: center center;
+}
+
+.video-player-ambilight-back iframe {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 100%;
+  min-height: 100%;
+  transform: translate(-50%, -50%);
+  border: none;
+  pointer-events: none;
+}
+
+.video-player-modal-body .video-container.has-ambilight,
+.video-player-dock__media.has-ambilight {
+  overflow: visible;
+}
+
+.video-player-modal-content.has-ambilight {
+  overflow: visible;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.video-player-shell.has-ambilight .video-player-modal-content.has-ambilight > .modal-header {
+  display: none;
+}
+
+.video-player-shell.has-ambilight .video-player-modal-body {
+  background: transparent;
+}
+
+.video-player-shell.has-ambilight .video-player-overlay.show {
+  background: #000;
+}
+
+.video-player-shell.has-ambilight .video-player-overlay {
+  overflow: visible;
 }
 
 .video-player-modal-toolbar {
   flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+}
+
+.video-player-shell.has-ambilight .video-player-modal-footer {
+  position: relative;
+  z-index: 2;
+  background: transparent;
+  border-top-color: transparent;
+}
+
+.video-player-shell.has-ambilight .video-player-modal-toolbar {
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  margin-bottom: 0.35rem;
+}
+
+.video-player-shell.has-ambilight .video-player-modal-actions {
+  background: transparent;
+}
+
+.video-player-shell.has-ambilight .video-player-modal-footer .modal-video-meta,
+.video-player-shell.has-ambilight .video-player-modal-footer .modal-video-meta-line,
+.video-player-shell.has-ambilight .video-player-modal-footer .modal-video-meta-line--warn {
+  background: transparent;
+  border-top-color: transparent;
+}
+
+.video-player-shell.has-ambilight .modal-video-meta-line,
+.video-player-shell.has-ambilight .modal-video-meta-line--warn {
+  text-shadow:
+    0 0 10px rgba(0, 0, 0, 0.95),
+    0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
 .video-player-modal-toolbar .video-player-modal-actions {
@@ -2525,16 +2632,97 @@ body.mode-ripper .channel-favorites-section {
   width: clamp(7.5rem, 32vw, 10.5rem);
   aspect-ratio: 16 / 9;
   border-radius: 0.45rem;
+  overflow: visible;
+}
+
+.video-player-dock__media .video-player-slot-target {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
   overflow: hidden;
+  border-radius: inherit;
+  background: transparent;
+  pointer-events: none;
 }
 
 .video-player-float {
   position: fixed;
-  overflow: hidden;
-  background: #000;
+  overflow: visible;
+  background: transparent;
   border-radius: 0.45rem;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
   pointer-events: auto;
+}
+
+.video-player-float.has-ambilight {
+  overflow: visible;
+}
+
+.video-player-float .video-container-host {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  border-radius: inherit;
+  background: #000;
+}
+
+.video-player-float .video-player-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+}
+
+.btn-ambilight {
+  min-width: 6.5rem;
+  font-weight: 600;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.btn-ambilight.is-off {
+  background: #2a2d33;
+  border-color: #4a4f57;
+  color: #9aa0a6;
+}
+
+.btn-ambilight.is-loading {
+  background: #3a3528;
+  border-color: #c9a227;
+  color: #f5d76e;
+  animation: ambilight-btn-pulse 1s ease-in-out infinite;
+}
+
+.btn-ambilight.is-on {
+  background: linear-gradient(180deg, #f5d042 0%, #e8a820 100%);
+  border-color: #f5d042;
+  color: #1a1408;
+  box-shadow:
+    0 0 14px rgba(245, 208, 66, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.video-player-dock-btn.btn-ambilight.is-on {
+  background: #e8a820;
+  color: #1a1408;
+}
+
+.video-player-dock-btn.btn-ambilight.is-off {
+  color: #9aa0a6;
+}
+
+@keyframes ambilight-btn-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.65;
+  }
 }
 
 .video-player-float .video-container-host,
