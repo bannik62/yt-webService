@@ -30,4 +30,16 @@ describe('ChannelFavorites', () => {
       })
     ).toBe(true);
   });
+
+  it('remove retire une entrée par clé', () => {
+    const fav = new ChannelFavorites();
+    fav.toggle({
+      channelId: 'UC1234567890abcdefghij',
+      channelName: 'Test Channel',
+    });
+    const key = fav.getAll()[0].key;
+    expect(fav.remove(key)).toBe(true);
+    expect(fav.getAll()).toHaveLength(0);
+    expect(fav.remove(key)).toBe(false);
+  });
 });

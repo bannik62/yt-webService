@@ -42,12 +42,25 @@ export class SearchMode {
     const playStripItem = (item) => {
       if (!item) return;
       const videoId = item.id || item.videoId;
+      const channel = channelLabelFromItem(item);
       this.videoModal.show({
         ...item,
         id: videoId,
         url:
           item.url ||
           (videoId ? `https://www.youtube.com/watch?v=${videoId}` : ''),
+        channel: channel || item.channel,
+        channelName: channel || item.channelName || item.channel,
+      });
+    };
+    const searchStripChannel = (entry) => {
+      const channelName = channelLabelFromItem(entry);
+      if (!channelName && !entry?.channelId && !entry?.channelUrl) return;
+      void this.searchView.searchByChannel({
+        channelId: entry.channelId || entry.channel_id || undefined,
+        channelUrl: entry.channelUrl || entry.channel_url || undefined,
+        channelName: channelName || entry.channelName || entry.channel,
+        channel: channelName || entry.channel,
       });
     };
     this.favoritesStrip = new HorizontalMediaStrip({
@@ -59,6 +72,7 @@ export class SearchMode {
       emptyEl: $('#favorites-strip-empty'),
       clearBtn: $('#favorites-clear'),
       onPlay: playStripItem,
+      onChannelClick: searchStripChannel,
       onClear: () => this.favorites.clear(),
       onRemove: (entry) => {
         const id = entry.videoId || entry.id;
@@ -74,6 +88,7 @@ export class SearchMode {
       clearBtn: $('#history-strip-clear'),
       showPlayedAt: true,
       onPlay: playStripItem,
+      onChannelClick: searchStripChannel,
       onClear: () => this.playbackHistory.clear(),
       onRemove: (entry) => {
         const id = entry.videoId || entry.id;
@@ -89,6 +104,9 @@ export class SearchMode {
       clearBtn: $('#channel-favorites-clear'),
       onSelect: (ch) => {
         void this.searchView.searchByChannel(ch);
+      },
+      onRemove: (entry) => {
+        if (entry?.key) this.channelFavorites.remove(entry.key);
       },
       onClear: () => this.channelFavorites.clear(),
     });
@@ -109,6 +127,11 @@ export class SearchMode {
       const channel =
         validChannelLabel(meta?.channel) || channelLabelFromItem(item);
       if (!channel || !item) return;
+      const videoId = String(item.id || item.videoId || '').trim();
+      if (videoId) {
+        this.favorites.patchChannel(videoId, channel);
+        this.playbackHistory.patchChannel(videoId, channel);
+      }
       const enriched = {
         ...item,
         channel,
@@ -267,6 +290,12 @@ export class SearchMode {
     const trendingBtn = $('#trending-btn');
     if (trendingBtn) {
       trendingBtn.addEventListener('click', () => {
+        const dots = trendingBtn.querySelector('.lucky-btn-dots');
+        if (dots) {
+          dots.classList.remove('lucky-btn-dots--play');
+          void dots.offsetWidth;
+          dots.classList.add('lucky-btn-dots--play');
+        }
         const musicOnly = $('#trending-music-only')?.checked ?? false;
         void this.loadTrending(musicOnly);
       });

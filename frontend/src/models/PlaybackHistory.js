@@ -1,3 +1,5 @@
+import { channelLabelFromItem, validChannelLabel } from '../utils/channelLabel.js';
+
 const STORAGE_KEY = 'yt-playback-history';
 const MAX_ENTRIES = 150;
 
@@ -26,11 +28,13 @@ export class PlaybackHistory {
     if (!videoId) return;
 
     this.#entries = this.#entries.filter((e) => e.videoId !== videoId);
+    const channel = channelLabelFromItem(item) || '—';
     this.#entries.unshift({
       videoId,
       url: item.url || `https://www.youtube.com/watch?v=${videoId}`,
       title: item.title || 'Sans titre',
-      channel: item.channel ?? '—',
+      channel,
+      channelName: channel !== '—' ? channel : undefined,
       duration: item.duration ?? null,
       thumbnail: item.thumbnail ?? null,
       playedAt: new Date().toISOString(),
@@ -68,6 +72,28 @@ export class PlaybackHistory {
     this.#entries = [];
     this.#save();
     this.#onChange?.();
+  }
+
+  /**
+   * @param {string} videoId
+   * @param {string} channel
+   * @returns {boolean}
+   */
+  patchChannel(videoId, channel) {
+    const id = typeof videoId === 'string' ? videoId.trim() : '';
+    const label = validChannelLabel(channel);
+    if (!id || !label) return false;
+    const idx = this.#entries.findIndex((e) => e.videoId === id);
+    if (idx < 0) return false;
+    if (validChannelLabel(this.#entries[idx].channel) === label) return false;
+    this.#entries[idx] = {
+      ...this.#entries[idx],
+      channel: label,
+      channelName: label,
+    };
+    this.#save();
+    this.#onChange?.();
+    return true;
   }
 
   #videoIdFromItem(item) {

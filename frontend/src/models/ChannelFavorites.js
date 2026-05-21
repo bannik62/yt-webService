@@ -102,6 +102,21 @@ export class ChannelFavorites {
     return [...this.#entries];
   }
 
+  /**
+   * @param {string} key — clé d’entrée (`entry.key`)
+   * @returns {boolean}
+   */
+  remove(key) {
+    const k = typeof key === 'string' ? key.trim() : '';
+    if (!k) return false;
+    const idx = this.#entries.findIndex((e) => e.key === k);
+    if (idx < 0) return false;
+    this.#entries.splice(idx, 1);
+    this.#save();
+    this.#onChange?.();
+    return true;
+  }
+
   clear() {
     this.#entries = [];
     this.#save();

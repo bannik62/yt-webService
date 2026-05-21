@@ -2,8 +2,9 @@ import { createElement } from '../utils/dom.js';
 import {
   AMBILIGHT_CINEMA_DESKTOP_MIN_WIDTH,
   AMBILIGHT_PREF_KEY,
-  computeCinemaVideoRect,
+  computeCinemaFloatLayout,
   ambilightPlayerVars,
+  mainYoutubePlayerVars,
   muteAmbilightPlayer,
   setAmbilightPlaybackQuality,
   setAmbilightPlayerSize,
@@ -141,6 +142,10 @@ export class VideoModal {
     this._ambilightAttachPending = false;
     /** @type {HTMLButtonElement | null} */
     this._cinemaFullscreenBtn = null;
+    /** @type {HTMLButtonElement | null} */
+    this._cinemaPrevBtn = null;
+    /** @type {HTMLButtonElement | null} */
+    this._cinemaNextBtn = null;
     this._cinemaFullscreenBound = false;
     this.favorites = null;
     /** @type {(() => void) | null} */
@@ -222,6 +227,7 @@ export class VideoModal {
     this._updateTitles();
     this._updateFooter();
     this._updateDockActions();
+    this._updateCinemaPlaylistNav();
     this._setPlayerLoading(true);
     void this._attachPlayer(videoId);
     void this._loadVideoMeta(videoId, item);
@@ -266,7 +272,11 @@ export class VideoModal {
       this._shell.remove();
       this._shell = null;
     }
-    document.body.classList.remove('has-video-dock');
+    document.body.classList.remove(
+      'has-video-dock',
+      'has-cinema-playlist-nav',
+      'has-cinema-playlist-nav--below'
+    );
     this._mode = null;
     this.currentItem = null;
     this.playlist = null;
@@ -329,7 +339,7 @@ export class VideoModal {
     this._videoContainer?.classList.toggle('has-ambilight', visible);
     this._dockMediaEl?.classList.toggle('has-ambilight', visible);
     if (!visible) this._shell?.classList.remove('is-ambilight-cinema');
-    this._updateCinemaFullscreenButton();
+    this._updateCinemaChrome();
     if (this._mode) this._layoutPlayerFloat();
   }
 
@@ -337,18 +347,146 @@ export class VideoModal {
     return window.innerWidth >= AMBILIGHT_CINEMA_DESKTOP_MIN_WIDTH;
   }
 
-  _updateCinemaFullscreenButton() {
-    const btn = this._cinemaFullscreenBtn;
-    if (!btn) return;
-    const show =
-      this._isAmbilightCinemaLayout() && this._isCinemaDesktop();
-    btn.hidden = !show;
+  _updateCinemaChrome() {
+    const fsBtn = this._cinemaFullscreenBtn;
+    if (fsBtn) {
+      fsBtn.hidden = !(
+        this._isAmbilightCinemaLayout() && this._isCinemaDesktop()
+      );
+    }
+    this._updateCinemaPlaylistNav();
   }
 
+  _updateCinemaPlaylistNav() {
+    const prev = this._cinemaPrevBtn;
+    const next = this._cinemaNextBtn;
+    if (!prev || !next) return;
+
+    const show =
+      this._isAmbilightCinemaLayout() &&
+      this.playlist &&
+      this.playlist.length > 1;
+
+    prev.hidden = !show;
+    next.hidden = !show;
+    document.body.classList.toggle('has-cinema-playlist-nav', show);
+    if (!show) {
+      document.body.classList.remove('has-cinema-playlist-nav--below');
+      return;
+    }
+
+    prev.disabled = this.currentIndex <= 0;
+    next.disabled = this.currentIndex >= this.playlist.length - 1;
+  }
+
+  /**
+   * @param {'prev' | 'next'} direction
+   * @returns {HTMLButtonElement}
+   */
+  _createCinemaPlaylistNavButton(direction) {
+    const isPrev = direction === 'prev';
+    const btn = createElement('button', {
+      type: 'button',
+      className: `cinema-playlist-nav-btn cinema-playlist-nav-btn--${direction}`,
+      title: isPrev ? 'Vidéo précédente' : 'Vidéo suivante',
+      'aria-label': isPrev ? 'Vidéo précédente' : 'Vidéo suivante',
+      hidden: true,
+    });
+    const spinner = createElement('span', {
+      className: 'cinema-playlist-nav-spinner',
+    });
+    spinner.appendChild(
+      createElement('span', { className: 'cinema-playlist-nav-spinner-inner' })
+    );
+    const arrow = createElement('span', {
+      className: 'cinema-playlist-nav-arrow',
+      'aria-hidden': 'true',
+    });
+    arrow.textContent = isPrev ? '‹' : '›';
+    btn.appendChild(spinner);
+    btn.appendChild(arrow);
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (isPrev) this.showPrevious();
+      else this.showNext();
+    });
+    return btn;
+  }
+
+  /** Boutons ‹ › : marges latérales (desktop) ou sous la vidéo côte à côte (mobile). */
+  _layoutCinemaPlaylistNav() {
+    const prev = this._cinemaPrevBtn;
+    const next = this._cinemaNextBtn;
+    if (!prev || !next) return;
+
+    this._updateCinemaPlaylistNav();
+    if (prev.hidden) return;
+
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const { video, padY, float } = computeCinemaFloatLayout(vw, vh);
+    const size = vw < 640 ? 48 : 56;
+    const minEdge = 8;
+    const mobileBelow = vw < AMBILIGHT_CINEMA_DESKTOP_MIN_WIDTH;
+
+    document.body.classList.toggle(
+      'has-cinema-playlist-nav--below',
+      mobileBelow
+    );
+
+    for (const btn of [prev, next]) {
+      btn.style.width = `${size}px`;
+      btn.style.height = `${size}px`;
+      btn.style.bottom = 'auto';
+      btn.style.right = 'auto';
+    }
+
+    if (mobileBelow) {
+      const gap = 20;
+      const rowWidth = size * 2 + gap;
+      const rowLeft = Math.round(video.left + (video.width - rowWidth) / 2);
+      const top = Math.round(
+        Math.min(
+          video.top + video.height + padY + 14,
+          vh - size - minEdge
+        )
+      );
+
+      prev.style.left = `${Math.max(minEdge, rowLeft)}px`;
+      next.style.left = `${Math.min(
+        vw - size - minEdge,
+        rowLeft + size + gap
+      )}px`;
+      prev.style.top = `${top}px`;
+      next.style.top = `${top}px`;
+      return;
+    }
+
+    const leftMargin = float.left;
+    const rightMargin = vw - float.right;
+
+    let prevLeft = Math.round((leftMargin - size) / 2);
+    let nextLeft = Math.round(float.right + (rightMargin - size) / 2);
+
+    prevLeft = Math.max(minEdge, prevLeft);
+    nextLeft = Math.min(vw - size - minEdge, nextLeft);
+
+    const top = Math.round(video.top + (video.height - size) / 2);
+    prev.style.left = `${prevLeft}px`;
+    next.style.left = `${nextLeft}px`;
+    prev.style.top = `${top}px`;
+    next.style.top = `${top}px`;
+  }
+
+  /**
+   * @param {{ left: number, top: number, width: number, height: number }} video
+   * @param {number} padX
+   * @param {number} padY
+   */
   _layoutCinemaFullscreenButton(video, padX, padY) {
     const btn = this._cinemaFullscreenBtn;
     if (!btn || !this._isCinemaDesktop()) {
-      this._updateCinemaFullscreenButton();
+      this._updateCinemaChrome();
       return;
     }
     btn.hidden = false;
@@ -397,6 +535,7 @@ export class VideoModal {
     const onFsChange = () => {
       if (this._isAmbilightCinemaLayout()) {
         this._layoutPlayerFloat();
+        this._updateCinemaChrome();
       }
       const btn = this._cinemaFullscreenBtn;
       if (!btn) return;
@@ -441,15 +580,13 @@ export class VideoModal {
 
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    const video = computeCinemaVideoRect(vw, vh);
-    const padX = Math.round(video.width * 0.15);
-    const padY = Math.round(video.height * 0.15);
+    const { video, padX, padY, float } = computeCinemaFloatLayout(vw, vh);
 
     floatEl.hidden = false;
-    floatEl.style.left = `${video.left - padX}px`;
-    floatEl.style.top = `${video.top - padY}px`;
-    floatEl.style.width = `${video.width + padX * 2}px`;
-    floatEl.style.height = `${video.height + padY * 2}px`;
+    floatEl.style.left = `${float.left}px`;
+    floatEl.style.top = `${float.top}px`;
+    floatEl.style.width = `${float.width}px`;
+    floatEl.style.height = `${float.height}px`;
     floatEl.style.zIndex = '10001';
 
     if (this._playerHost) {
@@ -480,6 +617,7 @@ export class VideoModal {
     }
 
     this._layoutCinemaFullscreenButton(video, padX, padY);
+    this._layoutCinemaPlaylistNav();
   }
 
   /** @returns {'off' | 'loading' | 'on'} */
@@ -727,6 +865,7 @@ export class VideoModal {
     this.currentItem = items[idx];
     this._updateFooter();
     this._updateDockActions();
+    this._updateCinemaPlaylistNav();
   }
 
   _applyTrackChange() {
@@ -735,6 +874,10 @@ export class VideoModal {
     this._updateTitles();
     this._updateFooter();
     this._updateDockActions();
+    this._updateCinemaPlaylistNav();
+    if (this._isAmbilightCinemaLayout()) {
+      requestAnimationFrame(() => this._layoutPlayerFloat());
+    }
     this._setPlayerLoading(true);
     void this._attachPlayer(videoId);
     void this._loadVideoMeta(videoId, this.currentItem);
@@ -799,7 +942,7 @@ export class VideoModal {
 
     this._resetPlayerHostCinemaStyles(this._playerHost);
     this._shell?.classList.remove('is-ambilight-cinema');
-    this._updateCinemaFullscreenButton();
+    this._updateCinemaChrome();
 
     const target =
       this._mode === 'docked' ? this._playerSlotDock : this._playerSlotExpanded;
@@ -1189,11 +1332,16 @@ export class VideoModal {
     });
     this._cinemaFullscreenBtn.textContent = 'full screen';
 
+    this._cinemaPrevBtn = this._createCinemaPlaylistNavButton('prev');
+    this._cinemaNextBtn = this._createCinemaPlaylistNavButton('next');
+
     shellRoot.appendChild(overlayEl);
     shellRoot.appendChild(dock);
     shellRoot.appendChild(this._playerFloat);
     shellRoot.appendChild(this._cinemaFullscreenBtn);
     document.body.appendChild(shellRoot);
+    document.body.appendChild(this._cinemaPrevBtn);
+    document.body.appendChild(this._cinemaNextBtn);
 
     this._shell = shellRoot;
     this._overlay = overlayEl;
@@ -1208,7 +1356,29 @@ export class VideoModal {
   _bindEscHandler() {
     this._removeEscHandler();
     this._escHandler = (e) => {
-      if (e.key !== 'Escape' || !this._shell) return;
+      if (!this._shell) return;
+
+      if (
+        this._isAmbilightCinemaLayout() &&
+        this.playlist &&
+        this.playlist.length > 1
+      ) {
+        if (e.key === 'ArrowLeft' && this.currentIndex > 0) {
+          e.preventDefault();
+          this.showPrevious();
+          return;
+        }
+        if (
+          e.key === 'ArrowRight' &&
+          this.currentIndex < this.playlist.length - 1
+        ) {
+          e.preventDefault();
+          this.showNext();
+          return;
+        }
+      }
+
+      if (e.key !== 'Escape') return;
       const fsEl =
         document.fullscreenElement ??
         /** @type {Document & { webkitFullscreenElement?: Element }} */ (document)
@@ -1475,11 +1645,7 @@ export class VideoModal {
           videoId,
           width: '100%',
           height: '100%',
-          playerVars: {
-            autoplay: 1,
-            rel: 0,
-        modestbranding: 1,
-          },
+          playerVars: mainYoutubePlayerVars(),
           events: {
         onReady: () => {
           this._playerReady = true;

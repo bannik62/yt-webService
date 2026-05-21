@@ -1,4 +1,5 @@
 import { createElement } from '../utils/dom.js';
+import { channelLabelFromItem } from '../utils/channelLabel.js';
 import { formatPlayedAt } from '../utils/formatters.js';
 
 /**
@@ -15,6 +16,7 @@ export class HorizontalMediaStrip {
    *   emptyEl?: HTMLElement | null,
    *   clearBtn?: HTMLElement | null,
    *   onPlay: (item: object) => void,
+   *   onChannelClick?: (entry: object) => void,
    *   onClear?: () => void,
    *   onRemove?: (entry: object) => void,
    *   showWhenEmpty?: boolean,
@@ -30,6 +32,7 @@ export class HorizontalMediaStrip {
     this.emptyEl = config.emptyEl ?? null;
     this.clearBtn = config.clearBtn ?? null;
     this.onPlay = config.onPlay;
+    this.onChannelClick = config.onChannelClick;
     this.onClear = config.onClear;
     this.onRemove = config.onRemove;
     this.showWhenEmpty = config.showWhenEmpty ?? false;
@@ -76,6 +79,7 @@ export class HorizontalMediaStrip {
     for (const entry of list) {
       const videoId = entry.videoId || entry.id;
       const title = entry.title || 'Sans titre';
+      const channelName = channelLabelFromItem(entry);
       const thumb = this.#thumbnailUrl(videoId, entry.thumbnail);
 
       const card = createElement('button', {
@@ -84,7 +88,14 @@ export class HorizontalMediaStrip {
         title,
       });
 
-      const thumbWrapEl = createElement('div', { className: 'media-strip-card-thumb' });
+      const thumbWrapEl = createElement('div', {
+        className: [
+          'media-strip-card-thumb',
+          this.showPlayedAt && entry.playedAt ? 'has-played-at' : '',
+        ]
+          .filter(Boolean)
+          .join(' '),
+      });
       if (thumb) {
         thumbWrapEl.appendChild(
           createElement('img', {
@@ -127,6 +138,29 @@ export class HorizontalMediaStrip {
       thumbWrapEl.appendChild(grad);
       card.appendChild(thumbWrapEl);
 
+      if (channelName && this.onChannelClick) {
+        const channelBadge = createElement('button', {
+          type: 'button',
+          className: 'media-strip-channel-badge',
+          title: `Voir les vidéos de ${channelName}`,
+          'aria-label': `Rechercher les vidéos de ${channelName}`,
+        });
+        channelBadge.textContent = channelName;
+        channelBadge.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.onChannelClick?.(entry);
+        });
+        card.appendChild(channelBadge);
+      } else if (channelName) {
+        const channelBadge = createElement('span', {
+          className: 'media-strip-channel-badge media-strip-channel-badge--label',
+          title: channelName,
+        });
+        channelBadge.textContent = channelName;
+        card.appendChild(channelBadge);
+      }
+
       card.addEventListener('click', (e) => {
         e.stopPropagation();
         if (this._suppressClick) {
@@ -142,7 +176,9 @@ export class HorizontalMediaStrip {
               ? `https://www.youtube.com/watch?v=${videoId}`
               : ''),
           title,
-          channel: entry.channel,
+          channel: channelName || entry.channel,
+          channelName: channelName || entry.channelName || entry.channel,
+          channelId: entry.channelId || entry.channel_id || '',
           duration: entry.duration,
           thumbnail: thumb,
         });

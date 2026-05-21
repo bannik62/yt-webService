@@ -997,6 +997,158 @@ body.mode-ripper .channel-favorites-section {
   cursor: pointer;
 }
 
+.trending-music-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+/* Get lucky — bouton sparkle + liseré (3 tours puis arrêt) */
+.lucky-btn {
+  --lucky-red: #e62117;
+  --lucky-red-bright: #ff3b30;
+  --lucky-red-dark: #b31217;
+  --lucky-radius: 9999px;
+  --lucky-transition: 0.3s ease-in-out;
+  --lucky-active: 0;
+
+  cursor: pointer;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1.15rem;
+  border: none;
+  border-radius: var(--lucky-radius);
+  background: transparent;
+  transform-origin: center;
+  transform: scale(calc(1 + (var(--lucky-active) * 0.06)));
+  transition: transform var(--lucky-transition);
+  font: inherit;
+  white-space: nowrap;
+}
+
+.lucky-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--lucky-radius);
+  background-color: var(--lucky-red-dark);
+  box-shadow:
+    inset 0 0.5px rgba(255, 255, 255, 0.35),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.35),
+    0 4px 10px -4px rgba(0, 0, 0, calc(1 - var(--lucky-active)));
+  transition: box-shadow var(--lucky-transition);
+  z-index: 0;
+}
+
+.lucky-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--lucky-radius);
+  opacity: var(--lucky-active);
+  background-color: rgba(230, 33, 23, 0.85);
+  background-image:
+    radial-gradient(at 51% 89%, rgba(255, 120, 100, 0.9) 0, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(200, 40, 30, 0.85) 0, transparent 50%),
+    radial-gradient(at 22% 91%, rgba(200, 40, 30, 0.85) 0, transparent 50%);
+  transition: opacity var(--lucky-transition);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.lucky-btn:is(:hover, :focus-visible) {
+  --lucky-active: 1;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25);
+}
+
+.lucky-btn:active {
+  transform: scale(1);
+}
+
+.lucky-btn-dots {
+  --lucky-border-size: calc(100% + 2px);
+  overflow: hidden;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--lucky-border-size);
+  height: var(--lucky-border-size);
+  transform: translate(-50%, -50%);
+  border-radius: var(--lucky-radius);
+  background: transparent;
+  z-index: -10;
+  pointer-events: none;
+}
+
+.lucky-btn-dots--play::before {
+  content: "";
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  width: 100%;
+  height: 2rem;
+  background-color: #fff;
+  transform: translate(-50%, -50%) rotate(0deg);
+  transform-origin: center;
+  mask: linear-gradient(transparent 0%, #fff 120%);
+  animation: lucky-border-spin 2s linear 3 forwards;
+}
+
+@keyframes lucky-border-spin {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+.lucky-btn-play-icon {
+  position: relative;
+  z-index: 10;
+  width: 1.35rem;
+  height: auto;
+  flex-shrink: 0;
+  transform-origin: center;
+}
+
+.lucky-btn:is(:hover, :focus-visible) .lucky-btn-play-icon {
+  animation: lucky-play-pulse 1.5s linear 3;
+}
+
+@keyframes lucky-play-pulse {
+  0%,
+  34%,
+  71%,
+  100% {
+    transform: scale(1);
+  }
+  17% {
+    transform: scale(1.15);
+  }
+  49% {
+    transform: scale(1.08);
+  }
+  83% {
+    transform: scale(1.15);
+  }
+}
+
+.lucky-btn-text {
+  position: relative;
+  z-index: 10;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lucky-btn-dots--play::before,
+  .lucky-btn:is(:hover, :focus-visible) .lucky-btn-play-icon {
+    animation: none;
+  }
+}
+
 @media (max-width: 720px) {
   .search-header-trending {
     justify-content: flex-start;
@@ -1787,26 +1939,81 @@ body.mode-ripper .channel-favorites-section {
   align-items: center;
 }
 
-.channel-favorite-badge {
+.channel-favorite-chip {
   flex: 0 0 auto;
-  max-width: 12rem;
-  padding: 0.4rem 0.75rem;
-  border: 1px solid #3c4043;
-  border-radius: 999px;
-  background: #2a2d33;
-  color: #e8eaed;
+  display: flex;
+  align-items: stretch;
+  height: 35px;
+  max-width: 14rem;
+  border-radius: 5px;
+  overflow: hidden;
+  box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.2);
+}
+
+.channel-favorite-chip-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 0.65rem;
+  border: none;
+  border-radius: 0;
+  background-color: #e62117;
+  color: #fff;
   font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.channel-favorite-chip-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 100%;
 }
 
-.channel-favorite-badge:hover {
-  border-color: #e62117;
-  background: rgba(230, 33, 23, 0.15);
-  color: #fff;
+.channel-favorite-chip-remove {
+  flex: 0 0 2.35rem;
+  width: 2.35rem;
+  border: none;
+  background-color: #fff;
+  color: #e62117;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 0;
+}
+
+.channel-favorite-chip-remove::before {
+  height: 8px;
+  width: 8px;
+  position: absolute;
+  content: "";
+  background-color: #fff;
+  transform: rotate(45deg);
+  left: -4px;
+  top: 50%;
+  margin-top: -4px;
+}
+
+.channel-favorite-chip-main:hover {
+  background-color: #db0000;
+}
+
+.channel-favorite-chip-main:active {
+  background-color: #c90000;
+}
+
+.channel-favorite-chip-remove:hover {
+  background-color: #f0f0f0;
+}
+
+.channel-favorite-chip-remove:active svg {
+  transform: scale(1.12);
+  transform-origin: center;
 }
 
 .media-strip-header {
@@ -1938,6 +2145,9 @@ body.mode-ripper .channel-favorites-section {
 
 .media-strip-card {
   flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
   width: clamp(7.5rem, 24vw, 11.75rem);
   padding: 0;
   border: none;
@@ -2003,6 +2213,34 @@ body.mode-ripper .channel-favorites-section {
   margin-top: 0.2rem;
   font-size: clamp(0.55rem, 1.8vw, 0.62rem);
   color: rgba(255, 255, 255, 0.75);
+}
+
+.media-strip-channel-badge {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0 0.1rem;
+  border: none;
+  background: transparent;
+  color: #9aa0a6;
+  font-size: clamp(0.58rem, 1.6vw, 0.68rem);
+  font-weight: 600;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  text-align: left;
+}
+
+.media-strip-channel-badge:hover {
+  color: #e62117;
+}
+
+.media-strip-channel-badge--label {
+  pointer-events: none;
+  cursor: default;
 }
 
 .media-strip-card:hover .media-strip-card-thumb {
@@ -2467,6 +2705,73 @@ body.mode-ripper .channel-favorites-section {
   bottom: auto;
   border-radius: 0.45rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
+}
+
+/* Navigation playlist — mode cinéma ambilight (spinner + flèche) */
+.cinema-playlist-nav-btn {
+  position: fixed;
+  z-index: 2147483646;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.cinema-playlist-nav-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.cinema-playlist-nav-spinner {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(#acb6e53b 35%, #86fde869);
+  border-radius: 50%;
+  filter: blur(1px);
+  box-shadow:
+    0 0 0 0 rgb(186, 66, 255),
+    0 0 0 0 rgb(0, 225, 255);
+}
+
+.cinema-playlist-nav-spinner-inner {
+  position: absolute;
+  inset: 0;
+  background-color: rgb(36 36 36 / 16%);
+  border-radius: 50%;
+  filter: blur(10px);
+}
+
+.cinema-playlist-nav-arrow {
+  position: relative;
+  z-index: 2;
+  font-size: 1.65rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+
+.cinema-playlist-nav-btn:not(:disabled):hover .cinema-playlist-nav-arrow {
+  color: #86fde8;
+}
+
+@media (max-width: 768.98px) {
+  body.has-cinema-playlist-nav--below .cinema-playlist-nav-btn {
+    width: 48px;
+    height: 48px;
+  }
+
+  body.has-cinema-playlist-nav--below .cinema-playlist-nav-arrow {
+    font-size: 1.45rem;
+  }
 }
 
 .video-player-cinema-fullscreen-btn {

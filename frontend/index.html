@@ -153,17 +153,35 @@
           <div class="search-chrome">
             <div class="search-header">
               <div class="search-header-trending">
-                <label class="trending-inline-label" for="trending-music-only">
-                  <input type="checkbox" id="trending-music-only" />
-                  <span>🎵 Musique uniquement</span>
+                <label
+                  class="trending-inline-label"
+                  for="trending-music-only"
+                  title="Musique uniquement"
+                >
+                  <input
+                    type="checkbox"
+                    id="trending-music-only"
+                    aria-label="Musique uniquement"
+                  />
+                  <span class="trending-music-icon" aria-hidden="true">🎵</span>
                 </label>
                 <button
                   type="button"
                   id="trending-btn"
-                  class="btn btn-secondary"
+                  class="lucky-btn"
                   title="Découverte aléatoire — get lucky"
                 >
-                  Get lucky
+                  <span class="lucky-btn-dots lucky-btn-dots--play" aria-hidden="true"></span>
+                  <svg
+                    class="lucky-btn-play-icon"
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 28 20"
+                    aria-hidden="true"
+                  >
+                    <rect width="28" height="20" rx="5" fill="#fff" />
+                    <path d="M11.2 6.2v7.6l6.8-3.8-6.8-3.8z" fill="#e62117" />
+                  </svg>
+                  <span class="lucky-btn-text">Get lucky</span>
                 </button>
               </div>
             </div>

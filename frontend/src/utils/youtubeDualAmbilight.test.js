@@ -6,7 +6,9 @@ import {
   AMBILIGHT_CINEMA_DESKTOP_MIN_WIDTH,
   AMBILIGHT_PLAYER_HEIGHT,
   ambilightPlayerVars,
+  mainYoutubePlayerVars,
   computeCinemaVideoRect,
+  computeCinemaFloatLayout,
   ensureAmbilightPlaying,
   getCinemaVideoRatio,
   setAmbilightPlaybackQuality,
@@ -24,6 +26,14 @@ describe('youtubeDualAmbilight', () => {
     const v = ambilightPlayerVars();
     expect(v.mute).toBe(1);
     expect(v.controls).toBe(0);
+  });
+
+  it('vars du lecteur principal gardent les contrôles', () => {
+    const v = mainYoutubePlayerVars();
+    expect(v.fs).toBe(0);
+    expect(v.modestbranding).toBe(1);
+    expect(v.rel).toBe(0);
+    expect(v.controls).toBeUndefined();
   });
 
   it('hauteur cible plafonnée à 360px', () => {
@@ -91,5 +101,13 @@ describe('youtubeDualAmbilight', () => {
     );
     expect(r.width).toBe(700);
     expect(r.height).toBe(394);
+  });
+
+  it('computeCinemaFloatLayout aligne float et ratio plein écran', () => {
+    const layout = computeCinemaFloatLayout(1000, 800);
+    expect(layout.ratio).toBe(0.65);
+    expect(layout.padX).toBe(Math.round(layout.video.width * 0.15));
+    expect(layout.float.left).toBe(layout.video.left - layout.padX);
+    expect(layout.float.width).toBe(layout.video.width + layout.padX * 2);
   });
 });

@@ -11,6 +11,9 @@ const PREFERRED_QUALITIES = ['medium', 'small', 'large'];
 /** Marge autour du lecteur pour le halo visible (fraction de la taille vidéo). */
 export const AMBILIGHT_BLEED_RATIO = 0.42;
 
+/** Padding du float cinéma autour de la vidéo (aligné VideoModal). */
+export const AMBILIGHT_CINEMA_PAD_RATIO = 0.15;
+
 export const AMBILIGHT_PREF_KEY = 'ytripper.ambilight.enabled';
 
 /** Part de l’écran : mobile 70 % / desktop 65 % / desktop + plein écran navigateur 70 %. */
@@ -76,6 +79,39 @@ export function computeCinemaVideoRect(
     top: Math.round((vh - h) / 2),
     width: Math.round(w),
     height: Math.round(h),
+  };
+}
+
+/**
+ * Layout cinéma ambilight : vidéo 65 % / 70 % + float (halo).
+ * @param {number} [vw]
+ * @param {number} [vh]
+ */
+export function computeCinemaFloatLayout(
+  vw = window.innerWidth,
+  vh = window.innerHeight
+) {
+  const ratio = getCinemaVideoRatio(vw);
+  const video = computeCinemaVideoRect(vw, vh, ratio);
+  const padX = Math.round(video.width * AMBILIGHT_CINEMA_PAD_RATIO);
+  const padY = Math.round(video.height * AMBILIGHT_CINEMA_PAD_RATIO);
+  const floatLeft = video.left - padX;
+  const floatTop = video.top - padY;
+  const floatWidth = video.width + padX * 2;
+  const floatHeight = video.height + padY * 2;
+  return {
+    video,
+    padX,
+    padY,
+    ratio,
+    float: {
+      left: floatLeft,
+      top: floatTop,
+      width: floatWidth,
+      height: floatHeight,
+      right: floatLeft + floatWidth,
+      bottom: floatTop + floatHeight,
+    },
   };
 }
 
@@ -218,6 +254,19 @@ export function startAmbilightSyncLoop(main, back) {
   return () => {
     cancelAnimationFrame(raf);
     window.clearInterval(interval);
+  };
+}
+
+/** Vars lecteur principal : moins de branding, garde la barre de lecture. */
+export function mainYoutubePlayerVars() {
+  return {
+    autoplay: 1,
+    rel: 0,
+    modestbranding: 1,
+    playsinline: 1,
+    iv_load_policy: 3,
+    /** Plein écran via notre bouton (navigateur), pas le bouton YouTube */
+    fs: 0,
   };
 }
 
