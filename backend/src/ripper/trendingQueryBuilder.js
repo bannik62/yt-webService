@@ -653,18 +653,19 @@ function isRecent(query) {
  * @param {boolean} musicOnly
  */
 function pickWeightedModifier(modifiersPool, musicOnly) {
+  const fromPool = pick(modifiersPool);
   if (musicOnly) {
     return weightedPick([
-      { value: 'rare', weight: 8 },
-      { value: 'oublié', weight: 7 },
-      { value: pick(modifiersPool), weight: 5 },
+      { value: fromPool, weight: 10 },
+      { value: 'rare', weight: 3 },
+      { value: 'oublié', weight: 3 },
     ]).value;
   }
   return weightedPick([
-    { value: 'rare', weight: 10 },
-    { value: 'oublié', weight: 9 },
-    { value: 'underground', weight: 8 },
-    { value: pick(modifiersPool), weight: 5 },
+    { value: fromPool, weight: 10 },
+    { value: 'rare', weight: 3 },
+    { value: 'oublié', weight: 3 },
+    { value: 'underground', weight: 3 },
   ]).value;
 }
 
@@ -746,13 +747,14 @@ function buildPatternQuery(musicOnly) {
   }
 
   const subject = pick(subjects);
-  const modifier = pickWeightedModifier(modifiersPool, musicOnly);
-  const query = normalizeQuery(`${subject} ${modifier} rare`);
+  const verb = pickVerb(verbs, subject);
+  const modifier = pick(modifiersPool);
+  const query = normalizeQuery(`${subject} ${verb} ${modifier}`);
   rememberQuery(query);
   return {
     query,
     subject,
-    verb: 'rare',
+    verb,
     modifier,
     source: 'fallback',
   };

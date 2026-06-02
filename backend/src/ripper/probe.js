@@ -314,6 +314,21 @@ export async function probePlaylistCount(url, { noPlaylist, proxyUrl: proxyOverr
 }
 
 /**
+ * Mélange Fisher–Yates (ordre YouTube trop prévisible sinon).
+ * @template T
+ * @param {T[]} arr
+ * @returns {T[]}
+ */
+export function shuffleItems(arr) {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+/**
  * Découverte via recherche YouTube (mot-clé aléatoire)
  * @param {number} maxResults
  * @param {boolean} musicOnly
@@ -425,6 +440,7 @@ export async function getTrending(maxResults = 20, musicOnly = false, opts = {})
       };
     });
 
-  console.log('[trending] Résultat:', items.length, 'vidéos');
-  return { items, keyword: searchTerm };
+  const shuffled = shuffleItems(items);
+  console.log('[trending] Résultat:', shuffled.length, 'vidéos (mélangées)');
+  return { items: shuffled, keyword: searchTerm };
 }

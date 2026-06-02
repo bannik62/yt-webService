@@ -604,11 +604,16 @@ export class SearchMode {
     let scrollTopBeforeAppend = root ? root.scrollTop : window.scrollY;
 
     try {
-      const data = await this.api.getTrending(20, this.trendingMusicOnly);
-      const raw = data.items ?? [];
-      const keyword = data.keyword ?? '';
-
-      const newItems = raw.filter((i) => i.id && !this.seenTrendingIds.has(i.id));
+      const maxAttempts = 3;
+      let newItems = [];
+      let keyword = '';
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const data = await this.api.getTrending(20, this.trendingMusicOnly);
+        keyword = data.keyword ?? keyword;
+        const raw = data.items ?? [];
+        newItems = raw.filter((i) => i.id && !this.seenTrendingIds.has(i.id));
+        if (newItems.length > 0) break;
+      }
       for (const i of newItems) this.seenTrendingIds.add(i.id);
 
       if (keyword) this.trendingKeywordsShown.push(keyword);

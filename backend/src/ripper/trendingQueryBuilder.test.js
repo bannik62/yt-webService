@@ -84,6 +84,17 @@ describe('buildTrendingQuery', () => {
     }
   });
 
+  it('évite de sur-utiliser rare / oublié / underground comme modificateur', () => {
+    const niche = new Set(['rare', 'oublié', 'underground']);
+    let nicheCount = 0;
+    const n = 120;
+    for (let i = 0; i < n; i++) {
+      const { modifier } = buildTrendingQuery(false);
+      if (niche.has(modifier)) nicheCount += 1;
+    }
+    expect(nicheCount / n).toBeLessThan(0.55);
+  });
+
   it('peut produire un pattern discovery (subject + rare ou discovery)', () => {
     let patternHit = false;
     for (let i = 0; i < 80; i++) {

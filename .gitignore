@@ -13,7 +13,7 @@ cookies.txt
 *.md
 !docs/PLAN-worker-local.md
 *.sh
-
+.vscode/
 # Worker local — déployé / copié hors dépôt pendant les tests (bundle complet ignoré)
 serveurLocal/
 local-worker/
