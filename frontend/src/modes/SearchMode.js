@@ -504,13 +504,19 @@ export class SearchMode {
     };
   }
 
+  /** Exclut les Shorts du feed tendances sauf en mode 📱. */
+  _filterTrendingForMode(items) {
+    if (this.trendingMode === 'shorts') return items;
+    return items.filter((i) => !i.isShort);
+  }
+
   async _fetchMoreTrendingItems() {
     const maxAttempts = 3;
     let batch = [];
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const data = await this.api.getTrending(20, this._trendingApiOpts());
       const keyword = data.keyword ?? '';
-      const raw = data.items ?? [];
+      const raw = this._filterTrendingForMode(data.items ?? []);
       batch = raw.filter(
         (i) => i.id && !this.seenTrendingIds.has(i.id)
       );
@@ -587,7 +593,7 @@ export class SearchMode {
 
     try {
       const data = await this.api.getTrending(20, this._trendingApiOpts());
-      const items = data.items ?? [];
+      const items = this._filterTrendingForMode(data.items ?? []);
       const keyword = data.keyword ?? '';
 
       if (items.length === 0) {

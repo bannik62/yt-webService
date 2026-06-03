@@ -418,9 +418,11 @@ export async function getTrending(maxResults = 20, musicOnly = false, opts = {})
   const items = data.entries
     .filter((entry) => {
       if (!entry || !entry.id) return false;
-      if (!shortsOnly) return true;
       const short = isShortDuration(entry.duration);
-      return short !== false;
+      if (shortsOnly) {
+        return short !== false;
+      }
+      return short !== true;
     })
     .map((entry) => {
       let thumbnail = null;

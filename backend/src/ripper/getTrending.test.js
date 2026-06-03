@@ -89,4 +89,36 @@ describe('getTrending (mock yt-dlp, pas de réseau)', () => {
     const { items } = await getTrending(10, false);
     expect(items).toEqual([]);
   });
+
+  it('mode general exclut les vidéos ≤ 60 s (Shorts)', async () => {
+    mockYtdlp.mockResolvedValue({
+      entries: [
+        { id: 'long1111111', title: 'Longue', duration: 120 },
+        { id: 'short222222', title: 'Short', duration: 45 },
+        { id: 'unk33333333', title: 'Inconnue', duration: 0 },
+      ],
+    });
+
+    const { items } = await getTrending(10, false);
+
+    expect(items).toHaveLength(2);
+    expect(items.map((i) => i.id).sort()).toEqual(['long1111111', 'unk33333333']);
+    expect(items.find((i) => i.id === 'short222222')).toBeUndefined();
+  });
+
+  it('mode shortsOnly n’inclut que les vidéos ≤ 60 s ou durée inconnue', async () => {
+    mockYtdlp.mockResolvedValue({
+      entries: [
+        { id: 'long1111111', title: 'Longue', duration: 120 },
+        { id: 'short222222', title: 'Short', duration: 45 },
+        { id: 'unk33333333', title: 'Inconnue', duration: 0 },
+      ],
+    });
+
+    const { items } = await getTrending(10, false, { shortsOnly: true });
+
+    expect(items).toHaveLength(2);
+    expect(items.map((i) => i.id).sort()).toEqual(['short222222', 'unk33333333']);
+    expect(items.every((i) => i.isShort)).toBe(true);
+  });
 });
