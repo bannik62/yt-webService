@@ -760,18 +760,54 @@ function buildPatternQuery(musicOnly) {
   };
 }
 
+const SHORTS_QUERY_TERMS = [
+  'shorts',
+  '#shorts',
+  'short vertical',
+  'youtube shorts',
+  'format court',
+  'vidéo courte',
+];
+
+/**
+ * Requête orientée Shorts (Get Lucky mode Shorts).
+ */
+function buildShortsPatternQuery() {
+  const subjects = [...SUBJECTS_GENERAL, ...SUBJECTS_MUSIC];
+  for (let attempt = 0; attempt < MAX_BUILD_ATTEMPTS; attempt++) {
+    const subject = pick(subjects);
+    const term = pick(SHORTS_QUERY_TERMS);
+    const query = normalizeQuery(`${subject} ${term}`);
+    if (query && !isRecent(query)) {
+      rememberQuery(query);
+      return {
+        query,
+        subject,
+        verb: term,
+        modifier: '',
+        source: 'shorts',
+      };
+    }
+  }
+  const query = normalizeQuery(`${pick(subjects)} shorts`);
+  rememberQuery(query);
+  return {
+    query,
+    subject: pick(subjects),
+    verb: 'shorts',
+    modifier: '',
+    source: 'shorts',
+  };
+}
+
 /**
  * @param {boolean} musicOnly
- * @returns {{
- *   query: string,
- *   subject: string,
- *   verb: string,
- *   modifier: string,
- *   source: 'composed' | 'creator' | 'pattern' | 'fallback',
- *   pattern?: string
- * }}
+ * @param {boolean} [shortsOnly]
  */
-export function buildTrendingQuery(musicOnly = false) {
+export function buildTrendingQuery(musicOnly = false, shortsOnly = false) {
+  if (shortsOnly) {
+    return buildShortsPatternQuery();
+  }
   if (Math.random() < CREATOR_QUERY_CHANCE) {
     return tryPickCreatorQuery();
   }

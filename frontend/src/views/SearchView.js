@@ -42,7 +42,16 @@ export class SearchView {
     /** @type {string} */
     this._lastHintText = '';
 
+    /** @type {'default' | 'shorts'} */
+    this._resultsLayout = 'default';
+
     this.init();
+  }
+
+  /** @param {'default' | 'shorts'} layout */
+  setResultsLayout(layout) {
+    this._resultsLayout = layout === 'shorts' ? 'shorts' : 'default';
+    this.results?.classList.toggle('results--shorts', this._resultsLayout === 'shorts');
   }
 
   init() {
@@ -253,8 +262,9 @@ export class SearchView {
     if (!this.results) return;
 
     items.forEach((item) => {
+      const isShortLayout = this._resultsLayout === 'shorts' || item.isShort;
       const li = createElement('li', {
-        className: 'result',
+        className: isShortLayout ? 'result result--short' : 'result',
         'data-video-id': item.id || '',
       });
 

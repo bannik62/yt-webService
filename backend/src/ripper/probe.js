@@ -334,13 +334,25 @@ export function shuffleItems(arr) {
  * @param {boolean} musicOnly
  * @returns {Promise<{items: Array, keyword: string}>}
  */
+/** @param {number | null | undefined} duration */
+function isShortDuration(duration) {
+  const d = Number(duration);
+  if (!Number.isFinite(d) || d <= 0) return null;
+  return d <= 60;
+}
+
 export async function getTrending(maxResults = 20, musicOnly = false, opts = {}) {
   const requestedProxyUrl = opts.proxyUrl ?? getCurrentProxy();
+  const shortsOnly = Boolean(opts.shortsOnly);
 
-  const { query: searchTerm } = buildTrendingQuery(musicOnly);
+  const { query: searchTerm } = buildTrendingQuery(
+    musicOnly && !shortsOnly,
+    shortsOnly
+  );
   const searchQuery = `ytsearch${maxResults}:${searchTerm}`;
 
-  console.log('[trending] Musique uniquement:', musicOnly);
+  console.log('[trending] Musique uniquement:', musicOnly && !shortsOnly);
+  console.log('[trending] Shorts uniquement:', shortsOnly);
   console.log('[trending] Mot-clé:', searchTerm);
   console.log('[trending] Recherche:', searchQuery);
   if (requestedProxyUrl) {
@@ -404,7 +416,12 @@ export async function getTrending(maxResults = 20, musicOnly = false, opts = {})
   }
 
   const items = data.entries
-    .filter((entry) => entry && entry.id)
+    .filter((entry) => {
+      if (!entry || !entry.id) return false;
+      if (!shortsOnly) return true;
+      const short = isShortDuration(entry.duration);
+      return short !== false;
+    })
     .map((entry) => {
       let thumbnail = null;
       if (entry.thumbnail) {
@@ -427,16 +444,20 @@ export async function getTrending(maxResults = 20, musicOnly = false, opts = {})
           ? String(channelUrlRaw).trim()
           : null;
 
+      const duration = entry.duration || 0;
+      const shortFlag = shortsOnly || isShortDuration(duration) === true;
+
       return {
         id: entry.id,
         title: entry.title || 'Sans titre',
         url: `https://www.youtube.com/watch?v=${entry.id}`,
         thumbnail: thumbnail,
-        duration: entry.duration || 0,
+        duration,
         channel: entry.uploader || entry.channel || '—',
         channelId,
         channelUrl,
         uploadedAt: normalizeUploadDate(entry),
+        isShort: shortFlag,
       };
     });
 

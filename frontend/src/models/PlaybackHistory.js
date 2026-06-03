@@ -1,4 +1,5 @@
 import { channelLabelFromItem, validChannelLabel } from '../utils/channelLabel.js';
+import { isShortEntry } from '../utils/shortPlayback.js';
 
 const STORAGE_KEY = 'yt-playback-history';
 const MAX_ENTRIES = 150;
@@ -37,6 +38,7 @@ export class PlaybackHistory {
       channelName: channel !== '—' ? channel : undefined,
       duration: item.duration ?? null,
       thumbnail: item.thumbnail ?? null,
+      isShort: isShortEntry(item),
       playedAt: new Date().toISOString(),
     });
 

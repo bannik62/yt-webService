@@ -166,11 +166,13 @@ export class PlaybackHistoryModal {
       const play = () => {
         this.onPlayItem?.({
           id: entry.videoId,
+          videoId: entry.videoId,
           url: entry.url,
           title: entry.title,
           channel: entry.channel,
           duration: entry.duration,
           thumbnail: entry.thumbnail,
+          isShort: entry.isShort === true,
         });
         this.close();
       };

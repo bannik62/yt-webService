@@ -181,6 +181,7 @@ export class HorizontalMediaStrip {
           channelId: entry.channelId || entry.channel_id || '',
           duration: entry.duration,
           thumbnail: thumb,
+          isShort: entry.isShort === true,
         });
       });
 

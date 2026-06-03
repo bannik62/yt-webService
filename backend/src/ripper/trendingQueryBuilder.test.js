@@ -5,7 +5,7 @@ import {
   CREATOR_QUERY_CHANCE,
 } from './trendingQueryBuilder.js';
 
-const VALID_SOURCES = new Set(['composed', 'creator', 'pattern', 'fallback']);
+const VALID_SOURCES = new Set(['composed', 'creator', 'pattern', 'fallback', 'shorts']);
 
 describe('buildTrendingQuery', () => {
   it('retourne une requête non vide (≥ 2 mots)', () => {
@@ -82,6 +82,18 @@ describe('buildTrendingQuery', () => {
       expect(query).not.toContain('[object Object]');
       expect(typeof query).toBe('string');
     }
+  });
+
+  it('mode shorts produit source shorts', () => {
+    let hit = false;
+    for (let i = 0; i < 40; i++) {
+      const r = buildTrendingQuery(false, true);
+      if (r.source === 'shorts' && /shorts/i.test(r.query)) {
+        hit = true;
+        break;
+      }
+    }
+    expect(hit).toBe(true);
   });
 
   it('évite de sur-utiliser rare / oublié / underground comme modificateur', () => {

@@ -20,7 +20,8 @@ async function buildTrendingTestApp() {
 
   app.get('/api/trending', async (request, reply) => {
     const maxResults = Number(request.query.limit) || 20;
-    const musicOnly = request.query.musicOnly === 'true';
+    const shortsOnly = request.query.shortsOnly === 'true';
+    const musicOnly = !shortsOnly && request.query.musicOnly === 'true';
 
     const proxyIndexRaw = request.query.proxyIndex;
     let proxyUrl = null;
@@ -37,7 +38,7 @@ async function buildTrendingTestApp() {
     }
 
     try {
-      return await getTrending(maxResults, musicOnly, { proxyUrl });
+      return await getTrending(maxResults, musicOnly, { proxyUrl, shortsOnly });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Erreur tendances';
@@ -79,6 +80,21 @@ describe('GET /api/trending (inject, mock getTrending)', () => {
     expect(body.items).toHaveLength(1);
     expect(mockGetTrending).toHaveBeenCalledWith(10, false, {
       proxyUrl: null,
+      shortsOnly: false,
+    });
+  });
+
+  it('shortsOnly prioritaire sur musicOnly', async () => {
+    mockGetTrending.mockResolvedValue({ items: [], keyword: 'rap shorts' });
+
+    await app.inject({
+      method: 'GET',
+      url: '/api/trending?shortsOnly=true&musicOnly=true',
+    });
+
+    expect(mockGetTrending).toHaveBeenCalledWith(20, false, {
+      proxyUrl: null,
+      shortsOnly: true,
     });
   });
 

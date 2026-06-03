@@ -221,13 +221,16 @@ export class ApiClient {
   /**
    * Découverte aléatoire (liste de mots-clés côté serveur)
    * @param {number} limit
-   * @param {boolean} musicOnly
+   * @param {{ musicOnly?: boolean, shortsOnly?: boolean }} [opts]
    * @returns {Promise<{items: Array, keyword: string}>}
    */
-  async getTrending(limit = 20, musicOnly = false) {
+  async getTrending(limit = 20, opts = {}) {
+    const musicOnly = Boolean(opts.musicOnly);
+    const shortsOnly = Boolean(opts.shortsOnly);
     try {
       const params = { limit };
       if (musicOnly) params.musicOnly = 'true';
+      if (shortsOnly) params.shortsOnly = 'true';
       const px = getStoredProxyIndex();
       if (px !== undefined) params.proxyIndex = String(px);
 

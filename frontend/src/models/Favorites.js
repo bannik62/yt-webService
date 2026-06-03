@@ -1,4 +1,5 @@
 import { channelLabelFromItem, validChannelLabel } from '../utils/channelLabel.js';
+import { isShortEntry } from '../utils/shortPlayback.js';
 
 const STORAGE_KEY = 'yt-favorites';
 const MAX_ENTRIES = 80;
@@ -55,6 +56,7 @@ export class Favorites {
       channelName: channel !== '—' ? channel : undefined,
       duration: item.duration ?? null,
       thumbnail: item.thumbnail ?? this.#defaultThumb(videoId),
+      isShort: isShortEntry(item),
       addedAt: new Date().toISOString(),
     });
 
@@ -131,6 +133,7 @@ export class Favorites {
       channel: item.channel ?? '—',
       duration: item.duration ?? null,
       thumbnail: item.thumbnail ?? this.#defaultThumb(videoId),
+      isShort: isShortEntry(item),
     };
   }
 

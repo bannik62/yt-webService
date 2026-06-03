@@ -548,7 +548,8 @@ app.get('/api/video/meta', rateLimitVideoMeta, async (request, reply) => {
 // Découverte : mot-clé aléatoire (recherche YouTube, pas le feed officiel Tendances)
 app.get('/api/trending', rateLimitSearchTrending, async (request, reply) => {
   const maxResults = Number(request.query.limit) || 20;
-  const musicOnly = request.query.musicOnly === 'true';
+  const shortsOnly = request.query.shortsOnly === 'true';
+  const musicOnly = !shortsOnly && request.query.musicOnly === 'true';
 
   const p = normalizeProxyIndex(request.query.proxyIndex);
   if (!p.ok) {
@@ -557,7 +558,10 @@ app.get('/api/trending', rateLimitSearchTrending, async (request, reply) => {
 
   try {
     const proxyUrl = resolveProxyUrl(p.index);
-    const payload = await getTrending(maxResults, musicOnly, { proxyUrl });
+    const payload = await getTrending(maxResults, musicOnly, {
+      proxyUrl,
+      shortsOnly,
+    });
     return payload;
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erreur tendances';

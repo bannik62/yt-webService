@@ -11,12 +11,14 @@ import { ChannelFavorites } from '../models/ChannelFavorites.js';
 import { HorizontalMediaStrip } from '../views/HorizontalMediaStrip.js';
 import { ChannelFavoritesStrip } from '../views/ChannelFavoritesStrip.js';
 import { CommunityStatsPanel } from '../views/CommunityStatsPanel.js';
+import { ShortsFeedView } from '../views/ShortsFeedView.js';
 import {
   tryAcquireUserDownload,
   releaseUserDownload
 } from '../downloadGate.js';
 import { getPublicShareBaseUrl } from '../config/publicSite.js';
 import { channelLabelFromItem, validChannelLabel } from '../utils/channelLabel.js';
+import { entryToPlayItem, isShortEntry } from '../utils/shortPlayback.js';
 
 /**
  * Mode Search : Recherche YouTube + Playlist + Batch download
@@ -36,21 +38,28 @@ export class SearchMode {
     this.favorites = new Favorites();
     this.channelFavorites = new ChannelFavorites();
     this.downloadProgressModal = new DownloadProgressModal();
+    this.shortsFeed = new ShortsFeedView();
+    this.shortsFeed.favorites = this.favorites;
     this.searchView.favorites = this.favorites;
     this.searchView.channelFavorites = this.channelFavorites;
 
     const playStripItem = (item) => {
       if (!item) return;
-      const videoId = item.id || item.videoId;
-      const channel = channelLabelFromItem(item);
+      const playItem = entryToPlayItem(item) || item;
+      if (isShortEntry(playItem)) {
+        void this._openShortsFeedFromLibrary(playItem);
+        return;
+      }
+      const videoId = playItem.id || playItem.videoId;
+      const channel = channelLabelFromItem(playItem);
       this.videoModal.show({
-        ...item,
+        ...playItem,
         id: videoId,
         url:
-          item.url ||
+          playItem.url ||
           (videoId ? `https://www.youtube.com/watch?v=${videoId}` : ''),
-        channel: channel || item.channel,
-        channelName: channel || item.channelName || item.channel,
+        channel: channel || playItem.channel,
+        channelName: channel || playItem.channelName || playItem.channel,
       });
     };
     const searchStripChannel = (entry) => {
@@ -148,7 +157,8 @@ export class SearchMode {
 
     /** Scroll infini tendances : nouveau tirage serveur à chaque page */
     this.trendingFeedActive = false;
-    this.trendingMusicOnly = false;
+    /** @type {'general' | 'music' | 'shorts'} */
+    this.trendingMode = 'general';
     this.trendingLoadingMore = false;
     /** @type {Set<string>} */
     this.seenTrendingIds = new Set();
@@ -161,6 +171,9 @@ export class SearchMode {
     this._trendingScrollTarget = null;
     /** Après un lot sans nouveauté, attend un peu de scroll vers le haut avant de redemander */
     this._trendingAwaitingScrollUp = false;
+
+    /** @type {object[]} */
+    this._trendingItems = [];
 
     /** Téléchargement lancé depuis ↓ sur une carte : UI dans {@link downloadProgressModal} */
     this._cardDownloadModalActive = false;
@@ -286,6 +299,15 @@ export class SearchMode {
   }
 
   init() {
+    const musicCb = $('#trending-music-only');
+    const shortsCb = $('#trending-shorts-only');
+    musicCb?.addEventListener('change', () => {
+      if (musicCb.checked && shortsCb) shortsCb.checked = false;
+    });
+    shortsCb?.addEventListener('change', () => {
+      if (shortsCb.checked && musicCb) musicCb.checked = false;
+    });
+
     // Bouton tendances
     const trendingBtn = $('#trending-btn');
     if (trendingBtn) {
@@ -296,14 +318,18 @@ export class SearchMode {
           void dots.offsetWidth;
           dots.classList.add('lucky-btn-dots--play');
         }
-        const musicOnly = $('#trending-music-only')?.checked ?? false;
-        void this.loadTrending(musicOnly);
+        void this.loadTrending(this._getTrendingMode());
       });
     }
     this.searchView.onBeforeSearch = () => this.stopTrendingInfiniteScroll();
 
-    // Clic résultat recherche → Modal vidéo
+    // Clic résultat recherche → Modal vidéo ou feed Shorts
     this.searchView.onResultClick = (item) => {
+      if (this.trendingMode === 'shorts' && this.trendingFeedActive) {
+        const index = this._trendingItems.findIndex((i) => i.id === item.id);
+        void this._openShortsFeed(index >= 0 ? index : 0);
+        return;
+      }
       this.videoModal.show(item);
     };
     
@@ -393,6 +419,38 @@ export class SearchMode {
       this.communityStats.setHomeVisible(true);
     };
 
+    this.shortsFeed.onFavorite = () => {
+      refreshMediaStrips();
+    };
+    this.shortsFeed.onDownload = (item) => {
+      void this.handleCardAddAndDownload(item);
+    };
+    this.shortsFeed.onShare = (item) => {
+      if (!item?.id) return;
+      const link = `${getPublicShareBaseUrl()}/v/${encodeURIComponent(item.id)}`;
+      const ok = () =>
+        this.downloadListView.showNotification(
+          '✓ Lien de partage copié (miniature dans les apps)',
+          false
+        );
+      const fail = () =>
+        this.downloadListView.showNotification(
+          `Copie impossible — lien : ${link}`,
+          true
+        );
+      if (navigator.clipboard?.writeText) {
+        void navigator.clipboard.writeText(link).then(ok, fail);
+      } else {
+        fail();
+      }
+    };
+    this.shortsFeed.onClose = () => {
+      document.body.classList.remove('shorts-feed-open');
+    };
+    this.shortsFeed.onItemActive = (item) => {
+      this._onVideoPlayed({ ...item, isShort: true });
+    };
+
     this.videoModal.onFavoriteChange = refreshMediaStrips;
     this.favorites.onChange(refreshMediaStrips);
     this.channelFavorites.onChange(refreshMediaStrips);
@@ -412,7 +470,10 @@ export class SearchMode {
       this.searchView.setLoading(false);
       this.searchView.clearChannelContext();
       this.searchView.clearResults();
+      this.searchView.setResultsLayout('default');
       this.searchView.setHint('', false);
+      this._trendingItems = [];
+      this.trendingMode = 'general';
       this._resultsVisible = false;
       this._applyMediaStripsVisibility();
     };
@@ -429,22 +490,103 @@ export class SearchMode {
     void this.communityStats.refresh();
   }
 
-  async loadTrending(musicOnly = false) {
+  /** @returns {'general' | 'music' | 'shorts'} */
+  _getTrendingMode() {
+    if ($('#trending-shorts-only')?.checked) return 'shorts';
+    if ($('#trending-music-only')?.checked) return 'music';
+    return 'general';
+  }
+
+  _trendingApiOpts() {
+    return {
+      musicOnly: this.trendingMode === 'music',
+      shortsOnly: this.trendingMode === 'shorts',
+    };
+  }
+
+  async _fetchMoreTrendingItems() {
+    const maxAttempts = 3;
+    let batch = [];
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const data = await this.api.getTrending(20, this._trendingApiOpts());
+      const keyword = data.keyword ?? '';
+      const raw = data.items ?? [];
+      batch = raw.filter(
+        (i) => i.id && !this.seenTrendingIds.has(i.id)
+      );
+      if (keyword) this.trendingKeywordsShown.push(keyword);
+      if (batch.length > 0) break;
+    }
+    for (const i of batch) this.seenTrendingIds.add(i.id);
+    return batch;
+  }
+
+  async _openShortsFeed(startIndex = 0) {
+    this.shortsFeed.onNeedMore = async () => this._fetchMoreTrendingItems();
+    await this.shortsFeed.open(this._trendingItems, startIndex);
+  }
+
+  /** Shorts depuis historique ou favoris (feed scrollable). */
+  _libraryShortItems(source) {
+    const raw =
+      source === 'favorites'
+        ? this.favorites.getAll()
+        : this.playbackHistory.getAll();
+    return raw.filter(isShortEntry).map((e) => entryToPlayItem(e)).filter(Boolean);
+  }
+
+  /**
+   * @param {object} clicked
+   */
+  async _openShortsFeedFromLibrary(clicked) {
+    const playItem = entryToPlayItem(clicked) || clicked;
+    const videoId = String(playItem.id || playItem.videoId || '').trim();
+    if (!videoId) return;
+
+    let items = this._libraryShortItems('history');
+    const favShorts = this._libraryShortItems('favorites');
+    for (const f of favShorts) {
+      if (!items.some((i) => i.id === f.id)) items.push(f);
+    }
+
+    let index = items.findIndex((i) => i.id === videoId);
+    if (index < 0) {
+      items = [{ ...playItem, isShort: true }, ...items];
+      index = 0;
+    }
+
+    this.shortsFeed.onNeedMore = async () => {
+      const batch = await this._fetchMoreTrendingItems();
+      return batch.map((i) => ({ ...i, isShort: true }));
+    };
+    await this.shortsFeed.open(items, index);
+  }
+
+  async loadTrending(mode = 'general') {
     this.stopTrendingInfiniteScroll();
     this.searchView.clearChannelContext();
 
-    const hint = musicOnly ? '🎵 Chargement…' : '🔥 Chargement…';
+    this.trendingMode = mode;
+    const isShorts = mode === 'shorts';
+    const isMusic = mode === 'music';
+    this.searchView.setResultsLayout(isShorts ? 'shorts' : 'default');
+
+    const hint = isShorts
+      ? '📱 Chargement Shorts…'
+      : isMusic
+        ? '🎵 Chargement…'
+        : '🔥 Chargement…';
     this.searchView.setHint(hint, false);
     this.searchView.setLoading(true, 'Chargement…');
     this.searchView.clearResults();
     this.seenTrendingIds.clear();
     this.trendingKeywordsShown = [];
-    this.trendingMusicOnly = musicOnly;
+    this._trendingItems = [];
     this.trendingFeedActive = true;
     this._trendingAwaitingScrollUp = false;
 
     try {
-      const data = await this.api.getTrending(20, musicOnly);
+      const data = await this.api.getTrending(20, this._trendingApiOpts());
       const items = data.items ?? [];
       const keyword = data.keyword ?? '';
 
@@ -457,9 +599,10 @@ export class SearchMode {
       for (const i of items) {
         if (i.id) this.seenTrendingIds.add(i.id);
       }
+      this._trendingItems = [...items];
       if (keyword) this.trendingKeywordsShown.push(keyword);
 
-      this.searchView.setHint(this._trendingHintText(musicOnly), false);
+      this.searchView.setHint(this._trendingHintText(), false);
       this.searchView.renderResults(items);
       this.startTrendingInfiniteScroll();
     } catch (err) {
@@ -470,13 +613,21 @@ export class SearchMode {
     }
   }
 
-  _trendingHintText(musicOnly) {
+  _trendingHintText() {
     const themes = this.trendingKeywordsShown;
     if (themes.length === 0) return '';
-    const prefix = musicOnly ? '🎵' : '🔥';
+    const prefix =
+      this.trendingMode === 'shorts'
+        ? '📱'
+        : this.trendingMode === 'music'
+          ? '🎵'
+          : '🔥';
     const last = themes[themes.length - 1];
     if (themes.length === 1) {
-      return `${prefix} « ${last} » — descendez pour d’autres idées`;
+      const suffix = this.trendingMode === 'shorts'
+        ? ' — touchez une carte ou descendez dans le feed'
+        : ' — descendez pour d’autres idées';
+      return `${prefix} « ${last} »${suffix}`;
     }
     return `${prefix} ${themes.length} thèmes — dernier : « ${last} » (scroll pour plus)`;
   }
@@ -604,26 +755,12 @@ export class SearchMode {
     let scrollTopBeforeAppend = root ? root.scrollTop : window.scrollY;
 
     try {
-      const maxAttempts = 3;
-      let newItems = [];
-      let keyword = '';
-      for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        const data = await this.api.getTrending(20, this.trendingMusicOnly);
-        keyword = data.keyword ?? keyword;
-        const raw = data.items ?? [];
-        newItems = raw.filter((i) => i.id && !this.seenTrendingIds.has(i.id));
-        if (newItems.length > 0) break;
-      }
-      for (const i of newItems) this.seenTrendingIds.add(i.id);
-
-      if (keyword) this.trendingKeywordsShown.push(keyword);
+      const newItems = await this._fetchMoreTrendingItems();
+      this._trendingItems.push(...newItems);
 
       scrollTopBeforeAppend = root ? root.scrollTop : window.scrollY;
       this.searchView.appendResults(newItems);
-      this.searchView.setHint(
-        this._trendingHintText(this.trendingMusicOnly),
-        false
-      );
+      this.searchView.setHint(this._trendingHintText(), false);
       if (newItems.length === 0) {
         this._trendingAwaitingScrollUp = true;
       }
