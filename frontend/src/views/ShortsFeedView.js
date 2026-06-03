@@ -1,6 +1,15 @@
 import { createElement } from '../utils/dom.js';
 import { loadYoutubeIframeAPI } from '../utils/youtubeIframeApi.js';
-import { mainYoutubePlayerVars } from '../utils/youtubeDualAmbilight.js';
+import {
+  AMBILIGHT_CINEMA_DESKTOP_MIN_WIDTH,
+  ambilightPlayerVars,
+  mainYoutubePlayerVars,
+  muteAmbilightPlayer,
+  setAmbilightPlaybackQuality,
+  setAmbilightPlayerSize,
+  startAmbilightSyncLoop,
+  syncAmbilightState,
+} from '../utils/youtubeDualAmbilight.js';
 import { escapeHtml, formatDuration } from '../utils/formatters.js';
 
 /**
@@ -40,17 +49,39 @@ export class ShortsFeedView {
     /** @type {HTMLElement | null} */
     this._playerLayer = null;
     /** @type {HTMLElement | null} */
+    this._ambilightLayer = null;
+    /** @type {HTMLElement | null} */
+    this._ambilightHost = null;
+    /** @type {YT.Player | null} */
+    this._ambilightPlayer = null;
+    this._ambilightReady = false;
+    /** @type {string | null} */
+    this._ambilightVideoId = null;
+    /** @type {(() => void) | null} */
+    this._stopAmbilightSync = null;
+    /** @type {HTMLElement | null} */
     this._scrollEl = null;
     /** @type {HTMLElement | null} */
     this._trackEl = null;
     /** @type {HTMLElement | null} */
     this._root = null;
     this._activateToken = 0;
-    this._onResize = () => this._syncPlayerPosition();
+    this._onResize = () => {
+      this._syncPlayerPosition();
+      this._updateAmbilightMode();
+    };
     this._userPaused = false;
     this._wheelCooldown = 0;
 
     this._buildShell();
+  }
+
+  _isFeedOpen() {
+    return Boolean(this._root && !this._root.hidden);
+  }
+
+  _shouldUseAmbilight() {
+    return window.innerWidth >= AMBILIGHT_CINEMA_DESKTOP_MIN_WIDTH;
   }
 
   _buildShell() {
@@ -71,6 +102,16 @@ export class ShortsFeedView {
     closeBtn.textContent = '×';
     closeBtn.addEventListener('click', () => this.close());
 
+    this._ambilightLayer = createElement('div', {
+      className: 'shorts-feed-ambilight-layer',
+      'aria-hidden': 'true',
+    });
+    this._ambilightHost = createElement('div', {
+      className: 'shorts-feed-ambilight-back',
+      id: `shorts-yt-amb-${Date.now()}`,
+    });
+    this._ambilightLayer.appendChild(this._ambilightHost);
+
     this._scrollEl = createElement('div', {
       className: 'shorts-feed-scroll',
     });
@@ -87,6 +128,7 @@ export class ShortsFeedView {
     });
     this._playerLayer.appendChild(this._playerHost);
 
+    this._root.appendChild(this._ambilightLayer);
     this._root.appendChild(this._scrollEl);
     this._root.appendChild(this._playerLayer);
     this._root.appendChild(closeBtn);
@@ -95,6 +137,7 @@ export class ShortsFeedView {
     this._scrollEl.addEventListener(
       'scroll',
       () => {
+        if (!this._isFeedOpen()) return;
         this._syncPlayerPosition();
         this._maybeLoadMore();
       },
@@ -115,7 +158,7 @@ export class ShortsFeedView {
     this._scrollEl.addEventListener(
       'wheel',
       (e) => {
-        if (this._root?.hidden) return;
+        if (!this._isFeedOpen()) return;
         if (Math.abs(e.deltaY) < 28) return;
         e.preventDefault();
         const now = Date.now();
@@ -136,7 +179,7 @@ export class ShortsFeedView {
     if (!this._scrollEl) return;
 
     this._scrollEl.addEventListener('click', (e) => {
-      if (this._root?.hidden) return;
+      if (!this._isFeedOpen()) return;
       if (e.target.closest('.shorts-feed-action-btn, .shorts-feed-close')) return;
       const frame = this._getFrameEl(this.activeIndex);
       if (!frame?.contains(e.target)) return;
@@ -144,8 +187,20 @@ export class ShortsFeedView {
     });
   }
 
+  _syncAmbilightWithMain() {
+    if (
+      !this._ambilightPlayer ||
+      !this._ambilightReady ||
+      !this._player ||
+      !this._playerReady
+    ) {
+      return;
+    }
+    syncAmbilightState(this._player, this._ambilightPlayer);
+  }
+
   _togglePlayPause() {
-    if (!this._player || !this._playerReady) return;
+    if (!this._player || !this._playerReady || !this._isFeedOpen()) return;
     const Y = window.YT;
     const state = this._player.getPlayerState?.();
     if (
@@ -158,6 +213,7 @@ export class ShortsFeedView {
       } catch {
         /* ignore */
       }
+      this._syncAmbilightWithMain();
       this._setPosterVisible(this.activeIndex, true);
       return;
     }
@@ -168,6 +224,7 @@ export class ShortsFeedView {
     } catch {
       /* ignore */
     }
+    this._syncAmbilightWithMain();
   }
 
   /** Swipe vertical de secours (mobile, iframe non interactive). */
@@ -210,7 +267,7 @@ export class ShortsFeedView {
   }
 
   _onKeyDown = (e) => {
-    if (!this._root || this._root.hidden) return;
+    if (!this._isFeedOpen()) return;
     if (e.key === 'Escape') {
       e.preventDefault();
       this.close();
@@ -226,6 +283,134 @@ export class ShortsFeedView {
     }
   };
 
+  _updateAmbilightMode() {
+    const want = this._isFeedOpen() && this._shouldUseAmbilight();
+    this._root?.classList.toggle('shorts-feed--ambilight', want);
+    if (!want) {
+      this._destroyAmbilightPlayer();
+      return;
+    }
+    const videoId = this._loadedVideoId || this.items[this.activeIndex]?.id;
+    if (videoId && this._playerReady) {
+      void this._attachAmbilightPlayer(videoId);
+    }
+  }
+
+  _destroyAmbilightPlayer() {
+    if (this._stopAmbilightSync) {
+      this._stopAmbilightSync();
+      this._stopAmbilightSync = null;
+    }
+    if (this._ambilightPlayer) {
+      try {
+        this._ambilightPlayer.destroy();
+      } catch {
+        /* ignore */
+      }
+      this._ambilightPlayer = null;
+    }
+    this._ambilightReady = false;
+    this._ambilightVideoId = null;
+    if (this._ambilightHost) {
+      this._ambilightHost.id = `shorts-yt-amb-${Date.now()}`;
+      this._ambilightHost.innerHTML = '';
+    }
+  }
+
+  _destroyMainPlayer() {
+    if (this._player) {
+      try {
+        this._player.destroy();
+      } catch {
+        /* ignore */
+      }
+      this._player = null;
+    }
+    this._playerReady = false;
+    this._loadedVideoId = null;
+    this._pendingVideoId = null;
+    if (this._playerHost) {
+      this._playerHost.id = `shorts-yt-host-${Date.now()}`;
+      this._playerHost.innerHTML = '';
+    }
+  }
+
+  _destroyPlayers() {
+    this._destroyAmbilightPlayer();
+    this._destroyMainPlayer();
+  }
+
+  async _attachAmbilightPlayer(videoId) {
+    if (!this._isFeedOpen() || !this._shouldUseAmbilight() || !videoId) {
+      this._destroyAmbilightPlayer();
+      return;
+    }
+    if (!this._player || !this._playerReady || !this._ambilightHost?.id) {
+      return;
+    }
+
+    const ambIframe = this._ambilightPlayer?.getIframe?.();
+    if (
+      this._ambilightPlayer &&
+      this._ambilightReady &&
+      this._ambilightVideoId === videoId &&
+      ambIframe &&
+      this._ambilightHost.contains(ambIframe)
+    ) {
+      this._syncAmbilightWithMain();
+      return;
+    }
+
+    this._destroyAmbilightPlayer();
+    await loadYoutubeIframeAPI();
+    if (
+      !this._isFeedOpen() ||
+      !this._shouldUseAmbilight() ||
+      !this._ambilightHost?.isConnected
+    ) {
+      return;
+    }
+
+    const hostId = this._ambilightHost.id;
+    if (!hostId) return;
+
+    this._ambilightPlayer = new window.YT.Player(hostId, {
+      videoId,
+      width: '100%',
+      height: '100%',
+      playerVars: ambilightPlayerVars(),
+      events: {
+        onReady: () => {
+          if (!this._isFeedOpen()) {
+            this._destroyAmbilightPlayer();
+            return;
+          }
+          this._ambilightReady = true;
+          this._ambilightVideoId = videoId;
+          const back = this._ambilightPlayer;
+          const main = this._player;
+          if (!back || !main) return;
+          muteAmbilightPlayer(back);
+          setAmbilightPlayerSize(back, {
+            width: window.innerWidth,
+            height: window.innerHeight,
+          });
+          setAmbilightPlaybackQuality(back);
+          syncAmbilightState(main, back);
+          if (this._stopAmbilightSync) this._stopAmbilightSync();
+          this._stopAmbilightSync = startAmbilightSyncLoop(main, back);
+        },
+        onStateChange: () => {
+          if (!this._isFeedOpen()) return;
+          this._syncAmbilightWithMain();
+        },
+        onError: () => {
+          this._destroyAmbilightPlayer();
+        },
+      },
+    });
+  }
+
   /**
    * @param {object[]} items
    * @param {number} startIndex
@@ -234,6 +419,7 @@ export class ShortsFeedView {
     if (!this._root || !this._trackEl || !this._scrollEl) return;
     this.items = [...items];
     this.activeIndex = Math.max(0, Math.min(startIndex, this.items.length - 1));
+    this._userPaused = false;
     this._loadedVideoId = null;
     this._renderSlides();
     this._root.hidden = false;
@@ -242,32 +428,30 @@ export class ShortsFeedView {
     this._setupObserver();
     await loadYoutubeIframeAPI();
     await this._ensurePlayer();
+    this._updateAmbilightMode();
     requestAnimationFrame(() => {
+      if (!this._isFeedOpen()) return;
       this._scrollToIndex(this.activeIndex, 'instant');
       requestAnimationFrame(() => {
+        if (!this._isFeedOpen()) return;
         void this._activateIndex(this.activeIndex, { force: true });
       });
     });
   }
 
   close() {
-    if (!this._root) return;
+    if (!this._root || this._root.hidden) return;
+    this._userPaused = true;
+    ++this._activateToken;
     this._root.hidden = true;
+    this._root.classList.remove('shorts-feed--ambilight');
     document.body.classList.remove('shorts-feed-open');
     window.removeEventListener('resize', this._onResize);
     this._observer?.disconnect();
     this._observer = null;
     this._playerLayer?.classList.remove('is-visible');
-    if (this._player) {
-      try {
-        this._player.stopVideo?.();
-      } catch {
-        /* ignore */
-      }
-    }
+    this._destroyPlayers();
     if (this._trackEl) this._trackEl.innerHTML = '';
-    this._loadedVideoId = null;
-    this._userPaused = false;
     this.onClose?.();
   }
 
@@ -275,6 +459,7 @@ export class ShortsFeedView {
    * @param {object[]} newItems
    */
   appendItems(newItems) {
+    if (!this._isFeedOpen()) return;
     const fresh = newItems.filter(
       (i) => i?.id && !this.items.some((x) => x.id === i.id)
     );
@@ -413,6 +598,7 @@ export class ShortsFeedView {
     this._observer?.disconnect();
     this._observer = new IntersectionObserver(
       (entries) => {
+        if (!this._isFeedOpen()) return;
         let best = null;
         let bestRatio = 0;
         for (const entry of entries) {
@@ -450,7 +636,7 @@ export class ShortsFeedView {
    * @param {'smooth' | 'instant'} [behavior]
    */
   _scrollToIndex(index, behavior = 'smooth') {
-    if (!this._scrollEl) return;
+    if (!this._scrollEl || !this._isFeedOpen()) return;
     const clamped = Math.max(0, Math.min(index, this.items.length - 1));
     const top = clamped * this._scrollEl.clientHeight;
     this._scrollEl.scrollTo({
@@ -475,7 +661,7 @@ export class ShortsFeedView {
   }
 
   _syncPlayerPosition() {
-    if (!this._playerLayer || this._root?.hidden) return;
+    if (!this._playerLayer || !this._isFeedOpen()) return;
     const frame = this._getFrameEl(this.activeIndex);
     if (!frame) {
       this._playerLayer.classList.remove('is-visible');
@@ -506,6 +692,7 @@ export class ShortsFeedView {
    * @param {{ force?: boolean }} [opts]
    */
   async _activateIndex(index, opts = {}) {
+    if (!this._isFeedOpen()) return;
     if (index < 0 || index >= this.items.length) return;
 
     const item = this.items[index];
@@ -528,7 +715,7 @@ export class ShortsFeedView {
 
     this._syncPlayerPosition();
     await this._ensurePlayer();
-    if (token !== this._activateToken) return;
+    if (!this._isFeedOpen() || token !== this._activateToken) return;
 
     if (this._player && this._playerReady) {
       if (this._loadedVideoId !== videoId) {
@@ -537,6 +724,18 @@ export class ShortsFeedView {
           this._player.loadVideoById({ videoId, startSeconds: 0 });
         } catch {
           this._player.loadVideoById(videoId);
+        }
+        if (this._shouldUseAmbilight()) {
+          if (
+            this._ambilightPlayer &&
+            this._ambilightReady &&
+            this._ambilightVideoId !== videoId
+          ) {
+            this._ambilightVideoId = videoId;
+            this._ambilightPlayer.loadVideoById(videoId);
+          } else {
+            void this._attachAmbilightPlayer(videoId);
+          }
         }
       } else if (opts.force) {
         try {
@@ -550,6 +749,7 @@ export class ShortsFeedView {
       } catch {
         /* ignore */
       }
+      this._syncAmbilightWithMain();
       this._syncPlayerPosition();
     } else {
       this._pendingVideoId = videoId;
@@ -559,12 +759,47 @@ export class ShortsFeedView {
     this.onItemActive?.(item);
   }
 
+  _onMainPlayerStateChange(e) {
+    if (!this._isFeedOpen() || !this._player) return;
+    const Y = window.YT;
+    if (!Y?.PlayerState) return;
+
+    if (
+      e.data === Y.PlayerState.PLAYING ||
+      e.data === Y.PlayerState.BUFFERING
+    ) {
+      this._userPaused = false;
+      this._setPosterVisible(this.activeIndex, false);
+      this._syncPlayerPosition();
+    }
+
+    if (e.data === Y.PlayerState.PAUSED) {
+      this._userPaused = true;
+      this._setPosterVisible(this.activeIndex, true);
+    }
+
+    if (e.data === Y.PlayerState.ENDED) {
+      this._userPaused = false;
+      this._scrollToIndex(this.activeIndex + 1);
+    }
+
+    if (e.data === Y.PlayerState.CUED && !this._userPaused) {
+      try {
+        this._player.playVideo?.();
+      } catch {
+        /* ignore */
+      }
+    }
+
+    this._syncAmbilightWithMain();
+  }
+
   async _ensurePlayer() {
-    if (!this._playerHost) return;
+    if (!this._playerHost || !this._isFeedOpen()) return;
     if (this._player && this._playerReady) return;
 
     await loadYoutubeIframeAPI();
-    if (!this._playerHost.isConnected) return;
+    if (!this._isFeedOpen() || !this._playerHost.isConnected) return;
 
     const hostId = this._playerHost.id;
     if (!hostId || this._player) return;
@@ -588,6 +823,7 @@ export class ShortsFeedView {
       },
       events: {
         onReady: () => {
+          if (!this._isFeedOpen()) return;
           this._playerReady = true;
           const id =
             this._pendingVideoId || this.items[this.activeIndex]?.id;
@@ -595,44 +831,18 @@ export class ShortsFeedView {
             this._loadedVideoId = id;
             this._syncPlayerPosition();
             this._player?.playVideo?.();
-          }
-        },
-        onStateChange: (e) => {
-          const Y = window.YT;
-          if (!Y?.PlayerState || !this._player) return;
-
-          if (
-            e.data === Y.PlayerState.PLAYING ||
-            e.data === Y.PlayerState.BUFFERING
-          ) {
-            this._userPaused = false;
-            this._setPosterVisible(this.activeIndex, false);
-            this._syncPlayerPosition();
-          }
-
-          if (e.data === Y.PlayerState.PAUSED) {
-            this._userPaused = true;
-            this._setPosterVisible(this.activeIndex, true);
-          }
-
-          if (e.data === Y.PlayerState.ENDED) {
-            this._userPaused = false;
-            this._scrollToIndex(this.activeIndex + 1);
-          }
-
-          if (e.data === Y.PlayerState.CUED && !this._userPaused) {
-            try {
-              this._player.playVideo?.();
-            } catch {
-              /* ignore */
+            if (this._shouldUseAmbilight()) {
+              void this._attachAmbilightPlayer(id);
             }
           }
         },
+        onStateChange: (e) => this._onMainPlayerStateChange(e),
       },
     });
   }
 
   async _maybeLoadMore() {
+    if (!this._isFeedOpen()) return;
     if (this._loadingMore || !this.onNeedMore) return;
     if (this.items.length === 0) return;
     if (this.activeIndex < this.items.length - 3) return;
@@ -640,6 +850,7 @@ export class ShortsFeedView {
     this._loadingMore = true;
     try {
       const more = await this.onNeedMore();
+      if (!this._isFeedOpen()) return;
       if (Array.isArray(more) && more.length > 0) {
         this.appendItems(more);
       }

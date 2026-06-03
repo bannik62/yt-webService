@@ -3850,6 +3850,47 @@ body.shorts-feed-open {
   overflow: hidden;
 }
 
+.shorts-feed-ambilight-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 10049;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.shorts-feed-overlay.shorts-feed--ambilight .shorts-feed-ambilight-layer {
+  opacity: 1;
+  visibility: visible;
+}
+
+.shorts-feed-ambilight-back {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  transform: scale(1.35);
+  transform-origin: center center;
+  filter: blur(52px) saturate(3.8) brightness(1.12) contrast(1.06);
+  will-change: filter, transform;
+}
+
+.shorts-feed-ambilight-back iframe {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 100%;
+  min-height: 100%;
+  transform: translate(-50%, -50%);
+  border: none;
+  pointer-events: none;
+}
+
 .shorts-feed-overlay {
   position: fixed;
   inset: 0;
@@ -4038,6 +4079,10 @@ body.shorts-feed-open {
 @media (min-width: 769px) {
   .shorts-feed-actions {
     right: calc(50% - min(100%, calc((100dvh - 7rem) * 9 / 16)) / 2 - 3.5rem);
+  }
+
+  .shorts-feed-overlay.shorts-feed--ambilight {
+    background: #000;
   }
 }
 
