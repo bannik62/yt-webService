@@ -3920,6 +3920,7 @@ body.shorts-feed-open {
   overflow: hidden;
   background: #111;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+  cursor: pointer;
 }
 
 .shorts-feed-poster {
@@ -3948,7 +3949,7 @@ body.shorts-feed-open {
   border-radius: 0.65rem;
   overflow: hidden;
   background: #000;
-  pointer-events: auto;
+  pointer-events: none;
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.12s ease;
@@ -3964,6 +3965,11 @@ body.shorts-feed-open {
   inset: 0;
   width: 100%;
   height: 100%;
+}
+
+.shorts-feed-player-host,
+.shorts-feed-player-host iframe {
+  pointer-events: none !important;
 }
 
 .shorts-feed-player-host iframe {
@@ -4087,16 +4093,6 @@ body.shorts-feed-open {
 
   .shorts-feed-player-layer {
     border-radius: 0;
-    pointer-events: none !important;
-  }
-
-  .shorts-feed-player-layer.is-visible {
-    pointer-events: none !important;
-  }
-
-  .shorts-feed-player-host,
-  .shorts-feed-player-host iframe {
-    pointer-events: none !important;
   }
 
   .shorts-feed-actions {

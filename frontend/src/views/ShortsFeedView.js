@@ -47,6 +47,8 @@ export class ShortsFeedView {
     this._root = null;
     this._activateToken = 0;
     this._onResize = () => this._syncPlayerPosition();
+    this._userPaused = false;
+    this._wheelCooldown = 0;
 
     this._buildShell();
   }
@@ -100,8 +102,72 @@ export class ShortsFeedView {
     );
 
     this._bindMobileSwipe();
+    this._bindWheelNav();
+    this._bindFrameTap();
 
     document.addEventListener('keydown', this._onKeyDown);
+  }
+
+  /** Molette souris / trackpad (desktop). */
+  _bindWheelNav() {
+    if (!this._scrollEl) return;
+
+    this._scrollEl.addEventListener(
+      'wheel',
+      (e) => {
+        if (this._root?.hidden) return;
+        if (Math.abs(e.deltaY) < 28) return;
+        e.preventDefault();
+        const now = Date.now();
+        if (now - this._wheelCooldown < 380) return;
+        this._wheelCooldown = now;
+        if (e.deltaY > 0) {
+          this._scrollToIndex(this.activeIndex + 1);
+        } else {
+          this._scrollToIndex(this.activeIndex - 1);
+        }
+      },
+      { passive: false }
+    );
+  }
+
+  /** Clic sur la vidéo : pause / reprise (pas de contrôles YouTube). */
+  _bindFrameTap() {
+    if (!this._scrollEl) return;
+
+    this._scrollEl.addEventListener('click', (e) => {
+      if (this._root?.hidden) return;
+      if (e.target.closest('.shorts-feed-action-btn, .shorts-feed-close')) return;
+      const frame = this._getFrameEl(this.activeIndex);
+      if (!frame?.contains(e.target)) return;
+      this._togglePlayPause();
+    });
+  }
+
+  _togglePlayPause() {
+    if (!this._player || !this._playerReady) return;
+    const Y = window.YT;
+    const state = this._player.getPlayerState?.();
+    if (
+      state === Y?.PlayerState?.PLAYING ||
+      state === Y?.PlayerState?.BUFFERING
+    ) {
+      this._userPaused = true;
+      try {
+        this._player.pauseVideo?.();
+      } catch {
+        /* ignore */
+      }
+      this._setPosterVisible(this.activeIndex, true);
+      return;
+    }
+    this._userPaused = false;
+    this._setPosterVisible(this.activeIndex, false);
+    try {
+      this._player.playVideo?.();
+    } catch {
+      /* ignore */
+    }
   }
 
   /** Swipe vertical de secours (mobile, iframe non interactive). */
@@ -201,6 +267,7 @@ export class ShortsFeedView {
     }
     if (this._trackEl) this._trackEl.innerHTML = '';
     this._loadedVideoId = null;
+    this._userPaused = false;
     this.onClose?.();
   }
 
@@ -451,6 +518,7 @@ export class ShortsFeedView {
 
     const prevIndex = this.activeIndex;
     this.activeIndex = index;
+    this._userPaused = false;
     const token = ++this._activateToken;
 
     if (prevIndex !== index) {
@@ -514,7 +582,7 @@ export class ShortsFeedView {
       height: h,
       playerVars: {
         ...mainYoutubePlayerVars(),
-        controls: window.innerWidth < 769 ? 0 : 1,
+        controls: 0,
         rel: 0,
         autoplay: 1,
       },
@@ -537,15 +605,22 @@ export class ShortsFeedView {
             e.data === Y.PlayerState.PLAYING ||
             e.data === Y.PlayerState.BUFFERING
           ) {
+            this._userPaused = false;
             this._setPosterVisible(this.activeIndex, false);
             this._syncPlayerPosition();
           }
 
+          if (e.data === Y.PlayerState.PAUSED) {
+            this._userPaused = true;
+            this._setPosterVisible(this.activeIndex, true);
+          }
+
           if (e.data === Y.PlayerState.ENDED) {
+            this._userPaused = false;
             this._scrollToIndex(this.activeIndex + 1);
           }
 
-          if (e.data === Y.PlayerState.CUED) {
+          if (e.data === Y.PlayerState.CUED && !this._userPaused) {
             try {
               this._player.playVideo?.();
             } catch {
