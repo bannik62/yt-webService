@@ -67,7 +67,7 @@ describe('buildTrendingQuery', () => {
       'folk',
     ]);
     let hit = false;
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 60; i++) {
       if (musicSubjects.has(buildTrendingQuery(true).subject)) {
         hit = true;
         break;

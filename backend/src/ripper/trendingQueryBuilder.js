@@ -132,6 +132,154 @@ const SUBJECTS_GENERAL = [
   'snowboard',
 ];
 
+/** Ajouts tendances YouTube 2024–2026 (liste historique conservée au-dessus) */
+const SUBJECTS_GENERAL_EXTRA = [
+  'asmr',
+  'lofi',
+  'phonk',
+  'study with me',
+  'karaoke',
+  'mukbang',
+  'unboxing',
+  'haul',
+  'grwm',
+  'room tour',
+  'minecraft',
+  'roblox',
+  'hytale',
+  "let's play",
+  'speedrun',
+  'walkthrough',
+  'playthrough',
+  'indie game',
+  'retro gaming',
+  'emulation',
+  'setup gaming',
+  'pc gaming',
+  'playstation',
+  'nintendo switch',
+  'steam deck',
+  'xbox',
+  'true crime',
+  'cold case',
+  'faits divers',
+  'podcast vidéo',
+  'géopolitique',
+  'documentaire guerre',
+  'série tv',
+  'analyse série',
+  'bande annonce',
+  'théorie fan',
+  'easter egg',
+  'anime',
+  'manga',
+  'cosplay',
+  'kpop',
+  'kdrama',
+  'dorama',
+  'convention',
+  'comic con',
+  'marvel',
+  'star wars',
+  'react',
+  'tier list',
+  'top 10',
+  'deep dive',
+  'meal prep',
+  'air fryer',
+  'street food tour',
+  'mixologie',
+  'cocktail',
+  'craft beer',
+  'vinyl digging',
+  'beatmaking',
+  'production musicale',
+  'scratch dj',
+  'battle rap',
+  'sketch comedy',
+  'doublage',
+  'voice over',
+  'found footage',
+  'paranormal',
+  'urban exploration',
+  'astrophysique',
+  'deep sea',
+  'chatgpt',
+  'prompt ia',
+  'midjourney',
+  'stable diffusion',
+  'python tutorial',
+  'javascript',
+  'linux',
+  'open source',
+  'smartphone',
+  'iphone',
+  'android',
+  'comparatif tech',
+  'test tech',
+  'bureau setup',
+  'productivité',
+  'notion',
+  'bullet journal',
+  'second cerveau',
+  'santé mentale',
+  'sommeil',
+  'nutrition',
+  'parentalité',
+  'montessori',
+  'apprendre anglais',
+  'apprendre japonais',
+  'expatriation',
+  'digital nomad',
+  'télétravail',
+  'vanlife europe',
+  'tiny house',
+  'renovation maison',
+  'décoration intérieure',
+  'ikea hack',
+  'seconde main',
+  'thrift flip',
+  'brocante',
+  'slow living',
+  'clean girl',
+  'y2k aesthetic',
+  'nostalgie 2000',
+  'nostalgie 90',
+  'chiens',
+  'chats',
+  'aquarium',
+  'plantes',
+  'jardin urbain',
+  'street art',
+  'graffiti',
+  'hip hop culture',
+  'breakdance',
+  'skate',
+  'parkour',
+  'escape game',
+  'quiz',
+  'général culture',
+  'formule 1',
+  'f1',
+  'ufc',
+  'mma',
+  'nba',
+  'ligue 1',
+  'champions league',
+  'pickleball',
+  'padel',
+  'crossfit',
+  'calisthenics',
+  'hyrox',
+  'trail running',
+  'mukbang coréen',
+  'asmr français',
+  'lofi hip hop',
+  'type beat',
+  'sleep music',
+  'study beats',
+];
+
 const VERBS_GENERAL = [
   'découverte',
   'making of',
@@ -180,6 +328,27 @@ const VERBS_GENERAL = [
   'improvisation',
   'freestyle',
   'reportage',
+];
+
+const VERBS_GENERAL_EXTRA = [
+  'react',
+  'tier list',
+  'ranking',
+  'top 10',
+  'deep dive',
+  'breakdown',
+  'explained',
+  'récap saison',
+  'trailer reaction',
+  'bande annonce reaction',
+  'preview',
+  'walkthrough',
+  'playthrough',
+  'speedrun',
+  'no commentary',
+  'facecam',
+  'voice over',
+  'shorts compilation',
 ];
 
 const MODIFIERS_GENERAL = [
@@ -241,7 +410,27 @@ const MODIFIERS_GENERAL = [
   'que j\'ai appris',
   'que j\'ai partagé',
   'que j\'ai créé',
-  'POV'
+  'POV',
+];
+
+const MODIFIERS_GENERAL_EXTRA = [
+  'viral',
+  'tendance',
+  'tendance tiktok',
+  'tendance 2024',
+  'tendance 2025',
+  'tendance 2026',
+  'algorithm friendly',
+  'pour dormir',
+  'pour étudier',
+  'pour se concentrer',
+  'sans pub',
+  'version longue',
+  'complet',
+  'intégral',
+  '4k',
+  'hdr',
+  'français sous-titres',
 ];
 
 /** Termes « archive / long tail » (général) */
@@ -348,6 +537,40 @@ const SUBJECTS_MUSIC = [
   'scène',
 ];
 
+const SUBJECTS_MUSIC_EXTRA = [
+  'lofi hip hop',
+  'phonk',
+  'karaoke',
+  'type beat',
+  'drill',
+  'afrobeats',
+  'amapiano',
+  'synthwave',
+  'hyperpop',
+  'city pop',
+  'ambient',
+  'sleep music',
+  'study beats',
+  '432 hz',
+  'nightcore',
+  'slowed reverb',
+  'sped up',
+  'mashup viral',
+  'cover acoustique',
+  'piano cover',
+  'guitar cover',
+  'orchestral cover',
+  'live session',
+  'studio session',
+  'freestyle rap',
+  'open mic',
+  'cypher',
+  'playlist chill',
+  'playlist workout',
+  'vinyl rip',
+  'cassette mix',
+];
+
 const VERBS_MUSIC = [
   'live',
   'session',
@@ -379,6 +602,19 @@ const VERBS_MUSIC = [
   'reaction',
   'écoute',
   'découverte',
+];
+
+const VERBS_MUSIC_EXTRA = [
+  'slowed',
+  'reverb',
+  'sped up',
+  '8d audio',
+  'bass boosted',
+  '1 hour',
+  'extended',
+  'loop',
+  'viral tiktok',
+  'tiktok version',
 ];
 
 const MODIFIERS_MUSIC = [
@@ -428,6 +664,25 @@ const MODIFIERS_MUSIC = [
   'tecnho beat',    
 ];
 
+const MODIFIERS_MUSIC_EXTRA = [
+  'tendance 2024',
+  'tendance 2025',
+  'tendance 2026',
+  'tiktok viral',
+  'pour dormir',
+  'pour étudier',
+  'pour le sport',
+  'sans parole',
+  'instrumental only',
+  '1 hour mix',
+  'extended mix',
+  'studio quality',
+  'live recording',
+  'unplugged session',
+  'festival live',
+  'français',
+];
+
 /**
  * @typedef {object} PatternCtx
  * @property {string} subject
@@ -442,24 +697,32 @@ const MODIFIERS_MUSIC = [
  * @property {number} weight
  * @property {string} id
  * @property {(ctx: PatternCtx) => string} build
-  'tecnho techno',
-  'tecnho trance',
-  'tecnho dubstep',
-  'tecnho reggae',
-  'tecnho ska',
-  'tecnho country',
-  'tecnho folk',
-  'tecnho celtique',
-  'tecnho classique',
-  'tecnho opéra',
-  'tecnho bande originale',
-  'tecnho remix',
-  'tecnho cover',
-  'tecnho medley',
-  'tecnho mashup',
-  'tecnho beat',
  * @property {(ctx: PatternCtx) => { subject: string, verb: string, modifier: string }} fields
  */
+
+function generalSubjectsPool() {
+  return [...SUBJECTS_GENERAL, ...SUBJECTS_GENERAL_EXTRA];
+}
+
+function musicSubjectsPool() {
+  return [...SUBJECTS_MUSIC, ...SUBJECTS_MUSIC_EXTRA];
+}
+
+function generalVerbsPool() {
+  return [...VERBS_GENERAL, ...VERBS_GENERAL_EXTRA];
+}
+
+function musicVerbsPool() {
+  return [...VERBS_MUSIC, ...VERBS_MUSIC_EXTRA];
+}
+
+function generalModifiersPool() {
+  return [...MODIFIERS_GENERAL, ...MODIFIERS_GENERAL_EXTRA];
+}
+
+function musicModifiersPool() {
+  return [...MODIFIERS_MUSIC, ...MODIFIERS_MUSIC_EXTRA];
+}
 
 /** @type {QueryPattern[]} */
 const QUERY_PATTERNS_GENERAL = [
@@ -722,9 +985,9 @@ function tryPickCreatorQuery() {
  * @param {boolean} musicOnly
  */
 function buildPatternQuery(musicOnly) {
-  const subjects = musicOnly ? SUBJECTS_MUSIC : SUBJECTS_GENERAL;
-  const verbs = musicOnly ? VERBS_MUSIC : VERBS_GENERAL;
-  const modifiersPool = musicOnly ? MODIFIERS_MUSIC : MODIFIERS_GENERAL;
+  const subjects = musicOnly ? musicSubjectsPool() : generalSubjectsPool();
+  const verbs = musicOnly ? musicVerbsPool() : generalVerbsPool();
+  const modifiersPool = musicOnly ? musicModifiersPool() : generalModifiersPool();
   const patterns = musicOnly ? QUERY_PATTERNS_MUSIC : QUERY_PATTERNS_GENERAL;
   const rarePool = musicOnly ? RARE_TERMS_MUSIC : RARE_TERMS;
 
@@ -773,7 +1036,7 @@ const SHORTS_QUERY_TERMS = [
  * Requête orientée Shorts (Get Lucky mode Shorts).
  */
 function buildShortsPatternQuery() {
-  const subjects = [...SUBJECTS_GENERAL, ...SUBJECTS_MUSIC];
+  const subjects = [...generalSubjectsPool(), ...musicSubjectsPool()];
   for (let attempt = 0; attempt < MAX_BUILD_ATTEMPTS; attempt++) {
     const subject = pick(subjects);
     const term = pick(SHORTS_QUERY_TERMS);
