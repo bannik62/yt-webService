@@ -228,6 +228,22 @@ export class VideoModal {
     this._updateFooter();
     this._updateDockActions();
     this._updateCinemaPlaylistNav();
+    const reopenSame =
+      Boolean(this._shell) &&
+      this._loadedVideoId === videoId &&
+      (this._playerReady || this._ytPlayer);
+
+    if (reopenSame) {
+      this._setPlayerLoading(false);
+      void this._attachPlayer(videoId);
+      void this._loadVideoMeta(videoId, item);
+      requestAnimationFrame(() => {
+        this._layoutPlayerFloat();
+        requestAnimationFrame(() => this._layoutPlayerFloat());
+      });
+      return;
+    }
+
     this._setPlayerLoading(true);
     void this._attachPlayer(videoId);
     void this._loadVideoMeta(videoId, item);
@@ -747,7 +763,11 @@ export class VideoModal {
           this._setAmbilightLayerVisible(true);
           this._ambilightAttachPending = false;
           this._updateAmbilightButtons();
-          if (this._mode === 'expanded') this._layoutPlayerFloat();
+          this._setPlayerLoading(false);
+          requestAnimationFrame(() => {
+            this._layoutPlayerFloat();
+            requestAnimationFrame(() => this._layoutPlayerFloat());
+          });
         },
         onStateChange: () => {
           const back = this._ytAmbilightPlayer;
@@ -1613,6 +1633,11 @@ export class VideoModal {
     if (!this._playerHost) return;
 
     if (this._ytPlayer && this._playerReady && this._loadedVideoId === videoId) {
+      this._setPlayerLoading(false);
+      requestAnimationFrame(() => {
+        this._layoutPlayerFloat();
+        requestAnimationFrame(() => this._layoutPlayerFloat());
+      });
       return;
     }
 

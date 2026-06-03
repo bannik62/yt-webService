@@ -236,6 +236,7 @@ class App {
 
     this.currentMode = 'search';
     this._modeSwitchBusy = false;
+    this._shareDeepLinkBusy = false;
 
     this.init();
   }
@@ -294,18 +295,19 @@ class App {
     }
 
     window.addEventListener('pageshow', (ev) => {
-      const id = getShareVideoIdFromLocation();
-      if (id && (ev.persisted || shareV)) {
-        this.handleSearchShareDeepLink();
-      }
+      if (!ev.persisted) return;
+      this.handleSearchShareDeepLink();
     });
   }
 
   handleSearchShareDeepLink() {
     const v = getShareVideoIdFromLocation();
-    if (!v) return;
+    if (!v || this._shareDeepLinkBusy) return;
 
-    void this.searchMode.openSharedVideoFromQuery(v).then((ok) => {
+    this._shareDeepLinkBusy = true;
+    void this.searchMode
+      .openSharedVideoFromQuery(v)
+      .then((ok) => {
       if (!ok) return;
       const params = new URLSearchParams(window.location.search);
       params.delete('v');
@@ -319,7 +321,11 @@ class App {
         (q ? `?${q}` : '') +
         (hash ? `#${hash}` : '');
       window.history.replaceState(null, '', next);
-    });
+    })
+      .catch(() => {})
+      .finally(() => {
+        this._shareDeepLinkBusy = false;
+      });
   }
 
   /**
